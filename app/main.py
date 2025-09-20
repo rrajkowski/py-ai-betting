@@ -4,8 +4,16 @@ import datetime
 from app.db import init_db, get_db
 from app.llm import get_probability
 from app.odds_api import fetch_sports, fetch_odds
+import os
+import requests
 
 app = FastAPI(title="AI Betting API", version="0.1.0")
+
+# Load Odds API key from environment
+ODDS_API_KEY = os.getenv("ODDS_API_KEY")
+if not ODDS_API_KEY:
+    raise ValueError("ODDS_API_KEY environment variable not set")
+
 init_db()
 
 
@@ -31,10 +39,33 @@ class Game(BaseModel):
     odds: dict
 
 
+def parse_odds(game):
+    odds = {"h2h": {}, "spreads": {}, "totals": {}}
+    for bm in game.get("bookmakers", []):
+        for market in bm.get("markets", []):
+            key = market.get("key")
+            if key in odds:
+                # Convert outcomes list -> {name: price}
+                odds[key] = {o["name"]: o["price"]
+                             for o in market.get("outcomes", [])}
+    return odds
+
+
 @app.get("/games/{sport}")
 async def list_games(sport: str, region: str = "us", markets: str = "h2h,spreads,totals"):
     try:
-        odds_data = await fetch_odds(sport=sport, region=region, markets=markets)
+        url = f"https://api.the-odds-api.com/v4/sports/{sport}/odds"
+        params = {
+            "apiKey": ODDS_API_KEY,
+            "regions": region,
+            "markets": markets,
+            "oddsFormat": "decimal",
+        }
+        resp = requests.get(url, params=params)
+        if resp.status_code != 200:
+            raise HTTPException(status_code=resp.status_code, detail=resp.text)
+
+        odds_data = resp.json()
 
         normalized_games = []
         for game in odds_data:
@@ -44,11 +75,7 @@ async def list_games(sport: str, region: str = "us", markets: str = "h2h,spreads
                 "home_team": game.get("home_team"),
                 "away_team": game.get("away_team"),
                 "commence_time": game.get("commence_time"),
-                "odds": {
-                    "h2h": game.get("odds", {}).get("h2h", {}) or {},
-                    "spreads": game.get("odds", {}).get("spreads", {}) or {},
-                    "totals": game.get("odds", {}).get("totals", {}) or {}
-                }
+                "odds": parse_odds(game)  # ✅ consistent schema
             })
 
         return {"games": normalized_games}
