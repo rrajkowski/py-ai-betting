@@ -1,9 +1,9 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import datetime
-from .db import init_db, get_db
-from .llm import get_probability
-from .odds_api import fetch_odds, fetch_sports
+from app.db import init_db, get_db
+from app.llm import get_probability
+from app.odds_api import fetch_sports, fetch_odds
 
 app = FastAPI(title="AI Betting API", version="0.1.0")
 init_db()
