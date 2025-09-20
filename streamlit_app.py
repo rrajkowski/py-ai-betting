@@ -3,7 +3,26 @@ import sqlite3
 import pandas as pd
 import requests
 import os
-FASTAPI_URL = os.getenv("FASTAPI_URL", "https://py-ai-betting.vercel.app")
+# --- Resolve backend API URL ---
+FASTAPI_URL = os.getenv("FASTAPI_URL")
+
+# Default fallbacks:
+# 1. If running on Vercel, FASTAPI_URL will be set in the dashboard
+# 2. If running on Streamlit Cloud (no backend), fallback to public Vercel URL
+# 3. If running locally, fallback to localhost
+if not FASTAPI_URL:
+    if "VERCEL_URL" in os.environ:
+        # Running inside Vercel
+        FASTAPI_URL = f"https://{os.environ['VERCEL_URL']}"
+    elif "STREAMLIT_SERVER_PORT" in os.environ:
+        # Likely running inside Streamlit Cloud
+        # <-- replace with your real Vercel domain
+        FASTAPI_URL = "https://py-ai-betting.vercel.app"
+    else:
+        # Local development
+        FASTAPI_URL = "http://127.0.0.1:8000"
+
+st.sidebar.info(f"Using backend: {FASTAPI_URL}")
 
 st.title("⚡ AI Sports Betting Dashboard")
 
