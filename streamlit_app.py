@@ -3,7 +3,7 @@ import sqlite3
 import pandas as pd
 import requests
 import os
-FASTAPI_URL = os.getenv("FASTAPI_URL", "http://127.0.0.1:8000")
+FASTAPI_URL = os.getenv("FASTAPI_URL", "https://py-ai-betting.vercel.app")
 
 st.title("⚡ AI Sports Betting Dashboard")
 
