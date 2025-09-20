@@ -33,34 +33,28 @@ class Game(BaseModel):
 
 @app.get("/games/{sport}")
 async def list_games(sport: str, region: str = "us", markets: str = "h2h,spreads,totals"):
-    """
-    Get upcoming games for a sport with odds from the Odds API.
-    """
-    md = [m.strip() for m in markets.split(",")]
-    odds_data = await fetch_odds(sport=sport, region=region, markets=md)
+    try:
+        odds_data = await fetch_odds(sport=sport, region=region, markets=markets)
 
-    games = []
-    for ev in odds_data:
-        # ev has id, home_team, away_team, bookmakers
-        game = {"sport": sport,
-                "game_id": ev.get("id"),
-                "home_team": ev.get("home_team"),
-                "away_team": ev.get("away_team"),
-                "commence_time": ev.get("commence_time"),
-                "odds": {}}
-        # pick first bookmaker (or pick best, or average)
-        if ev.get("bookmakers"):
-            bm = ev["bookmakers"][0]
-            for market in bm.get("markets", []):
-                mkey = market.get("key")
-                outcomes = market.get("outcomes")
-                if outcomes:
-                    # build simple mapping
-                    # e.g. for h2h we expect two outcomes, home vs away
-                    game["odds"][mkey] = {o["name"]: o["price"]
-                                          for o in outcomes}
-        games.append(game)
-    return {"games": games}
+        normalized_games = []
+        for game in odds_data:
+            normalized_games.append({
+                "sport": sport,
+                "game_id": game.get("id"),
+                "home_team": game.get("home_team"),
+                "away_team": game.get("away_team"),
+                "commence_time": game.get("commence_time"),
+                "odds": {
+                    "h2h": game.get("odds", {}).get("h2h", {}) or {},
+                    "spreads": game.get("odds", {}).get("spreads", {}) or {},
+                    "totals": game.get("odds", {}).get("totals", {}) or {}
+                }
+            })
+
+        return {"games": normalized_games}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/sports")

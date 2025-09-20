@@ -1,8 +1,11 @@
 import os
 import httpx
+from dotenv import load_dotenv
 
+load_dotenv()
 ODDS_API_KEY = os.getenv("ODDS_API_KEY")
 BASE_URL = "https://api.the-odds-api.com/v4"
+
 
 async def fetch_sports():
     url = f"{BASE_URL}/sports"
@@ -11,6 +14,7 @@ async def fetch_sports():
         r = await client.get(url, params=params)
     r.raise_for_status()
     return r.json()
+
 
 async def fetch_odds(sport="soccer_epl", region="us", markets=None):
     if markets is None:
