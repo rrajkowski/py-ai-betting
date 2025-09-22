@@ -1,3 +1,5 @@
+from mangum import Mangum  # allows ASGI on serverless
+from fastapi import FastAPI
 import requests
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
@@ -11,6 +13,7 @@ import os
 sys.path.append(os.path.dirname(__file__))
 
 app = FastAPI(title="AI Betting API", version="0.1.0")
+handler = Mangum(app)
 
 # Load Odds API key from environment
 ODDS_API_KEY = os.getenv("ODDS_API_KEY")
@@ -18,6 +21,11 @@ if not ODDS_API_KEY:
     raise ValueError("ODDS_API_KEY environment variable not set")
 
 init_db()
+
+
+@app.get("/api/health")
+async def health():
+    return {"status": "ok"}
 
 
 class BetRequest(BaseModel):
