@@ -1,27 +1,20 @@
-import streamlit as st
 import sqlite3
+import streamlit as st
 import pandas as pd
 import requests
 import os
-# --- Resolve backend API URL ---
-FASTAPI_URL = os.getenv("FASTAPI_URL", "https://py-ai-betting.vercel.app/api")
 
+# --- Resolve backend API URL ---
+FASTAPI_URL = os.getenv("FASTAPI_URL")
 
 # Default fallbacks:
-# 1. If running on Vercel, FASTAPI_URL will be set in the dashboard
-# 2. If running on Streamlit Cloud (no backend), fallback to public Vercel URL
-# 3. If running locally, fallback to localhost
 if not FASTAPI_URL:
     if "VERCEL_URL" in os.environ:
-        # Running inside Vercel
         FASTAPI_URL = f"https://{os.environ['VERCEL_URL']}"
     elif "STREAMLIT_SERVER_PORT" in os.environ:
-        # Likely running inside Streamlit Cloud
-        # <-- replace with your real Vercel domain
-        FASTAPI_URL = "https://py-ai-betting.vercel.app"
+        FASTAPI_URL = "https://py-ai-betting.vercel.app/api"
     else:
-        # Local development
-        FASTAPI_URL = "http://127.0.0.1:8000"
+        FASTAPI_URL = "http://localhost:8000"
 
 st.sidebar.info(f"Using backend: {FASTAPI_URL}")
 
@@ -58,23 +51,21 @@ if games_data:
     )
 
     if game:
-        # Show market choices from schema: h2h, spreads, totals
+        # Show market choices
         available_markets = list(game.get("odds", {}).keys())
         if not available_markets:
             st.warning("No markets available for this game.")
         else:
             market = st.selectbox("Market", available_markets)
 
-            # Show available sides based on chosen market
+            # Show available sides
             sides = list(game["odds"][market].keys())
             side = st.selectbox("Side", sides)
 
-            # odds value for the chosen side
-            odds_value = None
-            if market in game["odds"] and side in game["odds"][market]:
-                odds_value = game["odds"][market][side]
+            # odds value
+            odds_value = game["odds"][market][side]
 
-            st.write(f"**Odds for {side}: {game['odds'][market][side]}**")
+            st.write(f"**Odds for {side}: {odds_value}**")
 
             if st.button("Suggest Bet"):
                 payload = {
@@ -85,7 +76,7 @@ if games_data:
                     "match": f"{game['home_team']} vs {game['away_team']}",
                     "bet_type": market,
                     "odds": odds_value,
-                    "stats": {}  # optional placeholder
+                    "stats": {}  # placeholder
                 }
                 resp = requests.post(
                     f"{FASTAPI_URL}/bets/suggest", json=payload)
@@ -117,7 +108,10 @@ if df.empty:
     st.info("No bets yet. Suggest a bet above to get started.")
 else:
     df["date"] = pd.to_datetime(df["date"])
-    st.dataframe(df)
+
+    # Show only last 10 bets
+    st.subheader("📊 Last 10 Bets")
+    st.dataframe(df.tail(10).reset_index(drop=True))
 
     total_profit = df["profit"].sum(skipna=True)
     total_stake = df["stake"].sum(skipna=True)

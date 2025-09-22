@@ -1,15 +1,14 @@
 {
   "version": 2,
   "builds": [
-    {
-      "src": "app/main.py",
-      "use": "@vercel/python"
-    }
+    { "src": "app/main.py", "use": "@vercel/python" }
   ],
   "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "app/main.py"
+    { "src": "/api/(.*)", "dest": "app/main.py" }
+  ],
+  "functions": {
+    "api/**": {
+      "excludeFiles": "{.venv,venv,__pycache__,tests,docs,*.db,*.log}/**"
     }
-  ]
+  }
 }
