@@ -1,5 +1,6 @@
 from mangum import Mangum  # allows ASGI on serverless
 from fastapi import FastAPI
+import sqlite3
 import requests
 from fastapi import HTTPException
 from pydantic import BaseModel
@@ -26,6 +27,17 @@ init_db()
 @app.get("/api/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.get("/bets")
+def list_bets():
+    conn = sqlite3.connect("bets.db")
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM bets ORDER BY id DESC")
+    rows = [dict(row) for row in cur.fetchall()]
+    conn.close()
+    return {"bets": rows}
 
 
 class BetRequest(BaseModel):
