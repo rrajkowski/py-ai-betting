@@ -4,7 +4,7 @@ import pandas as pd
 import requests
 import os
 # --- Resolve backend API URL ---
-FASTAPI_URL = os.getenv("FASTAPI_URL")
+FASTAPI_URL = os.getenv("FASTAPI_URL", "https://py-ai-betting.vercel.app/api")
 
 # Default fallbacks:
 # 1. If running on Vercel, FASTAPI_URL will be set in the dashboard
