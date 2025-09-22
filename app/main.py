@@ -126,18 +126,22 @@ async def suggest_bet(req: BetRequest):
     with get_db() as conn:
         cur = conn.cursor()
         cur.execute(
-            """INSERT INTO bets
-               (date, match, bet_type, odds, stake, probability, raw_output, outcome, profit)
-               VALUES (?,?,?,?,?,?,?,?,?)""",
-            (datetime.date.today().isoformat(),
-             f"{matching['home_team']} vs {matching['away_team']}",
-             req.market,
-             odds_value,
-             1.0,
-             prob,
-             raw_output,
-             None,
-             None)
+            """
+    INSERT INTO bets (date, match, bet_type, odds, stake, probability, raw_output, outcome, profit, expected_value)
+    VALUES (?,?,?,?,?,?,?,?,?,?)
+    """,
+            (
+                datetime.date.today().isoformat(),
+                req.match,
+                req.bet_type,
+                req.odds,
+                1.0,
+                prob,
+                raw_output,
+                None,  # outcome
+                None,  # profit
+                ev     # expected value
+            ),
         )
         bet_id = cur.lastrowid
     return {"bet_id": bet_id, "probability": prob, "expected_value": ev, "raw_output": raw_output}

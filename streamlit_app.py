@@ -34,7 +34,8 @@ st.header("Make a Bet")
 # Choose sport
 sports_map = {
     "College Football (NCAAF)": "americanfootball_ncaaf",
-    "Major League Baseball (MLB)": "baseball_mlb"
+    "Major League Baseball (MLB)": "baseball_mlb",
+    "NFL (American Football)": "americanfootball_nfl",
 }
 sport_label = st.selectbox("Select Sport", list(sports_map.keys()))
 sport = sports_map[sport_label]

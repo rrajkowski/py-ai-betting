@@ -17,7 +17,8 @@ def init_db():
         probability REAL,
         raw_output TEXT,
         outcome TEXT,
-        profit REAL
+        profit REAL,
+        expected_value REAL
     )
     """)
     conn.commit()
