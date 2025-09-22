@@ -1,7 +1,7 @@
 from mangum import Mangum  # allows ASGI on serverless
 from fastapi import FastAPI
 import requests
-from fastapi import FastAPI, HTTPException
+from fastapi import HTTPException
 from pydantic import BaseModel
 from typing import Optional, Dict
 import datetime
