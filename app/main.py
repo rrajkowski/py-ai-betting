@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+from typing import Optional, Dict
 import datetime
 from app.db import init_db, get_db
 from app.llm import get_probability
@@ -18,11 +19,14 @@ init_db()
 
 
 class BetRequest(BaseModel):
+    match: str
     game_id: str
     sport: str
-    market: str        # e.g. "h2h", "spreads", "totals"
-    side: str          # e.g. “home_team” or “away_team” or other label in outcomes
-    stats: dict        # additional stats if desired
+    market: str        # "h2h", "spreads", "totals"
+    side: str          # e.g. "home_team", "away_team", or team name
+    bet_type: str
+    odds: float        # required to calculate EV
+    stats: Optional[Dict] = None  # ✅ optional, defaults to {}
 
 
 class BetResult(BaseModel):
@@ -144,7 +148,7 @@ async def suggest_bet(req: BetRequest):
             ),
         )
         bet_id = cur.lastrowid
-    return {"bet_id": bet_id, "probability": prob, "expected_value": ev, "raw_output": raw_output}
+    return {"bet_id": bet_id, "probability": round(prob, 3), "expected_value": round(ev, 3), "raw_output": raw_output}
 
 
 @app.post("/bets/result")

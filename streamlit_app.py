@@ -68,14 +68,22 @@ if games_data:
             sides = list(game["odds"][market].keys())
             side = st.selectbox("Side", sides)
 
+            # odds value for the chosen side
+            odds_value = None
+            if market in game["odds"] and side in game["odds"][market]:
+                odds_value = game["odds"][market][side]
+
             st.write(f"**Odds for {side}: {game['odds'][market][side]}**")
 
             if st.button("Suggest Bet"):
                 payload = {
                     "game_id": game["game_id"],
-                    "sport": game["sport"],  # matches schema
+                    "sport": game["sport"],
                     "market": market,
                     "side": side,
+                    "match": f"{game['home_team']} vs {game['away_team']}",
+                    "bet_type": market,
+                    "odds": odds_value,
                     "stats": {}  # optional placeholder
                 }
                 resp = requests.post(
