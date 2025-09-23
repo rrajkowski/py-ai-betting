@@ -4,7 +4,7 @@ import requests
 import os
 
 # --- Resolve backend API URL ---
-FASTAPI_URL = os.getenv("FASTAPI_URL", "https://py-ai-betting.vercel.app/api")
+FASTAPI_URL = os.getenv("FASTAPI_URL", "https://py-ai-betting.vercel.app")
 
 # Default fallbacks:
 # 1. If running on Vercel, FASTAPI_URL will be set in the dashboard
@@ -16,7 +16,7 @@ if not FASTAPI_URL:
         FASTAPI_URL = f"https://{os.environ['VERCEL_URL']}"
     elif "STREAMLIT_SERVER_PORT" in os.environ:
         # Likely running inside Streamlit Cloud
-        FASTAPI_URL = "https://py-ai-betting.vercel.app/api"
+        FASTAPI_URL = "https://py-ai-betting.vercel.app"
     else:
         # Local development
         FASTAPI_URL = "http://127.0.0.1:8000"
