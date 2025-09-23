@@ -1,6 +1,6 @@
-# api/index.py
-from app.main import app  # FastAPI instance defined in main.py
+# /api/index.py
+from app.main import app
 from mangum import Mangum
 
-# Create the Vercel-compatible handler
+# Wrap FastAPI app for AWS Lambda / Vercel
 handler = Mangum(app)
