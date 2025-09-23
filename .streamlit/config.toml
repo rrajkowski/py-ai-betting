@@ -1,2 +1,5 @@
 [runner]
 script = "streamlit_app.py"
+
+[server]
+fileWatcherType = "none"
