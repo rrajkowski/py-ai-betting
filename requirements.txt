@@ -11,4 +11,3 @@ numpy==2.3.3
 python-dotenv==1.0.1
 typing-extensions==4.15.0
 streamlit==1.49.1
-sqlite3==0.0.1
