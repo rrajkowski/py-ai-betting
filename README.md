@@ -29,6 +29,10 @@ Edit `.env` and fill in your keys:
 OPENAI_API_KEY=sk-your-openai-key
 ODDS_API_KEY=your-the-odds-api-key
 LLM_PROVIDER=openai
+FASTAPI_URL=localhost:8000
+FASTAPI_ENV=production
+VERCEL_TOKEN=your-vercel-token
+SQLITE_DB_PATH=/tmp/bets.db
 ```
 
 ## ▶️ Run the Backend (FastAPI)
