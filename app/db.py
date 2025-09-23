@@ -1,12 +1,11 @@
 import sqlite3
 import os
 
-DB_PATH = os.getenv("SQLITE_DB_PATH", "bets.db")
+DB_PATH = os.getenv("SQLITE_DB_PATH", "/tmp/bets.db")
 
 
 def get_db():
-    conn = sqlite3.connect(DB_PATH)
-    return conn
+    return sqlite3.connect(DB_PATH)
 
 
 def init_db():
