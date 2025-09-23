@@ -6,7 +6,7 @@ from fastapi import HTTPException
 from pydantic import BaseModel
 from typing import Optional, Dict
 import datetime
-from app.db import init_db, get_db
+from app.db import DB_PATH, init_db, get_db
 from app.llm import get_probability
 from app.odds_api import fetch_sports, fetch_odds
 import sys
@@ -31,13 +31,39 @@ async def health():
 
 @app.get("/bets")
 def list_bets():
-    conn = sqlite3.connect("bets.db")
+    conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
-    cur.execute("SELECT * FROM bets ORDER BY id DESC")
+    cur.execute("SELECT * FROM bets ORDER BY date DESC")
     rows = [dict(row) for row in cur.fetchall()]
     conn.close()
     return {"bets": rows}
+
+
+class Bet(BaseModel):
+    team: str
+    opponent: str
+    market: str
+
+
+@app.post("/bets")
+def create_bet(bet: Bet):
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute(
+        "INSERT INTO bets (team, opponent, market, date) VALUES (?, ?, ?, CURRENT_TIMESTAMP)",
+        (bet.team, bet.opponent, bet.market),
+    )
+    conn.commit()
+    conn.close()
+    return {"message": "Bet saved", "bet": bet.dict()}
+
+
+@app.post("/probability")
+def probability(payload: dict):
+    question = payload.get("question", "")
+    # TODO: wire to your LLM
+    return {"question": question, "probability": 0.5}
 
 
 class BetRequest(BaseModel):
