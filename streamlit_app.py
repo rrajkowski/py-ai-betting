@@ -16,7 +16,7 @@ if not FASTAPI_URL:
         FASTAPI_URL = f"https://{os.environ['VERCEL_URL']}"
     elif "STREAMLIT_SERVER_PORT" in os.environ:
         # Likely running inside Streamlit Cloud
-        FASTAPI_URL = "https://py-ai-betting.vercel.app"
+        FASTAPI_URL = "https://py-ai-betting.vercel.app/api"
     else:
         # Local development
         FASTAPI_URL = "http://127.0.0.1:8000"
