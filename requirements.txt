@@ -1,9 +1,18 @@
-# Minimal backend stack for Vercel
-fastapi==0.116.2
-uvicorn==0.36.0
-mangum==0.19.0
-requests==2.32.5
-openai==1.108.1
-pydantic==2.11.9
-python-dotenv==1.1.1
+# Core Streamlit runtime
+streamlit==1.49.1
+pandas==2.3.2
+altair==5.5.0
+pydeck==0.9.1
 tqdm==4.67.1
+
+# Data + utils
+numpy==2.3.3
+python-dateutil==2.9.0.post0
+pytz==2025.2
+tzdata==2025.2
+
+# Networking
+requests==2.32.5
+
+# Config
+python-dotenv==1.1.1
