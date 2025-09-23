@@ -2,11 +2,10 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
     "api/index.py": {
-      "runtime": "python3.12"
+      "runtime": "@vercel/python@5.0.4"
     }
   },
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "api/index.py" },
-    { "source": "/(.*)", "destination": "streamlit_app.py" }
+    { "source": "/api/(.*)", "destination": "api/index.py" }
   ]
 }
