@@ -24,7 +24,7 @@ if not ODDS_API_KEY:
 init_db()
 
 
-@app.get("/")
+@app.get("/api")
 async def health():
     return {"status": "ok"}
 
