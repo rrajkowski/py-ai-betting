@@ -4,8 +4,7 @@
   ],
   "functions": {
     "api/*.py": {
-      "maxDuration": 60,
-      "includeFiles": "api/requirements.txt"
+      "maxDuration": 60
     }
   }
 }
