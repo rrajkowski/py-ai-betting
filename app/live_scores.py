@@ -1,67 +1,85 @@
 # live_scores.py
 import streamlit as st
 from app.ai_picks import fetch_scores
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 
 def display_live_scores():
     st.header("Live & Recent Scores")
 
-    nfl_scores = fetch_scores("americanfootball_nfl")
-    ncaaf_scores = fetch_scores("americanfootball_ncaaf")
-    mlb_scores = fetch_scores("baseball_mlb")
+    # --- NEW: Define theme-aware CSS styles ---
+    # These variables use Streamlit's theme to adapt to light/dark mode.
+    box_style = """
+        border: 1px solid black;
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 12px;
+        background-color: var(--secondary-background-color);
+    """
+    status_style_live = "background-color: #d90429; color: white; padding: 2px 6px; border-radius: 4px; border: 1px solid black;"
+    status_style_default = "color: var(--gray-60); font-size: 12px; font-weight: bold;"
+    team_style = "display: flex; justify-content: space-between; align-items: center; font-size: 16px;"
+    score_style = "font-weight: bold; font-size: 20px;"
 
+    # --- Fetching and Display Logic (mostly unchanged) ---
     sports_data = {
-        "NFL": [s for s in nfl_scores[:10]],
-        "NCAAF": [s for s in ncaaf_scores[:10]],
-        "MLB": [s for s in mlb_scores[:10]]
+        "NFL": fetch_scores(sport="americanfootball_nfl", days_from=1)[:10],
+        "NCAAF": fetch_scores(sport="americanfootball_ncaaf", days_from=1)[:10],
+        "MLB": fetch_scores(sport="baseball_mlb", days_from=1)[:10]
     }
 
-    emojis = {
-        "NFL": "🏈",
-        "NCAAF": "🏈",
-        "MLB": "⚾️"
-    }
-
+    emojis = {"NFL": "🏈", "NCAAF": "🎓", "MLB": "⚾️"}
     cols = st.columns(3)
 
     for idx, (sport, games) in enumerate(sports_data.items()):
         with cols[idx]:
-            st.subheader(f"{sport} {emojis[sport]}")
+            st.subheader(f"{emojis[sport]} {sport}")
 
             if not games:
                 st.info(f"No recent {sport} scores available.")
-            else:
-                for g in games:
-                    home = g.get("home_team", "")
-                    away = g.get("away_team", "")
-                    scores_list = g.get("scores") or []
-                    home_score = next(
-                        (s.get("score") for s in scores_list if s.get("name") == home), None)
-                    away_score = next(
-                        (s.get("score") for s in scores_list if s.get("name") == away), None)
+                continue
 
-                    away_winner = "🏆" if home_score and away_score and int(
-                        away_score) > int(home_score) else ""
-                    home_winner = "🏆" if home_score and away_score and int(
-                        home_score) > int(away_score) else ""
+            for g in games:
+                home = g.get("home_team", "N/A")
+                away = g.get("away_team", "N/A")
+                scores_list = g.get("scores") or []
+                home_score = next(
+                    (s.get("score") for s in scores_list if s.get("name") == home), None)
+                away_score = next(
+                    (s.get("score") for s in scores_list if s.get("name") == away), None)
+                commence_time_str = g.get("commence_time")
+                is_complete = g.get("completed", False)
 
-                    st.markdown(
-                        f"""
-                        <div style="
-                            border: 1px solid #444;
-                            border-radius: 8px;
-                            padding: 12px;
-                            margin-bottom: 12px;
-                            text-align: center;
-                            background-color: #1e1e1e;
-                            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
-                            min-height: 100px;
-                            max-height: 100px;
-                            overflow: hidden;
-                        ">
-                            <div style="font-size: 18px; font-weight: bold; margin-bottom: 4px;">{away} <span style="font-size: 22px; color: #66b3ff;">{away_score or '-'}</span> {away_winner}</div>
-                            <div style="font-size: 18px; font-weight: bold;">{home} <span style="font-size: 22px; color: #66b3ff;">{home_score or '-'}</span> {home_winner}</div>
+                status_html = ""
+                if is_complete:
+                    status_html = f'<div style="{status_style_default}">FINAL</div>'
+                elif commence_time_str:
+                    utc_time = datetime.fromisoformat(
+                        commence_time_str.replace('Z', '+00:00'))
+                    if datetime.now(timezone.utc) > utc_time:
+                        status_html = f'<div style="{status_style_default}"><span style="{status_style_live}">LIVE</span></div>'
+                    else:
+                        pst_tz = ZoneInfo("America/Los_Angeles")
+                        pst_time = utc_time.astimezone(pst_tz)
+                        date_str = pst_time.strftime("%m/%d")
+                        time_str = pst_time.strftime(
+                            "%-I:%M %p PST").replace(" AM", "am").replace(" PM", "pm")
+                        status_html = f'<div style="{status_style_default}">{date_str} - {time_str}</div>'
+
+                st.markdown(
+                    f"""
+                    <div style="{box_style}">
+                        <div style="text-align: center; margin-bottom: 8px;">{status_html}</div>
+                        <div style="{team_style}">
+                            <span>{away}</span>
+                            <span style="{score_style}">{away_score or '-'}</span>
                         </div>
-                        """,
-                        unsafe_allow_html=True,
-                    )
+                        <div style="{team_style} margin-top: 4px;">
+                            <span>{home}</span>
+                            <span style="{score_style}">{home_score or '-'}</span>
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
