@@ -106,7 +106,7 @@ def _fetch_and_cache_historical_scores(sport_key, sport_name, team, limit=5, day
 
     # 2. Fallback to live API
     st.write(
-        f"No sufficient cache for {team}. Fetching live scores from API...")
+        "Fetching live scores from API...")
     try:
         scores_data = fetch_scores(sport=sport_key, days_from=days_from)
     except Exception:
