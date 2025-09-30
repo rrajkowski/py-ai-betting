@@ -1,11 +1,18 @@
 # 🏈 AI Sports Betting Tracker
 
-An open-source FastAPI + Streamlit project that:
-- Fetches live odds from [The Odds API](https://the-odds-api.com/sports-odds-data/)
-- Calls an LLM (default **OpenAI GPT-5**) to estimate win probabilities
-- Calculates expected value (EV) for bets
-- Logs bets, raw LLM outputs, outcomes, and profits in SQLite
-- Visualizes ROI & performance with a **Streamlit dashboard**
+An open-source tool built with Python and Streamlit that uses a multi-tier AI engine to generate daily sports betting picks.
+
+This project leverages Google's Gemini 2.5 Pro as its primary model for analysis, with automated fallbacks to OpenAI's GPT-5 series to ensure reliability. It fetches live odds, analyzes upcoming games against historical data, and presents the AI-generated picks in a clean, interactive dashboard.
+
+## ✨ Features
+
+- Multi-Provider AI Engine: Prioritizes Google's Gemini 2.5 Pro for analysis and automatically falls back to OpenAI's GPT-5 models (gpt-5-mini, etc.) if the primary model fails.
+
+- Automated Pick Generation: Generates daily betting picks for NFL, NCAAF, and MLB across major markets (Moneyline, Spreads, Totals).
+
+- Historical Caching: Caches recent game scores in a local SQLite database to minimize API calls and reduce costs.
+
+- Interactive Dashboard: A Streamlit interface to generate new picks, view the AI's reasoning, and browse a history of all generated picks.
 
 ## ⚙️ Requirements
 - macOS or Linux
