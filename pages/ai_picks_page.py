@@ -31,7 +31,8 @@ if 'generated_picks' not in st.session_state:
 
 def run_ai_picks(sport_key, sport_name):
     last_pick_time = get_most_recent_pick_timestamp(sport_name)
-    if last_pick_time and (datetime.now() - last_pick_time < timedelta(hours=24)):
+    # update as needed for your timezone and api/token limits
+    if last_pick_time and (datetime.now() - last_pick_time < timedelta(hours=12)):
         st.info(
             f"Picks for {sport_name} were generated today. Last generated: {last_pick_time.strftime('%Y-%m-%d %I:%M %p')}")
         return

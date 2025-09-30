@@ -1,17 +1,17 @@
-# delete_by_sport.py
+# cleanup_missing_data.py
 
 import sqlite3
 import os
 
 # --- Configuration ---
 DB_PATH = "bets.db"
-# Set the exact sport key you want to delete
-SPORT_TO_DELETE = 'americanfootball_nfl'
+TABLE_NAME = "ai_picks"
+COLUMN_TO_CLEAN = "sport"  # Set the column you want to check for missing values
 
 
-def delete_picks_by_sport(sport_key: str):
+def delete_rows_with_missing_data(table: str, column: str):
     """
-    Deletes all AI picks from the database that match a specific sport key.
+    Deletes all rows from a table where a specific column's value is NULL or empty.
     Includes a confirmation step for safety.
     """
     if not os.path.exists(DB_PATH):
@@ -23,18 +23,22 @@ def delete_picks_by_sport(sport_key: str):
         conn = sqlite3.connect(DB_PATH)
         cur = conn.cursor()
 
+        # Build queries safely. Using f-strings here is safe as table/column names are not user-injected.
+        count_query = f"SELECT COUNT(*) FROM {table} WHERE {column} IS NULL OR {column} = ''"
+        delete_query = f"DELETE FROM {table} WHERE {column} IS NULL OR {column} = ''"
+
         # 1. Safety Check: Count the rows first
-        cur.execute(
-            "SELECT COUNT(*) FROM ai_picks WHERE sport = ?", (sport_key,))
+        cur.execute(count_query)
         count = cur.fetchone()[0]
 
         if count == 0:
             print(
-                f"No picks found with sport key '{sport_key}'. Nothing to delete.")
+                f"No rows found in '{table}' with a missing '{column}' value. Nothing to delete.")
             return
 
         # 2. Ask for user confirmation
-        print(f"Found {count} picks with sport key '{sport_key}'.")
+        print(
+            f"Found {count} rows in '{table}' with a missing '{column}' value.")
         confirm = input(
             "Are you sure you want to permanently delete these rows? (y/n): ")
 
@@ -43,7 +47,7 @@ def delete_picks_by_sport(sport_key: str):
             return
 
         # 3. Execute the DELETE statement
-        cur.execute("DELETE FROM ai_picks WHERE sport = ?", (sport_key,))
+        cur.execute(delete_query)
         deleted_count = cur.rowcount
         conn.commit()
 
@@ -57,5 +61,6 @@ def delete_picks_by_sport(sport_key: str):
 
 
 if __name__ == "__main__":
-    print(f"--- Preparing to delete picks for sport: {SPORT_TO_DELETE} ---")
-    delete_picks_by_sport(SPORT_TO_DELETE)
+    print(
+        f"--- Preparing to delete rows from '{TABLE_NAME}' where '{COLUMN_TO_CLEAN}' is missing ---")
+    delete_rows_with_missing_data(TABLE_NAME, COLUMN_TO_CLEAN)

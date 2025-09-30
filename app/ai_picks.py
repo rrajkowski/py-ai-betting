@@ -88,7 +88,7 @@ def fetch_scores(sport="americanfootball_ncaaf", days_from=1):
 
 
 # --- Historical Data Caching & Fetching (CORRECTED) ---
-def _fetch_and_cache_historical_scores(sport_key, sport_name, team, limit=5, days_from=14):
+def _fetch_and_cache_historical_scores(sport_key, sport_name, team, limit=6, days_from=20):
     conn = get_db()
     cur = conn.cursor()
     history = []
@@ -197,10 +197,10 @@ def _call_gemini_model(model_name, prompt):
 
 def generate_ai_picks(odds_df, history_data, sport="unknown"):
     """
-    Generate betting picks using a multi-tier model fallback system,
-    with validation to handle malformed AI responses.
+    Generate betting picks using a multi-provider, multi-tier model fallback system,
+    with validation and data enrichment to ensure data quality.
     """
-    # --- 1. Define the context for the AI ---
+    # Define the context and prompt for the AI models
     context = {
         "odds_count": len(odds_df),
         "sport": sport.upper(),
@@ -208,27 +208,26 @@ def generate_ai_picks(odds_df, history_data, sport="unknown"):
         "history": history_data,
     }
 
-    # --- 2. Define the high-quality prompt ---
     prompt = f"""
-    You are a hyper-efficient sports betting analyst. Your goal is to quickly identify the best value bet for each of the three main markets (h2h, spreads, totals).
+    You are a hyper-efficient sports betting analyst. Your goal is to quickly identify the best value bets.
 
     Instructions:
-    - The 'confidence' value MUST be an integer from 2 (medium) to 5 (high).
-    - Do not return any 1-star (low confidence) picks.
-    - It is better to return only one or two excellent picks than three mediocre ones.
-    - If no bets meet the 2-star confidence threshold, return an empty "picks" list.
-    - All picks must be for DIFFERENT GAMES.
-    - Return your findings as a valid JSON object with the key "picks".
+    1.  Analyze the provided context to find the best moneyline (h2h), spread, and total bets.
+    2.  Each object in the "picks" list MUST contain these exact keys: "game", "sport", "pick", "market", "line", "odds_american", "confidence", "reasoning".
+    3.  The "odds_american" field is mandatory and must be the numeric odds value (e.g., -110, 150).
+    4.  The 'confidence' value MUST be an integer from 2 to 5. Do not return 1-star picks.
+    5.  All picks must be for DIFFERENT GAMES.
+    6.  The "reasoning" MUST be a concise, data-driven summary.
+    7.  If no bets meet the 2-star confidence threshold, return an empty "picks" list.
 
     Context: {json.dumps(context, indent=2)}
     """
 
-    # --- REMOVED: The unused 'client = OpenAI()' line was here. ---
-
+    # Define the sequence of AI models to attempt
     models_to_try = [
-        {'provider': 'google', 'name': 'gemini-2.5-pro'},  # Primary: Gemini
-        {'provider': 'openai', 'name': 'gpt-5-mini'},     # Fallback 1: gpt-5-mini
-        {'provider': 'openai', 'name': 'gpt-5'},          # Fallback 2: gpt-5
+        {'provider': 'google', 'name': 'gemini-2.5-pro'},
+        {'provider': 'openai', 'name': 'gpt-5-mini'},
+        {'provider': 'openai', 'name': 'gpt-5'},
     ]
 
     parsed = []
@@ -242,7 +241,7 @@ def generate_ai_picks(odds_df, history_data, sport="unknown"):
             if parsed:
                 st.success(
                     f"Successfully generated {len(parsed)} picks using {model['provider']}'s {model['name']}!")
-                break
+                break  # Exit the loop on success
             else:
                 st.warning(
                     f"Model {model['name']} returned no picks. Trying next model...")
@@ -254,17 +253,33 @@ def generate_ai_picks(odds_df, history_data, sport="unknown"):
     if not parsed:
         st.error("All models failed to generate picks.")
 
-    # --- 4. Validate data format before saving to prevent crashes ---
-    if parsed:
-        if isinstance(parsed[0], dict):
-            try:
-                from .db import insert_ai_picks
-                insert_ai_picks(parsed)
-                st.toast(f"Saved {len(parsed)} new AI picks to history!")
-            except Exception as e:
-                st.error(f"Failed to save AI picks: {e}")
-        else:
-            st.warning(
-                "AI returned unstructured data. Picks were displayed but not saved to history.")
+    # Post-processing and data validation before saving
+    if parsed and isinstance(parsed[0], dict):
+        # This safety net loop ensures critical data is present
+        for pick in parsed:
+            if 'sport' not in pick or not pick.get('sport'):
+                pick['sport'] = sport
+
+            if 'odds_american' not in pick or pick.get('odds_american') is None:
+                try:
+                    matching_odds = odds_df[
+                        (odds_df['game'] == pick.get('game')) &
+                        (odds_df['pick'] == pick.get('pick'))
+                    ]['odds_american'].iloc[0]
+                    pick['odds_american'] = matching_odds
+                except (IndexError, KeyError):
+                    pass  # Could not find matching odds
+
+        # Attempt to save the validated and enriched picks
+        try:
+            from .db import insert_ai_picks
+            insert_ai_picks(parsed)
+            st.toast(f"Saved {len(parsed)} new AI picks to history!")
+        except Exception as e:
+            st.error(f"Failed to save AI picks: {e}")
+    elif parsed:
+        # Handle cases where the AI returned unstructured data (e.g., a list of strings)
+        st.warning(
+            "AI returned unstructured data. Picks were displayed but not saved to history.")
 
     return parsed
