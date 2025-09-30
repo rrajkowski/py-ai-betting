@@ -30,7 +30,6 @@ if 'generated_picks' not in st.session_state:
 
 
 def run_ai_picks(sport_key, sport_name):
-    # ... (This function is unchanged, as the error is in the display logic) ...
     last_pick_time = get_most_recent_pick_timestamp(sport_name)
     if last_pick_time and (datetime.now() - last_pick_time < timedelta(hours=24)):
         st.info(
