@@ -81,15 +81,15 @@ def run_ai_picks(sport_key, sport_name):
 st.header("Generate New AI Picks")
 col1, col2, col3 = st.columns(3)
 with col1:
-    if st.button("🏈 Generate NFL Picks", use_container_width=True):
+    if st.button("🏈 Generate NFL Picks", width="stretch"):
         st.session_state.generated_picks = None  # Clear previous results
         run_ai_picks("americanfootball_nfl", "NFL")
 with col2:
-    if st.button("🎓 Generate NCAAF Picks", use_container_width=True):
+    if st.button("🎓 Generate NCAAF Picks", width="stretch"):
         st.session_state.generated_picks = None
         run_ai_picks("americanfootball_ncaaf", "NCAAF")
 with col3:
-    if st.button("⚾ Generate MLB Picks", use_container_width=True):
+    if st.button("⚾ Generate MLB Picks", width="stretch"):
         st.session_state.generated_picks = None
         run_ai_picks("baseball_mlb", "MLB")
 
@@ -157,6 +157,6 @@ if ai_picks_history:
     df_display = df[display_cols].rename(
         columns={"Confidence (Stars)": "confidence"})
 
-    st.dataframe(df_display, use_container_width=True, hide_index=True)
+    st.dataframe(df_display, width="stretch", hide_index=True)
 else:
     st.info("No AI picks have been saved yet.")
