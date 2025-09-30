@@ -24,15 +24,9 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Edit `.env` and fill in your keys:
+Copy `.env.example` >  `.env` and fill in your keys:
 ```env
-OPENAI_API_KEY=sk-your-openai-key
-ODDS_API_KEY=your-the-odds-api-key
-LLM_PROVIDER=openai
-FASTAPI_URL=localhost:8000
-FASTAPI_ENV=production
-VERCEL_TOKEN=your-vercel-token
-SQLITE_DB_PATH=/tmp/bets.db
+{replace values}
 ```
 
 ## ▶️ Run the Backend (FastAPI)

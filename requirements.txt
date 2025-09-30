@@ -1,8 +1,1 @@
-streamlit==1.49.1
-pandas==2.3.2
-numpy==2.3.3
-openai==1.108.1
-requests==2.32.3
-python-dotenv==1.0.1
-typing-extensions==4.15.0
-tqdm==4.67.1
+wheel==0.45.1
