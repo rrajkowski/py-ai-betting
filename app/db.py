@@ -1,6 +1,7 @@
 from datetime import datetime
 import sqlite3
 import os
+import pytz
 from app.odds import american_to_probability
 
 
@@ -19,7 +20,8 @@ def get_db():
 
 def get_most_recent_pick_timestamp(sport_name):
     """
-    Finds the timestamp of the most recent AI pick for a given sport.
+    Finds the timestamp of the most recent AI pick for a given sport,
+    and returns it as a timezone-aware UTC object.
     """
     conn = get_db()
     cur = conn.cursor()
@@ -30,8 +32,9 @@ def get_most_recent_pick_timestamp(sport_name):
     result = cur.fetchone()
     conn.close()
     if result and result[0]:
-        # Convert string timestamp from DB back to a datetime object
-        return datetime.fromisoformat(result[0])
+        # Convert the ISO string from DB to a timezone-aware UTC datetime object
+        dt = datetime.fromisoformat(result[0])
+        return pytz.utc.localize(dt)
     return None
 
 
@@ -168,6 +171,19 @@ def init_ai_picks():
 
     conn.commit()
     conn.close()
+
+
+def get_existing_picks():
+    """
+    Retrieves a set of all existing (pick, market) tuples from the database
+    to quickly check for duplicates.
+    """
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT pick, market FROM ai_picks")
+    existing = set(cursor.fetchall())
+    conn.close()
+    return existing
 
 
 def list_ai_picks(limit=50):

@@ -29,14 +29,13 @@ def delete_duplicate_picks(conn):
     print("\nScanning for duplicate picks...")
     cur = conn.cursor()
 
-    # This query identifies all unique picks by grouping them and finding the latest ID for each group.
-    # It then deletes any row whose ID is NOT in that list of latest IDs.
+    # This query identifies duplicates based on market and team (pick), keeping only the latest entry.
     query = """
         DELETE FROM ai_picks
         WHERE id NOT IN (
             SELECT MAX(id)
             FROM ai_picks
-            GROUP BY game, sport, pick, market, line
+            GROUP BY market, pick
         )
     """
     cur.execute(query)

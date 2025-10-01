@@ -1,5 +1,6 @@
 import pandas as pd
 import streamlit as st
+import pytz
 from datetime import datetime, timedelta
 from app.db import get_most_recent_pick_timestamp, list_ai_picks, init_ai_picks
 from app.ai_picks import (
@@ -30,12 +31,32 @@ if 'generated_picks' not in st.session_state:
 
 
 def run_ai_picks(sport_key, sport_name):
+    # Fetch the last pick time as a UTC-aware object
     last_pick_time = get_most_recent_pick_timestamp(sport_name)
-    # update as needed for your timezone and api/token limits
-    if last_pick_time and (datetime.now() - last_pick_time < timedelta(hours=12)):
-        st.info(
-            f"Picks for {sport_name} were generated today. Last generated: {last_pick_time.strftime('%Y-%m-%d %I:%M %p')}")
-        return
+
+    # Get the current time as a UTC-aware object
+    now_utc = datetime.now(pytz.utc)
+
+    # Calculate when the next run is possible (12 hours after the last run)
+    if last_pick_time:
+        next_run_time = last_pick_time + timedelta(hours=12)
+        time_to_wait = next_run_time - now_utc
+
+        # Check if we are still within the 12-hour limit
+        if time_to_wait > timedelta(0):
+            # Calculate remaining hours and minutes for display
+            hours, remainder = divmod(time_to_wait.total_seconds(), 3600)
+            minutes, _ = divmod(remainder, 60)
+
+            # Format the last generated time to the user's local timezone (e.g., America/Los_Angeles)
+            local_tz = pytz.timezone('America/Los_Angeles')
+            last_pick_local = last_pick_time.astimezone(local_tz)
+
+            st.info(
+                f"Picks for {sport_name} were generated today. Last generated: {last_pick_local.strftime('%Y-%m-%d %I:%M %p %Z')}. "
+                f"Please wait {int(hours)} hours and {int(minutes)} minutes before running again. ⏳"
+            )
+            return
 
     with st.spinner(f"AI is analyzing {sport_name} games... This can take up to a minute."):
         raw_odds = fetch_odds(sport_key)

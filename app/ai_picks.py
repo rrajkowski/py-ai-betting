@@ -241,7 +241,7 @@ def generate_ai_picks(odds_df, history_data, sport="unknown"):
             if parsed:
                 st.success(
                     f"Successfully generated {len(parsed)} picks using {model['provider']}'s {model['name']}!")
-                break  # Exit the loop on success
+                break
             else:
                 st.warning(
                     f"Model {model['name']} returned no picks. Trying next model...")
@@ -252,10 +252,10 @@ def generate_ai_picks(odds_df, history_data, sport="unknown"):
 
     if not parsed:
         st.error("All models failed to generate picks.")
+        return []
 
     # Post-processing and data validation before saving
-    if parsed and isinstance(parsed[0], dict):
-        # This safety net loop ensures critical data is present
+    if isinstance(parsed[0], dict):
         for pick in parsed:
             if 'sport' not in pick or not pick.get('sport'):
                 pick['sport'] = sport
@@ -268,17 +268,38 @@ def generate_ai_picks(odds_df, history_data, sport="unknown"):
                     ]['odds_american'].iloc[0]
                     pick['odds_american'] = matching_odds
                 except (IndexError, KeyError):
-                    pass  # Could not find matching odds
+                    pass
 
-        # Attempt to save the validated and enriched picks
+        # Check for duplicates before saving
+        from .db import insert_ai_picks, get_existing_picks
+        existing_picks = get_existing_picks()
+
+        unique_picks = []
+        dupe_count = 0
+        for pick in parsed:
+            # Create a unique identifier for the pick based on team and market
+            pick_key = (pick.get('pick', '').strip(),
+                        pick.get('market', '').strip())
+
+            if pick_key not in existing_picks:
+                unique_picks.append(pick)
+            else:
+                dupe_count += 1
+
+        if dupe_count > 0:
+            st.info(
+                f"Ignored {dupe_count} duplicate picks based on team and market.")
+
         try:
-            from .db import insert_ai_picks
-            insert_ai_picks(parsed)
-            st.toast(f"Saved {len(parsed)} new AI picks to history!")
+            if unique_picks:
+                insert_ai_picks(unique_picks)
+                st.toast(f"Saved {len(unique_picks)} new AI picks to history!")
+            else:
+                st.toast("No new unique picks to save.")
         except Exception as e:
             st.error(f"Failed to save AI picks: {e}")
-    elif parsed:
-        # Handle cases where the AI returned unstructured data (e.g., a list of strings)
+
+    else:
         st.warning(
             "AI returned unstructured data. Picks were displayed but not saved to history.")
 
