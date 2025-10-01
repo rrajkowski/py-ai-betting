@@ -87,6 +87,7 @@ def fetch_scores(sport="americanfootball_ncaaf", days_from=1):
     return r.json()
 
 
+# --- Historical Data Caching & Fetching  ---
 # --- Historical Data Caching & Fetching (CORRECTED) ---
 def _fetch_and_cache_historical_scores(sport_key, sport_name, team, limit=6, days_from=20):
     conn = get_db()
@@ -143,19 +144,22 @@ def _fetch_and_cache_historical_scores(sport_key, sport_name, team, limit=6, day
     conn.close()
     return sorted(history, key=lambda x: x['date'], reverse=True)[:limit]
 
-# --- Wrapper Functions (Unchanged) ---
 
-
-def fetch_historical_ncaaf(team_name="Alabama Crimson Tide", limit=5):
+def fetch_historical_ncaaf(team_name, limit=25):
     return _fetch_and_cache_historical_scores("americanfootball_ncaaf", "NCAAF", team_name, limit)
 
 
-def fetch_historical_nfl(team_name="Kansas City Chiefs", limit=5):
+def fetch_historical_nfl(team_name, limit=16):
     return _fetch_and_cache_historical_scores("americanfootball_nfl", "NFL", team_name, limit)
 
 
-def fetch_historical_mlb(team_name="Los Angeles Dodgers", limit=5):
+def fetch_historical_mlb(team_name, limit=4):
     return _fetch_and_cache_historical_scores("baseball_mlb", "MLB", team_name, limit)
+
+
+def fetch_historical_other(team_name, limit=6):
+    return []
+
 
 # -------------------------
 # AI Model Helper Functions

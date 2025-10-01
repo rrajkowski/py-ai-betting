@@ -1,7 +1,7 @@
 from datetime import datetime
 import sqlite3
 import os
-import pytz
+import pytz  # Import pytz for timezone awareness
 from app.odds import american_to_probability
 
 
@@ -56,6 +56,8 @@ def migrate_ai_picks():
         cur.execute("ALTER TABLE ai_picks ADD COLUMN sport TEXT")
     if "line" not in cols:
         cur.execute("ALTER TABLE ai_picks ADD COLUMN line REAL")
+    if "result" not in cols:  # ADD RESULT COLUMN FOR TRACKING W/L
+        cur.execute("ALTER TABLE ai_picks ADD COLUMN result TEXT")
     conn.commit()
     conn.close()
 
@@ -150,7 +152,8 @@ def init_ai_picks():
             odds_american REAL,
             confidence TEXT,
             reasoning TEXT,
-            date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            result TEXT -- Added result column for tracking W/L
         )
     """)
 
@@ -161,7 +164,7 @@ def init_ai_picks():
     required_cols = {
         "game": "TEXT", "sport": "TEXT", "pick": "TEXT", "market": "TEXT",
         "line": "REAL", "odds_american": "REAL", "confidence": "TEXT",
-        "reasoning": "TEXT", "date": "TIMESTAMP"
+        "reasoning": "TEXT", "date": "TIMESTAMP", "result": "TEXT"  # Include new column
     }
 
     for col, col_type in required_cols.items():
@@ -216,13 +219,14 @@ def insert_ai_picks(picks: list):
 
         picks_to_insert.append((
             p.get("game"), p.get("sport"), p.get("pick"), p.get("market"),
-            line, odds, p.get("confidence"), p.get("reasoning")
+            line, odds, p.get("confidence"), p.get("reasoning"), p.get(
+                "result", "Pending")  # Default result to Pending
         ))
 
     # Use executemany for an efficient batch insert
     cur.executemany("""
-        INSERT INTO ai_picks (game, sport, pick, market, line, odds_american, confidence, reasoning)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO ai_picks (game, sport, pick, market, line, odds_american, confidence, reasoning, result)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, picks_to_insert)
 
     conn.commit()
@@ -249,8 +253,8 @@ def insert_ai_pick(pick: dict):
         odds_value = None
 
     cur.execute("""
-        INSERT INTO ai_picks (game, sport, pick, market, line, odds_american, confidence, reasoning)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO ai_picks (game, sport, pick, market, line, odds_american, confidence, reasoning, result)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         pick.get("game"),
         pick.get("sport"),
@@ -260,7 +264,79 @@ def insert_ai_pick(pick: dict):
         odds_value,
         pick.get("confidence"),
         pick.get("reasoning"),
+        pick.get("result", "Pending"),  # Default result to Pending
     ))
 
+    conn.commit()
+    conn.close()
+
+
+def fetch_performance_summary(sport_name):
+    """
+    Calculates and returns Win/Loss/Units by confidence level for a given sport.
+    The profit calculation assumes 1 unit = $100.
+
+    NOTE: This assumes a 'result' column exists in ai_picks with 'Win' or 'Loss'.
+    """
+    conn = get_db()
+    cur = conn.cursor()
+
+    # This SQL query groups by the first character of confidence (the star count)
+    # and calculates the total wins, total losses, and total units profit/loss.
+    query = """
+    SELECT
+        SUBSTR(confidence, 1, 1) AS star_rating,
+        SUM(CASE WHEN result = 'Win' THEN 1 ELSE 0 END) AS total_wins,
+        SUM(CASE WHEN result = 'Loss' THEN 1 ELSE 0 END) AS total_losses,
+        SUM(
+            CASE
+                WHEN result = 'Win' AND odds_american > 0 THEN (odds_american / 100.0) * 100
+                WHEN result = 'Win' AND odds_american < 0 THEN (100.0 / ABS(odds_american)) * 100
+                WHEN result = 'Loss' THEN -100.0 -- Loss of 1 unit ($100)
+                ELSE 0
+            END
+        ) / 100.0 AS net_units -- Divide by 100 to convert to units (1 unit = $100)
+    FROM
+        ai_picks
+    WHERE
+        sport = ? AND result IN ('Win', 'Loss')
+    GROUP BY
+        star_rating
+    ORDER BY
+        star_rating DESC;
+    """
+
+    cur.execute(query, (sport_name,))
+    summary = [dict(row) for row in cur.fetchall()]
+    conn.close()
+    return summary
+
+
+def get_unsettled_picks():
+    """
+    Fetches all picks from the ai_picks table that have a 'Pending' result.
+    These picks need to have their W/L status checked against live scores.
+    """
+    conn = get_db()
+    cur = conn.cursor()
+    # The query retrieves ALL columns because check_if_pick_won needs pick, market, game, and line.
+    cur.execute(
+        "SELECT * FROM ai_picks WHERE result = 'Pending' OR result IS NULL")
+    rows = [dict(r) for r in cur.fetchall()]
+    conn.close()
+    return rows
+
+
+def update_pick_result(pick_id, result):
+    """
+    Updates the 'result' column for a specific pick ID.
+    Result should be 'Win', 'Loss', or 'Push'.
+    """
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute(
+        "UPDATE ai_picks SET result = ? WHERE id = ?",
+        (result, pick_id)
+    )
     conn.commit()
     conn.close()

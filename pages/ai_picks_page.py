@@ -2,17 +2,223 @@ import pandas as pd
 import streamlit as st
 import pytz
 from datetime import datetime, timedelta
-from app.db import get_most_recent_pick_timestamp, list_ai_picks, init_ai_picks
+# Updated imports to include all necessary functions for metrics and auto-refresh
+from app.db import (
+    get_most_recent_pick_timestamp,
+    list_ai_picks,
+    init_ai_picks,
+    fetch_performance_summary,
+    get_unsettled_picks,
+    update_pick_result,
+)
 from app.ai_picks import (
     fetch_odds,
     fetch_historical_nfl,
     fetch_historical_mlb,
     fetch_historical_ncaaf,
-    generate_ai_picks
+    generate_ai_picks,
+    fetch_scores  # Importing the necessary fetch_scores function
 )
 
 # Run at import to guarantee schema is correct
 init_ai_picks()
+
+# Set the desired local timezone for display (PST/PDT)
+# Use 'America/Los_Angeles' for PST/PDT to handle daylight savings automatically
+LOCAL_TZ_NAME = 'America/Los_Angeles'
+
+
+# --- Initial Check and Result Update on Page Load (NEW) ---
+# NOTE: This logic assumes fetch_scores is available to the refresh_bet_results helper.
+def check_if_pick_won(pick, home_score, away_score):
+    """
+    Determines if a single pick (H2H, Spread, or Total) won, lost, or pushed.
+    Returns 'Win', 'Loss', or 'Push'.
+    """
+    # Helper function logic from previous step (included for completeness)
+
+    # Check if scores are defined
+    if home_score is None or away_score is None:
+        return 'Pending'
+
+    if pick['market'] == 'h2h':
+        if home_score > away_score:
+            winner = pick['game'].split(' @ ')[1]  # Home team
+        elif away_score > home_score:
+            winner = pick['game'].split(' @ ')[0]  # Away team
+        else:
+            return 'Push'
+
+        return 'Win' if pick['pick'] == winner else 'Loss'
+
+    elif pick['market'] == 'spreads':
+        line = pick.get('line')
+        if line is None:
+            return 'Pending'
+
+        # Determine team scores
+        away_team = pick['game'].split(' @ ')[0]
+        home_team = pick['game'].split(' @ ')[1]
+
+        # Calculate score differential based on who the bet is on (pick)
+        if pick['pick'] == home_team:
+            score_diff = home_score - away_score
+        elif pick['pick'] == away_team:
+            score_diff = away_score - home_score
+        else:
+            return 'Loss'  # Invalid pick team name
+
+        if score_diff > line:
+            return 'Win'
+        elif score_diff < line:
+            return 'Loss'
+        else:
+            return 'Push'
+
+    elif pick['market'] == 'totals':
+        line = pick.get('line')
+        if line is None:
+            return 'Pending'
+
+        total_score = home_score + away_score
+
+        if pick['pick'] == 'Over':
+            if total_score > line:
+                return 'Win'
+            elif total_score < line:
+                return 'Loss'
+            else:
+                return 'Push'
+        elif pick['pick'] == 'Under':
+            if total_score < line:
+                return 'Win'
+            elif total_score > line:
+                return 'Loss'
+            else:
+                return 'Push'
+
+    return 'Pending'
+
+
+def refresh_bet_results():
+    """
+    Fetches unsettled picks, retrieves live scores for completed games,
+    calculates the result, and updates the database.
+    """
+    # NOTE: The imports for get_unsettled_picks and update_pick_result are now in the top block
+    import requests  # Required for the HTTPError handling
+
+    unsettled_picks = get_unsettled_picks()
+    if not unsettled_picks:
+        return 0, 0
+
+    # Group picks by sport to minimize API calls
+    sports_to_fetch = {}
+    for pick in unsettled_picks:
+        sport = pick['sport']
+
+        if sport == 'NFL':
+            sport_key = 'americanfootball_nfl'
+        elif sport == 'NCAAF':
+            sport_key = 'americanfootball_ncaaf'
+        elif sport == 'MLB':
+            sport_key = 'baseball_mlb'
+        else:
+            continue
+
+        if sport_key not in sports_to_fetch:
+            sports_to_fetch[sport_key] = set()
+
+        sports_to_fetch[sport_key].add(pick['game'])
+
+    updated_count = 0
+    failed_count = 0
+
+    # 1. Fetch scores for each required sport
+    for sport_key in sports_to_fetch.keys():
+        scores_data = []
+        try:
+            # Enforce the daysFrom=2 limit due to API constraints.
+            scores_data = fetch_scores(sport=sport_key, days_from=2)
+        except requests.exceptions.HTTPError as e:
+            # Handle the 422 Client Error gracefully, assuming the sport data stream is closed.
+            if e.response.status_code == 422:
+                st.warning(
+                    f"Skipping result refresh for {sport_key.split('_')[-1].upper()}: API stream is likely closed (422 Error).")
+                continue  # Skip processing this sport
+            else:
+                st.error(f"Failed to fetch scores for {sport_key}: {e}")
+                failed_count += 1
+                continue
+        except Exception as e:
+            st.error(
+                f"An unexpected error occurred fetching scores for {sport_key}: {e}")
+            failed_count += 1
+            continue
+
+        # --- START UPDATED BLOCK FOR DATE MATCHING ---
+        game_score_map = {}
+        for game in scores_data:
+            if game.get('completed', False):
+                game_id = f"{game.get('away_team')} @ {game.get('home_team')}"
+
+                # 1. Extract and standardize date (YYYY-MM-DD)
+                game_date = game.get('commence_time', '')[:10]
+
+                # 2. Safely extract scores
+                home_score = next((s['score'] for s in game.get(
+                    'scores', []) if s['name'] == game['home_team']), None)
+                away_score = next((s['score'] for s in game.get(
+                    'scores', []) if s['name'] == game['away_team']), None)
+
+                try:
+                    home_score = int(
+                        home_score) if home_score is not None else None
+                    away_score = int(
+                        away_score) if away_score is not None else None
+
+                    if home_score is not None and away_score is not None:
+                        # Store game scores AND the unique date
+                        game_score_map[game_id] = {
+                            'home': home_score,
+                            'away': away_score,
+                            'date': game_date
+                        }
+                except ValueError:
+                    continue
+
+        # 2. Iterate through unsettled picks and update results
+        current_sport_name = sport_key.split('_')[-1].upper()
+        for pick in [p for p in unsettled_picks if p['sport'] == current_sport_name]:
+            game_id = pick['game']
+            pick_date = pick['date'][:10]  # Extract date from pick's timestamp
+
+            if game_id in game_score_map:
+                scores = game_score_map[game_id]
+
+                # CRITICAL: Check for game ID and date match to resolve duplicate games
+                if scores['date'] == pick_date:
+
+                    # Calculate Win/Loss/Push
+                    result = check_if_pick_won(
+                        pick, scores['home'], scores['away'])
+
+                    if result not in ['Pending']:
+                        update_pick_result(pick['id'], result)
+                        updated_count += 1
+
+    return updated_count, failed_count
+    # --- END UPDATED BLOCK ---
+
+
+updated_on_load, _ = refresh_bet_results()
+if updated_on_load > 0:
+    st.toast(f"Updated {updated_on_load} picks with game results!", icon="✅")
+
+updated_on_load, _ = refresh_bet_results()
+if updated_on_load > 0:
+    st.toast(f"Updated {updated_on_load} picks with game results!", icon="✅")
+
 
 # --- Page Configuration & Title ---
 st.set_page_config(page_title="🤖 AI Daily Picks", layout="wide")
@@ -25,12 +231,81 @@ st.markdown(
 if 'generated_picks' not in st.session_state:
     st.session_state.generated_picks = None
 
+# Initialize state for metric display filter
+if 'metric_sport' not in st.session_state:
+    st.session_state.metric_sport = "NFL"  # Default to NFL metrics
+
+# ----------------------------------------------------
+# Function to display performance metrics
+# ----------------------------------------------------
+
+
+def display_performance_metrics(sport_name, col_container):
+    """Fetches and displays the performance metrics table by confidence level in the given container."""
+    summary = fetch_performance_summary(sport_name)
+
+    with col_container:
+        st.subheader(f"{sport_name} Metrics")
+
+        # Define columns for the summary table header
+        col_names = st.columns(3)
+        col_names[0].markdown('**W/L**')
+        col_names[1].markdown('**Conf**')
+        col_names[2].markdown('**Units**')
+        st.markdown("---")
+
+        # Display rows for each confidence level (2, 3, 4, 5 stars)
+        found_metrics = False
+        for row in summary:
+            found_metrics = True
+
+            try:
+                star_rating = int(row['star_rating'])
+            except (ValueError, TypeError):
+                continue  # Skip if star_rating is invalid
+
+            stars = '⭐' * star_rating
+            w_l_record = f"{row['total_wins']}-{row['total_losses']}"
+            net_units = row['net_units']
+
+            # Determine color for units
+            color = "green" if net_units >= 0 else "red"
+
+            # Display each row using st.columns (3 columns inside the main container column)
+            cols = st.columns(3)
+
+            with cols[0]:
+                st.markdown(w_l_record)
+
+            with cols[1]:
+                st.markdown(stars)
+
+            with cols[2]:
+                # Format to two decimal places and apply color
+                st.markdown(
+                    f"<span style='color: {color}; font-weight: bold;'>{net_units:+.2f}u</span>", unsafe_allow_html=True)
+
+        if not found_metrics:
+            st.info("No completed picks found.")
+
+
+# --- GLOBAL PERFORMANCE METRICS DISPLAY (MOVED TO TOP) ---
+st.header("🏆 Historical Performance")
+metric_cols = st.columns(3)
+
+# Display metrics for all three sports automatically
+display_performance_metrics("NFL", metric_cols[0])
+display_performance_metrics("NCAAF", metric_cols[1])
+display_performance_metrics("MLB", metric_cols[2])
+
+
 # -----------------------------
 # Main AI Pick Generation Logic
 # -----------------------------
 
 
 def run_ai_picks(sport_key, sport_name):
+
     # Fetch the last pick time as a UTC-aware object
     last_pick_time = get_most_recent_pick_timestamp(sport_name)
 
@@ -48,8 +323,8 @@ def run_ai_picks(sport_key, sport_name):
             hours, remainder = divmod(time_to_wait.total_seconds(), 3600)
             minutes, _ = divmod(remainder, 60)
 
-            # Format the last generated time to the user's local timezone (e.g., America/Los_Angeles)
-            local_tz = pytz.timezone('America/Los_Angeles')
+            # Format the last generated time to the user's local timezone (PST/PDT)
+            local_tz = pytz.timezone(LOCAL_TZ_NAME)
             last_pick_local = last_pick_time.astimezone(local_tz)
 
             st.info(
@@ -59,7 +334,9 @@ def run_ai_picks(sport_key, sport_name):
             return
 
     with st.spinner(f"AI is analyzing {sport_name} games... This can take up to a minute."):
+
         raw_odds = fetch_odds(sport_key)
+
         if not raw_odds:
             st.warning("No upcoming games with odds were found.")
             return
@@ -123,11 +400,14 @@ if st.session_state.generated_picks:
     if not picks:
         st.info("The AI found no high-value picks for the upcoming games.")
     else:
-        cols = st.columns(len(picks) if len(picks) <= 3 else 3)
+        # Use a maximum of 3 columns for display, regardless of the number of picks
+        num_cols = min(len(picks), 3)
+        cols = st.columns(num_cols)
+
         for i, pick in enumerate(picks):
             with cols[i % 3]:
                 with st.container(border=True):
-                    # --- NEW: Check if 'pick' is a dictionary before processing ---
+                    # --- Check if 'pick' is a dictionary before processing ---
                     if isinstance(pick, dict):
                         try:
                             score = int(pick.get('confidence', 1))
@@ -170,9 +450,10 @@ if ai_picks_history:
 
     df['Confidence (Stars)'] = df['confidence_numeric'].apply(score_to_stars)
 
-    # Define and reorder columns for display
+    # Define and reorder columns for display.
+    # The 'result' column (Win/Loss/Pending) is now explicitly included.
     display_cols = ['date', 'sport', 'game', 'pick', 'market',
-                    'line', 'odds_american', 'Confidence (Stars)', 'reasoning']
+                    'line', 'odds_american', 'result', 'Confidence (Stars)', 'reasoning']
 
     # Rename the new confidence column for the final display
     df_display = df[display_cols].rename(

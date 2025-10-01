@@ -4,7 +4,12 @@ import sqlite3
 import os
 
 # Define the path to your database file
-DB_PATH = "bets.db"
+DB_PATH = os.path.join(
+    os.path.dirname(__file__),
+    "..",
+    "bets.db"
+)
+TABLE_NAME = "ai_picks"
 
 
 def delete_low_confidence_picks(conn):
@@ -14,7 +19,7 @@ def delete_low_confidence_picks(conn):
 
     # Use a single query to find and delete
     cur.execute(
-        "DELETE FROM ai_picks WHERE confidence IS NULL OR CAST(confidence AS INTEGER) < 2")
+        f"DELETE FROM {TABLE_NAME} WHERE confidence IS NULL OR CAST(confidence AS INTEGER) < 2")
     deleted_count = cur.rowcount
     conn.commit()
 
@@ -30,11 +35,11 @@ def delete_duplicate_picks(conn):
     cur = conn.cursor()
 
     # This query identifies duplicates based on market and team (pick), keeping only the latest entry.
-    query = """
-        DELETE FROM ai_picks
+    query = f"""
+        DELETE FROM {TABLE_NAME}
         WHERE id NOT IN (
             SELECT MAX(id)
-            FROM ai_picks
+            FROM {TABLE_NAME}
             GROUP BY market, pick
         )
     """

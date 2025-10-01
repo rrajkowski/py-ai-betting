@@ -4,7 +4,11 @@ import sqlite3
 import os
 
 # --- Configuration ---
-DB_PATH = "bets.db"
+DB_PATH = os.path.join(
+    os.path.dirname(__file__),
+    "..",
+    "bets.db"
+)
 TABLE_NAME = "ai_picks"
 COLUMN_TO_CLEAN = "sport"  # Set the column you want to check for missing values
 
