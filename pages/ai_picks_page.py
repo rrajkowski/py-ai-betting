@@ -223,8 +223,8 @@ if updated_on_load > 0:
 # --- Page Configuration & Title ---
 st.set_page_config(page_title="🤖 AI Daily Picks", layout="wide")
 st.title("🤖 AI Daily Picks")
-st.markdown(
-    "Click a button to generate AI-recommended bets for that sport. Picks are generated once per day.")
+st.page_link("pages/live_scores_page.py", label="⚡ Go to Live Scores")
+
 
 # --- Initialize Session State ---
 # This is crucial for making new picks appear instantly.
@@ -377,6 +377,9 @@ def run_ai_picks(sport_key, sport_name):
 
 # --- UI Controls (Buttons) ---
 st.header("Generate New AI Picks")
+st.markdown(
+    "Click a button to generate AI-recommended bets for that sport. Picks are generated once per day.")
+
 col1, col2, col3 = st.columns(3)
 with col1:
     if st.button("🏈 Generate NFL Picks", width="stretch"):
