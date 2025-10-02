@@ -344,9 +344,8 @@ def run_ai_picks(sport_key, sport_name):
     now_utc = datetime.now(pytz.utc)
 
     if last_pick_time:
-        # next_run_time = last_pick_time + timedelta(hours=12)  # 12-hour limit
-        next_run_time = last_pick_time + \
-            timedelta(minutes=1)  # 1min for testing
+        next_run_time = last_pick_time + timedelta(hours=12)  # 12-hour limit
+        # next_run_time = last_pick_time + timedelta(minutes=1)  # 1min for testing
         time_to_wait = next_run_time - now_utc
 
         if time_to_wait > timedelta(0):
