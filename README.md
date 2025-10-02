@@ -28,6 +28,7 @@ brew install python sqlite3
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
+playwright install
 cp .env.example .env
 ```
 

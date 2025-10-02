@@ -1,13 +1,16 @@
+# streamlit_app.py
 import pandas as pd
 import streamlit as st
 
-from app.db import init_db, insert_bet, list_bets
+from app.db import init_db, insert_bet, list_bets, init_ai_picks
+from app.utils.db import init_prompt_context_db  # NEW: Import for new table setup
 from app.ai_picks import fetch_odds
-from app.live_scores import display_live_scores
 
 
 # --- DBs init ---
 init_db()
+init_ai_picks()
+init_prompt_context_db()  # NEW: Initialize the prompt_context table
 
 st.title("⚡ AI Sports Betting Dashboard")
 

@@ -1,6 +1,5 @@
 import sqlite3
 import os
-from datetime import datetime
 
 # Define the path to your database file (matching DB_PATH in db.py)
 # os.path.dirname(__file__) gets the current directory (/scripts)

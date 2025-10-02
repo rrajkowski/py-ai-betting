@@ -1,6 +1,7 @@
 import pandas as pd
 import streamlit as st
 import pytz
+import requests
 from datetime import datetime, timedelta
 # Updated imports to include all necessary functions for metrics and auto-refresh
 from app.db import (
@@ -11,17 +12,23 @@ from app.db import (
     get_unsettled_picks,
     update_pick_result,
 )
+from app.utils.db import init_prompt_context_db
+from app.utils.context_builder import create_super_prompt_payload
+from app.utils.scraper import run_scrapers
+from app.utils.kalshi_api import fetch_kalshi_consensus
 from app.ai_picks import (
     fetch_odds,
     fetch_historical_nfl,
     fetch_historical_mlb,
     fetch_historical_ncaaf,
     generate_ai_picks,
-    fetch_scores  # Importing the necessary fetch_scores function
+    fetch_scores
 )
 
-# Run at import to guarantee schema is correct
+# --- INITIALIZATION ---
+# Run at import to guarantee schemas are correct
 init_ai_picks()
+init_prompt_context_db()  # NEW: Initialize the new prompt context table
 
 # Set the desired local timezone for display (PST/PDT)
 # Use 'America/Los_Angeles' for PST/PDT to handle daylight savings automatically
@@ -105,8 +112,6 @@ def refresh_bet_results():
     Fetches unsettled picks, retrieves live scores for completed games,
     calculates the result, and updates the database.
     """
-    # NOTE: The imports for get_unsettled_picks and update_pick_result are now in the top block
-    import requests  # Required for the HTTPError handling
 
     unsettled_picks = get_unsettled_picks()
     if not unsettled_picks:
@@ -156,7 +161,6 @@ def refresh_bet_results():
             failed_count += 1
             continue
 
-        # --- START UPDATED BLOCK FOR DATE MATCHING ---
         game_score_map = {}
         for game in scores_data:
             if game.get('completed', False):
@@ -208,12 +212,7 @@ def refresh_bet_results():
                         updated_count += 1
 
     return updated_count, failed_count
-    # --- END UPDATED BLOCK ---
 
-
-updated_on_load, _ = refresh_bet_results()
-if updated_on_load > 0:
-    st.toast(f"Updated {updated_on_load} picks with game results!", icon="✅")
 
 updated_on_load, _ = refresh_bet_results()
 if updated_on_load > 0:
@@ -223,8 +222,8 @@ if updated_on_load > 0:
 # --- Page Configuration & Title ---
 st.set_page_config(page_title="🤖 AI Daily Picks", layout="wide")
 st.title("🤖 AI Daily Picks")
-st.page_link("pages/live_scores_page.py", label="⚡ Go to Live Scores")
-
+st.markdown(
+    "Click a button to generate AI-recommended bets for that sport. Picks are generated once per day.")
 
 # --- Initialize Session State ---
 # This is crucial for making new picks appear instantly.
@@ -305,25 +304,52 @@ display_performance_metrics("MLB", metric_cols[2])
 
 
 def run_ai_picks(sport_key, sport_name):
+    # Determine the target analysis date
+    # Get today's date in UTC and format as YYYY-MM-DD
+    target_date = datetime.now(pytz.utc).strftime('%Y-%m-%d')
 
-    # Fetch the last pick time as a UTC-aware object
+    # --- UI Status Indicators Setup (NEW) ---
+    status_cols = st.columns(3)
+    status_placeholders = {
+        'scrape': status_cols[0].empty(),
+        'api': status_cols[1].empty(),
+        'context': status_cols[2].empty(),
+    }
+
+    # 1. Data Acquisition (Scraping/Realtime API)
+    with st.spinner("Step 1: Fetching Expert Consensus and Public Data..."):
+        # 1a. Expert Consensus (Storage - Scrape)
+        status_placeholders['scrape'].info("🟡 Fetching Expert Consensus...")
+        # NOTE: run_scrapers now takes the sport_key to filter the scrape
+        run_scrapers(target_date, sport_key)
+        status_placeholders['scrape'].success("✅ Expert Consensus Data Saved.")
+
+        # 1b. Public Consensus (Realtime - Kalshi API)
+        status_placeholders['api'].info("🟡 Fetching Public Consensus...")
+        # Placeholder: Assumes insertion
+        fetch_kalshi_consensus(sport_key, target_date)
+        status_placeholders['api'].success("✅ Public Consensus Data Saved.")
+
+    # 2. Context Aggregation
+    status_placeholders['context'].info("🟡 Building LLM Context Payload...")
+    # Merge all data sources into a single payload for the LLM
+    context_payload = create_super_prompt_payload(
+        target_date, sport_key)  # NEW: Passed sport_key
+    status_placeholders['context'].success(
+        f"✅ Context Built ({len(context_payload.get('games', []))} Games)")
+
+    # --- 3. Time Limit Check ---
     last_pick_time = get_most_recent_pick_timestamp(sport_name)
-
-    # Get the current time as a UTC-aware object
     now_utc = datetime.now(pytz.utc)
 
-    # Calculate when the next run is possible (12 hours after the last run)
     if last_pick_time:
-        next_run_time = last_pick_time + timedelta(hours=12)
+        next_run_time = last_pick_time + timedelta(hours=12)  # 12-hour limit
+        # next_run_time = last_pick_time + timedelta(minutes=1)  # 1min for testing
         time_to_wait = next_run_time - now_utc
 
-        # Check if we are still within the 12-hour limit
         if time_to_wait > timedelta(0):
-            # Calculate remaining hours and minutes for display
             hours, remainder = divmod(time_to_wait.total_seconds(), 3600)
             minutes, _ = divmod(remainder, 60)
-
-            # Format the last generated time to the user's local timezone (PST/PDT)
             local_tz = pytz.timezone(LOCAL_TZ_NAME)
             last_pick_local = last_pick_time.astimezone(local_tz)
 
@@ -333,7 +359,8 @@ def run_ai_picks(sport_key, sport_name):
             )
             return
 
-    with st.spinner(f"AI is analyzing {sport_name} games... This can take up to a minute."):
+    # --- 4. Model Execution (Existing Logic) ---
+    with st.spinner(f"Step 2: AI is analyzing {sport_name} games with {len(context_payload.get('games', []))} context blocks..."):
 
         raw_odds = fetch_odds(sport_key)
 
@@ -370,16 +397,23 @@ def run_ai_picks(sport_key, sport_name):
         else:
             history = []
 
+        # --- 5. Generate Picks (The Super-Prompt now receives the Context) ---
+        # NOTE: generate_ai_picks was updated to handle the context argument
         odds_df = pd.DataFrame(normalized_odds)
-        picks = generate_ai_picks(odds_df, history, sport=sport_name)
+
+        # Pass the context payload to generate_ai_picks
+        picks = generate_ai_picks(odds_df, history, sport=sport_name,
+                                  context_payload=context_payload)
         st.session_state.generated_picks = picks
+
+    # Clear the temporary status indicators after the whole process finishes
+    status_placeholders['scrape'].empty()
+    status_placeholders['api'].empty()
+    status_placeholders['context'].empty()
 
 
 # --- UI Controls (Buttons) ---
-st.header("Generate New AI Picks")
-st.markdown(
-    "Click a button to generate AI-recommended bets for that sport. Picks are generated once per day.")
-
+st.header("Generate New Picks")
 col1, col2, col3 = st.columns(3)
 with col1:
     if st.button("🏈 Generate NFL Picks", width="stretch"):

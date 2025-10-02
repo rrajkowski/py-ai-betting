@@ -30,17 +30,24 @@ def delete_low_confidence_picks(conn):
 
 
 def delete_duplicate_picks(conn):
-    """Deletes duplicate picks, keeping only the most recent entry for each unique bet."""
+    """Deletes duplicate picks, keeping only the most recent entry per market/pick by date."""
     print("\nScanning for duplicate picks...")
     cur = conn.cursor()
 
-    # This query identifies duplicates based on market and team (pick), keeping only the latest entry.
+    # Delete all but the latest by date for each market/pick
     query = f"""
         DELETE FROM {TABLE_NAME}
         WHERE id NOT IN (
-            SELECT MAX(id)
-            FROM {TABLE_NAME}
-            GROUP BY market, pick
+            SELECT id
+            FROM (
+                SELECT id,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY market, pick
+                           ORDER BY date DESC
+                       ) AS rn
+                FROM {TABLE_NAME}
+            ) ranked
+            WHERE rn = 1
         )
     """
     cur.execute(query)
@@ -48,7 +55,8 @@ def delete_duplicate_picks(conn):
     conn.commit()
 
     if deleted_count > 0:
-        print(f"✅ Deleted {deleted_count} duplicate picks.")
+        print(
+            f"✅ Deleted {deleted_count} duplicate picks (kept latest by date).")
     else:
         print("No duplicate picks found.")
 

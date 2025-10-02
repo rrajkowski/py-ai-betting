@@ -11,6 +11,7 @@ from .const import RAPIDAPI_KEY, HEADERS
 from dotenv import load_dotenv
 load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 # --- Configure Gemini ---
 if GEMINI_API_KEY:
@@ -168,16 +169,43 @@ def fetch_historical_other(team_name, limit=6):
 
 def _call_openai_model(model_name, prompt):
     """Sends a prompt to an OpenAI model and returns the parsed 'picks'."""
-    client = OpenAI()
-    st.write(f"Generating picks with OpenAI model: {model_name}...")
-    resp = client.chat.completions.create(
+    if not OPENAI_API_KEY:
+        raise ValueError(
+            "OPENAI_API_KEY not found. Please set it in your .env file."
+        )
+
+    client = OpenAI(api_key=OPENAI_API_KEY)
+
+    # Build request
+    base_request = dict(
         model=model_name,
-        messages=[{"role": "user", "content": prompt}],
+        messages=[
+            {
+                "role": "system",
+                "content": "You are a betting assistant. Respond ONLY with valid JSON that matches the schema.",
+            },
+            {
+                "role": "user",
+                "content": f"Return the picks as a JSON object with key 'picks'. Use this context:\n\n{prompt}\n\nFormat: JSON only.",
+            },
+        ],
         response_format={"type": "json_object"},
-        timeout=90.0
+        timeout=90.0,
     )
+
+    # Only include temperature for models that allow it
+    if not model_name.startswith("gpt-5"):
+        base_request["temperature"] = 0.6
+
+    # Call OpenAI
+    resp = client.chat.completions.create(**base_request)
+
     raw_output = resp.choices[0].message.content
-    return json.loads(raw_output).get("picks", [])
+    try:
+        return json.loads(raw_output).get("picks", [])
+    except Exception:
+        # fallback: return empty if parsing fails
+        return []
 
 
 def _call_gemini_model(model_name, prompt):
@@ -199,12 +227,12 @@ def _call_gemini_model(model_name, prompt):
 # In app/ai_picks.py
 
 
-def generate_ai_picks(odds_df, history_data, sport="unknown"):
+def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=None, kalshi_context=None):
     """
     Generate betting picks using a multi-provider, multi-tier model fallback system,
     with validation and data enrichment to ensure data quality.
     """
-    # Define the context and prompt for the AI models
+    # Define the base context
     context = {
         "odds_count": len(odds_df),
         "sport": sport.upper(),
@@ -212,17 +240,29 @@ def generate_ai_picks(odds_df, history_data, sport="unknown"):
         "history": history_data,
     }
 
+    # Merge in optional extra context
+    if context_payload:
+        context["extra_context"] = context_payload
+
+    # Merge Kalshi market context (with popularity scores)
+    if kalshi_context:
+        context["kalshi"] = kalshi_context
+
+    # Build prompt
     prompt = f"""
     You are a hyper-efficient sports betting analyst. Your goal is to quickly identify the best value bets.
 
     Instructions:
-    1.  Analyze the provided context to find the best moneyline (h2h), spread, and total bets.
-    2.  Each object in the "picks" list MUST contain these exact keys: "game", "sport", "pick", "market", "line", "odds_american", "confidence", "reasoning".
-    3.  The "odds_american" field is mandatory and must be the numeric odds value (e.g., -110, 150).
-    4.  The 'confidence' value MUST be an integer from 2 to 5. Do not return 1-star picks.
-    5.  All picks must be for DIFFERENT GAMES.
-    6.  The "reasoning" MUST be a concise, data-driven summary.
-    7.  If no bets meet the 2-star confidence threshold, return an empty "picks" list.
+    1.  Analyze the provided context, including odds, historical performance, and Kalshi sentiment data (popularity_score, volume_24h, open_interest).
+    2.  When popularity_score is high, treat the game as "high buzz". Higher volume_24h indicates recent betting buzz, while higher open_interest indicates sustained commitment.
+    3.  Evaluate not just the match-level popularity but also which side (team) shows stronger sentiment. If one team’s Kalshi side has clearly higher open_interest or volume_24h, note that as momentum.
+    4.  Each object in the "picks" list MUST contain these exact keys:
+        "game", "sport", "pick", "market", "line", "odds_american", "confidence", "reasoning".
+    5.  The "odds_american" field is mandatory and must be the numeric odds value (e.g., -110, 150).
+    6.  The 'confidence' value MUST be an integer from 2 to 5. Do not return 1-star picks.
+    7.  All picks must be for DIFFERENT GAMES.
+    8.  The "reasoning" MUST be concise, showing how odds + Kalshi sentiment justify the pick.
+    9.  If no bets meet the 2-star threshold, return an empty "picks" list.
 
     Context: {json.dumps(context, indent=2)}
     """
@@ -244,21 +284,24 @@ def generate_ai_picks(odds_df, history_data, sport="unknown"):
 
             if parsed:
                 st.success(
-                    f"Successfully generated {len(parsed)} picks using {model['provider']}'s {model['name']}!")
+                    f"Successfully generated {len(parsed)} picks using {model['provider']}'s {model['name']}!"
+                )
                 break
             else:
                 st.warning(
-                    f"Model {model['name']} returned no picks. Trying next model...")
+                    f"Model {model['name']} returned no picks. Trying next model..."
+                )
         except Exception as e:
             st.warning(
-                f"Model {model['name']} failed: {e}. Trying next model...")
+                f"Model {model['name']} failed: {e}. Trying next model..."
+            )
             continue
 
     if not parsed:
         st.error("All models failed to generate picks.")
         return []
 
-    # Post-processing and data validation before saving
+    # Post-processing and validation
     if isinstance(parsed[0], dict):
         for pick in parsed:
             if 'sport' not in pick or not pick.get('sport'):
@@ -274,17 +317,14 @@ def generate_ai_picks(odds_df, history_data, sport="unknown"):
                 except (IndexError, KeyError):
                     pass
 
-        # Check for duplicates before saving
         from .db import insert_ai_picks, get_existing_picks
         existing_picks = get_existing_picks()
 
         unique_picks = []
         dupe_count = 0
         for pick in parsed:
-            # Create a unique identifier for the pick based on team and market
             pick_key = (pick.get('pick', '').strip(),
                         pick.get('market', '').strip())
-
             if pick_key not in existing_picks:
                 unique_picks.append(pick)
             else:
@@ -292,7 +332,8 @@ def generate_ai_picks(odds_df, history_data, sport="unknown"):
 
         if dupe_count > 0:
             st.info(
-                f"Ignored {dupe_count} duplicate picks based on team and market.")
+                f"Ignored {dupe_count} duplicate picks based on team and market."
+            )
 
         try:
             if unique_picks:
@@ -302,9 +343,9 @@ def generate_ai_picks(odds_df, history_data, sport="unknown"):
                 st.toast("No new unique picks to save.")
         except Exception as e:
             st.error(f"Failed to save AI picks: {e}")
-
     else:
         st.warning(
-            "AI returned unstructured data. Picks were displayed but not saved to history.")
+            "AI returned unstructured data. Picks were displayed but not saved to history."
+        )
 
     return parsed
