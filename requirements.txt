@@ -3,6 +3,7 @@ altair==5.5.0
 anyio==4.11.0
 asyncio==4.0.0
 attrs==25.3.0
+beautifulsoup4==4.14.2
 blinker==1.9.0
 cachetools==6.2.0
 certifi==2025.8.3
@@ -33,6 +34,7 @@ Jinja2==3.1.6
 jiter==0.11.0
 jsonschema==4.25.1
 jsonschema-specifications==2025.9.1
+lxml==6.0.2
 MarkupSafe==3.0.3
 narwhals==2.6.0
 numpy==2.3.3
@@ -40,7 +42,6 @@ openai==1.109.1
 packaging==25.0
 pandas==2.3.3
 pillow==11.3.0
-playwright==1.55.0
 proto-plus==1.26.1
 protobuf==5.29.5
 pyarrow==21.0.0
@@ -61,6 +62,7 @@ rsa==4.9.1
 six==1.17.0
 smmap==5.0.2
 sniffio==1.3.1
+soupsieve==2.8
 streamlit==1.50.0
 tenacity==9.1.2
 toml==0.10.2
