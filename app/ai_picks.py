@@ -322,18 +322,37 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
 
         unique_picks = []
         dupe_count = 0
+        conflict_count = 0
+        seen_game_markets = set()
+
         for pick in parsed:
-            pick_key = (pick.get('pick', '').strip(),
-                        pick.get('market', '').strip())
-            if pick_key not in existing_picks:
-                unique_picks.append(pick)
-            else:
+            game_id = pick.get('game', '').strip()
+            market = pick.get('market', '').strip()
+            pick_side = pick.get('pick', '').strip()
+
+            # key for conflict detection: same game + same market
+            gm_key = (game_id, market)
+
+            # Prevent direct duplicates (same side)
+            if (pick_side, market) in existing_picks:
                 dupe_count += 1
+                continue
+
+            # Prevent opposite/conflicting sides
+            if gm_key in seen_game_markets:
+                conflict_count += 1
+                continue
+
+            unique_picks.append(pick)
+            seen_game_markets.add(gm_key)
 
         if dupe_count > 0:
             st.info(
-                f"Ignored {dupe_count} duplicate picks based on team and market."
-            )
+                f"Ignored {dupe_count} duplicate picks based on team+market.")
+
+        if conflict_count > 0:
+            st.info(
+                f"Ignored {conflict_count} conflicting picks for the same game+market.")
 
         try:
             if unique_picks:

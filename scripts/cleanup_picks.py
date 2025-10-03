@@ -17,9 +17,9 @@ def delete_low_confidence_picks(conn):
     print("Scanning for low-confidence picks...")
     cur = conn.cursor()
 
-    # Use a single query to find and delete
     cur.execute(
-        f"DELETE FROM {TABLE_NAME} WHERE confidence IS NULL OR CAST(confidence AS INTEGER) < 2")
+        f"DELETE FROM {TABLE_NAME} WHERE confidence IS NULL OR CAST(confidence AS INTEGER) < 2"
+    )
     deleted_count = cur.rowcount
     conn.commit()
 
@@ -34,7 +34,6 @@ def delete_duplicate_picks(conn):
     print("\nScanning for duplicate picks...")
     cur = conn.cursor()
 
-    # Delete all but the latest by date for each market/pick
     query = f"""
         DELETE FROM {TABLE_NAME}
         WHERE id NOT IN (
@@ -61,6 +60,40 @@ def delete_duplicate_picks(conn):
         print("No duplicate picks found.")
 
 
+def delete_conflicting_picks(conn):
+    """
+    Deletes conflicting picks for the same game+market, keeping only the most recent one.
+    This ensures we don't store both sides of the same bet.
+    """
+    print("\nScanning for conflicting picks (same game+market)...")
+    cur = conn.cursor()
+
+    query = f"""
+        DELETE FROM {TABLE_NAME}
+        WHERE id NOT IN (
+            SELECT id
+            FROM (
+                SELECT id,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY game, market
+                           ORDER BY date DESC
+                       ) AS rn
+                FROM {TABLE_NAME}
+            ) ranked
+            WHERE rn = 1
+        )
+    """
+    cur.execute(query)
+    deleted_count = cur.rowcount
+    conn.commit()
+
+    if deleted_count > 0:
+        print(
+            f"✅ Deleted {deleted_count} conflicting picks (kept newest per game+market).")
+    else:
+        print("No conflicting picks found.")
+
+
 def main():
     """Main function to run all cleanup tasks."""
     if not os.path.exists(DB_PATH):
@@ -72,9 +105,9 @@ def main():
         conn = sqlite3.connect(DB_PATH)
         print(f"Connected to database: {DB_PATH}\n")
 
-        # Run all cleanup functions
         delete_low_confidence_picks(conn)
         delete_duplicate_picks(conn)
+        delete_conflicting_picks(conn)
 
         print("\nDatabase cleanup complete!")
 
