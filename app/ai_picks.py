@@ -261,8 +261,10 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
     5.  The "odds_american" field is mandatory and must be the numeric odds value (e.g., -110, 150).
     6.  The 'confidence' value MUST be an integer from 2 to 5. Do not return 1-star picks.
     7.  All picks must be for DIFFERENT GAMES.
-    8.  The "reasoning" MUST be concise, showing how odds + Kalshi sentiment justify the pick.
-    9.  If no bets meet the 2-star threshold, return an empty "picks" list.
+    8.  Only consider odds between +150 and -150.
+    9.  Return concise, data-backed picks using odds, historical performance, and Kalshi sentiment.
+    10.  If no bets meet the 2-star threshold, return an empty "picks" list.
+    11.  Final check for a valid response must include: game, sport, pick, market, line, odds_american, confidence (2–5), reasoning.
 
     Context: {json.dumps(context, indent=2)}
     """

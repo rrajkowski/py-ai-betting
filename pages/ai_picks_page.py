@@ -309,6 +309,28 @@ def run_ai_picks(sport_key, sport_name):
     # Get today's date in UTC and format as YYYY-MM-DD
     target_date = datetime.now(pytz.utc).strftime('%Y-%m-%d')
 
+    # --- Time Limit Check ---
+    last_pick_time = get_most_recent_pick_timestamp(sport_name)
+    now_utc = datetime.now(pytz.utc)
+
+    if last_pick_time:
+        # next_run_time = last_pick_time + timedelta(hours=12)  # 12-hour limit
+        next_run_time = last_pick_time + \
+            timedelta(minutes=1)  # 1min for testing
+        time_to_wait = next_run_time - now_utc
+
+        if time_to_wait > timedelta(0):
+            hours, remainder = divmod(time_to_wait.total_seconds(), 3600)
+            minutes, _ = divmod(remainder, 60)
+            local_tz = pytz.timezone(LOCAL_TZ_NAME)
+            last_pick_local = last_pick_time.astimezone(local_tz)
+
+            st.info(
+                f"Picks for {sport_name} were generated today. Last generated: {last_pick_local.strftime('%Y-%m-%d %I:%M %p %Z')}. "
+                f"Please wait {int(hours)} hours and {int(minutes)} minutes before running again. ⏳"
+            )
+            return
+
     # --- UI Status Indicators Setup (NEW) ---
     status_cols = st.columns(3)
     status_placeholders = {
@@ -338,27 +360,6 @@ def run_ai_picks(sport_key, sport_name):
         target_date, sport_key)  # NEW: Passed sport_key
     status_placeholders['context'].success(
         f"✅ Context Built ({len(context_payload.get('games', []))} Games)")
-
-    # --- 3. Time Limit Check ---
-    last_pick_time = get_most_recent_pick_timestamp(sport_name)
-    now_utc = datetime.now(pytz.utc)
-
-    if last_pick_time:
-        next_run_time = last_pick_time + timedelta(hours=12)  # 12-hour limit
-        # next_run_time = last_pick_time + timedelta(minutes=1)  # 1min for testing
-        time_to_wait = next_run_time - now_utc
-
-        if time_to_wait > timedelta(0):
-            hours, remainder = divmod(time_to_wait.total_seconds(), 3600)
-            minutes, _ = divmod(remainder, 60)
-            local_tz = pytz.timezone(LOCAL_TZ_NAME)
-            last_pick_local = last_pick_time.astimezone(local_tz)
-
-            st.info(
-                f"Picks for {sport_name} were generated today. Last generated: {last_pick_local.strftime('%Y-%m-%d %I:%M %p %Z')}. "
-                f"Please wait {int(hours)} hours and {int(minutes)} minutes before running again. ⏳"
-            )
-            return
 
     # --- 4. Model Execution (Existing Logic) ---
     with st.spinner(f"Step 2: AI is analyzing {sport_name} games with {len(context_payload.get('games', []))} context blocks..."):

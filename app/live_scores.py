@@ -1,15 +1,14 @@
 # live_scores.py
 import streamlit as st
 from app.ai_picks import fetch_scores
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 
 def display_live_scores():
     st.header("Live & Recent Scores")
 
-    # --- NEW: Define theme-aware CSS styles ---
-    # These variables use Streamlit's theme to adapt to light/dark mode.
+    # --- Style Config ---
     box_style = """
         border: 1px solid black;
         border-radius: 8px;
@@ -22,15 +21,19 @@ def display_live_scores():
     team_style = "display: flex; justify-content: space-between; align-items: center; font-size: 16px;"
     score_style = "font-weight: bold; font-size: 20px;"
 
-    # --- Fetching and Display Logic (mostly unchanged) ---
+    # --- Fetch scores (pulls 1 day of history) ---
     sports_data = {
-        "NFL": fetch_scores(sport="americanfootball_nfl", days_from=1)[:10],
-        "NCAAF": fetch_scores(sport="americanfootball_ncaaf", days_from=1)[:10],
-        "MLB": fetch_scores(sport="baseball_mlb", days_from=1)[:10]
+        "NFL": fetch_scores(sport="americanfootball_nfl", days_from=1),
+        "NCAAF": fetch_scores(sport="americanfootball_ncaaf", days_from=1),
+        "MLB": fetch_scores(sport="baseball_mlb", days_from=1),
     }
 
     emojis = {"NFL": "🏈", "NCAAF": "🎓", "MLB": "⚾️"}
     cols = st.columns(3)
+
+    # Current UTC for cutoff logic
+    now_utc = datetime.now(timezone.utc)
+    cutoff_utc = now_utc - timedelta(hours=8)
 
     for idx, (sport, games) in enumerate(sports_data.items()):
         with cols[idx]:
@@ -40,24 +43,52 @@ def display_live_scores():
                 st.info(f"No recent {sport} scores available.")
                 continue
 
+            # --- Filter: remove games older than 8 hours ---
+            filtered_games = []
             for g in games:
+                commence_str = g.get("commence_time")
+                if not commence_str:
+                    continue
+                try:
+                    commence_dt = datetime.fromisoformat(
+                        commence_str.replace("Z", "+00:00")
+                    )
+                except Exception:
+                    continue
+                # Keep only games that started within last 8h OR upcoming
+                if commence_dt >= cutoff_utc:
+                    filtered_games.append(g)
+
+            # --- Prioritize LIVE games ---
+            live_games = [g for g in filtered_games if not g.get("completed", False)
+                          and datetime.fromisoformat(g["commence_time"].replace("Z", "+00:00")) <= now_utc]
+            upcoming_games = [g for g in filtered_games if g not in live_games]
+            final_games = live_games + upcoming_games
+
+            # If no live games for NCAAF, show 5 upcoming
+            if sport == "NCAAF" and not live_games:
+                final_games = upcoming_games[:5]
+
+            # --- Display games ---
+            for g in final_games[:10]:
                 home = g.get("home_team", "N/A")
                 away = g.get("away_team", "N/A")
-                scores_list = g.get("scores") or []
-                home_score = next(
-                    (s.get("score") for s in scores_list if s.get("name") == home), None)
-                away_score = next(
-                    (s.get("score") for s in scores_list if s.get("name") == away), None)
-                commence_time_str = g.get("commence_time")
-                is_complete = g.get("completed", False)
+                scores = g.get("scores") or []
+                home_score = next((s.get("score")
+                                  for s in scores if s.get("name") == home), "-")
+                away_score = next((s.get("score")
+                                  for s in scores if s.get("name") == away), "-")
 
+                is_complete = g.get("completed", False)
+                commence_str = g.get("commence_time")
                 status_html = ""
+
                 if is_complete:
                     status_html = f'<div style="{status_style_default}">FINAL</div>'
-                elif commence_time_str:
+                elif commence_str:
                     utc_time = datetime.fromisoformat(
-                        commence_time_str.replace('Z', '+00:00'))
-                    if datetime.now(timezone.utc) > utc_time:
+                        commence_str.replace("Z", "+00:00"))
+                    if utc_time <= now_utc:
                         status_html = f'<div style="{status_style_default}"><span style="{status_style_live}">LIVE</span></div>'
                     else:
                         pst_tz = ZoneInfo("America/Los_Angeles")
@@ -73,11 +104,11 @@ def display_live_scores():
                         <div style="text-align: center; margin-bottom: 8px;">{status_html}</div>
                         <div style="{team_style}">
                             <span>{away}</span>
-                            <span style="{score_style}">{away_score or '-'}</span>
+                            <span style="{score_style}">{away_score}</span>
                         </div>
                         <div style="{team_style} margin-top: 4px;">
                             <span>{home}</span>
-                            <span style="{score_style}">{home_score or '-'}</span>
+                            <span style="{score_style}">{home_score}</span>
                         </div>
                     </div>
                     """,
