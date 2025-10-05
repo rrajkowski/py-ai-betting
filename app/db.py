@@ -273,33 +273,33 @@ def insert_ai_pick(pick: dict):
 
 def fetch_performance_summary(sport_name):
     """
-    Calculates and returns Win/Loss/Units by confidence level for a given sport.
+    Calculates and returns Win/Loss/Push/Units by confidence level for a given sport.
     The profit calculation assumes 1 unit = $100.
 
-    NOTE: This assumes a 'result' column exists in ai_picks with 'Win' or 'Loss'.
+    Includes 'Push' outcomes as neutral (0 units gained or lost).
     """
+
     conn = get_db()
     cur = conn.cursor()
 
-    # This SQL query groups by the first character of confidence (the star count)
-    # and calculates the total wins, total losses, and total units profit/loss.
     query = """
     SELECT
         SUBSTR(confidence, 1, 1) AS star_rating,
         SUM(CASE WHEN result = 'Win' THEN 1 ELSE 0 END) AS total_wins,
         SUM(CASE WHEN result = 'Loss' THEN 1 ELSE 0 END) AS total_losses,
+        SUM(CASE WHEN result = 'Push' THEN 1 ELSE 0 END) AS total_pushes,
         SUM(
             CASE
                 WHEN result = 'Win' AND odds_american > 0 THEN (odds_american / 100.0) * 100
                 WHEN result = 'Win' AND odds_american < 0 THEN (100.0 / ABS(odds_american)) * 100
-                WHEN result = 'Loss' THEN -100.0 -- Loss of 1 unit ($100)
-                ELSE 0
+                WHEN result = 'Loss' THEN -100.0
+                ELSE 0 -- Push or no result
             END
-        ) / 100.0 AS net_units -- Divide by 100 to convert to units (1 unit = $100)
+        ) / 100.0 AS net_units
     FROM
         ai_picks
     WHERE
-        sport = ? AND result IN ('Win', 'Loss')
+        sport = ? AND result IN ('Win', 'Loss', 'Push')
     GROUP BY
         star_rating
     ORDER BY

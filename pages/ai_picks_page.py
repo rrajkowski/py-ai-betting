@@ -12,7 +12,7 @@ from app.db import (
     get_unsettled_picks,
     update_pick_result,
 )
-from app.utils.db import init_prompt_context_db
+from app.utils.db import get_db, init_prompt_context_db
 from app.utils.context_builder import create_super_prompt_payload
 from app.utils.scraper import run_scrapers
 from app.utils.kalshi_api import fetch_kalshi_consensus
@@ -241,63 +241,130 @@ if 'metric_sport' not in st.session_state:
 
 
 def display_performance_metrics(sport_name, col_container):
-    """Fetches and displays the performance metrics table by confidence level in the given container."""
+    """Displays detailed and total metrics for a given sport."""
     summary = fetch_performance_summary(sport_name)
 
     with col_container:
         st.subheader(f"{sport_name} Metrics")
 
-        # Define columns for the summary table header
-        col_names = st.columns(3)
-        col_names[0].markdown('**W/L**')
-        col_names[1].markdown('**Conf**')
-        col_names[2].markdown('**Units**')
-        st.markdown("---")
-
-        # Display rows for each confidence level (2, 3, 4, 5 stars)
-        found_metrics = False
-        for row in summary:
-            found_metrics = True
-
-            try:
-                star_rating = int(row['star_rating'])
-            except (ValueError, TypeError):
-                continue  # Skip if star_rating is invalid
-
-            stars = '⭐' * star_rating
-            w_l_record = f"{row['total_wins']}-{row['total_losses']}"
-            net_units = row['net_units']
-
-            # Determine color for units
-            color = "green" if net_units >= 0 else "red"
-
-            # Display each row using st.columns (3 columns inside the main container column)
-            cols = st.columns(3)
-
-            with cols[0]:
-                st.markdown(w_l_record)
-
-            with cols[1]:
-                st.markdown(stars)
-
-            with cols[2]:
-                # Format to two decimal places and apply color
-                st.markdown(
-                    f"<span style='color: {color}; font-weight: bold;'>{net_units:+.2f}u</span>", unsafe_allow_html=True)
-
-        if not found_metrics:
+        if not summary:
             st.info("No completed picks found.")
+            return
+
+        # ---- Calculate Totals ----
+        total_wins = sum(r.get("total_wins", 0) for r in summary)
+        total_losses = sum(r.get("total_losses", 0) for r in summary)
+        total_pushes = sum(r.get("total_pushes", 0)
+                           for r in summary) if "total_pushes" in summary[0] else 0
+        total_units = sum(r.get("net_units", 0) for r in summary)
+
+        avg_conf = (
+            sum(int(r.get("star_rating", 0)) * (r.get("total_wins", 0) + r.get("total_losses", 0))
+                for r in summary)
+            / max(total_wins + total_losses, 1)
+        )
+        avg_stars = "⭐" * round(avg_conf)
+
+        # ---- Compact Table Header ----
+        header_cols = st.columns([1, 1, 1])
+        header_cols[0].markdown("**W/L/P**")
+        header_cols[1].markdown("**Conf**")
+        header_cols[2].markdown("**Units**")
+        st.markdown(
+            "<hr style='margin: 4px 0; border: 0.5px solid var(--text-color); opacity: 0.2;'>",
+            unsafe_allow_html=True,
+        )
+
+        # ---- Display Each Confidence Level ----
+        for row in summary:
+            stars = "⭐" * int(row["star_rating"])
+            wl_record = f"{row['total_wins']}-{row['total_losses']}"
+            units = row["net_units"]
+            color = "green" if units >= 0 else "red"
+
+            row_cols = st.columns([1, 1, 1])
+            row_cols[0].markdown(wl_record)
+            row_cols[1].markdown(stars)
+            row_cols[2].markdown(
+                f"<span style='color:{color}; font-weight:bold'>{units:+.2f}u</span>",
+                unsafe_allow_html=True,
+            )
+
+        # ---- Totals Row ----
+        st.markdown(
+            "<hr style='margin: 4px 0; border: 0.5px solid var(--text-color); opacity: 0.2;'>",
+            unsafe_allow_html=True,
+        )
+        total_color = "green" if total_units >= 0 else "red"
+        total_cols = st.columns([1, 1, 1])
+        total_cols[0].markdown(
+            f"**{total_wins}-{total_losses}-{total_pushes}**")
+        total_cols[1].markdown(f"**{avg_stars}**")
+        total_cols[2].markdown(
+            f"<span style='color:{total_color}; font-weight:bold;'>**{total_units:+.2f}u**</span>",
+            unsafe_allow_html=True,
+        )
+
+# Aggregate results for ALL sports
+
+
+def fetch_all_sports_summary():
+    conn = get_db()
+    cur = conn.cursor()
+
+    query = """
+    SELECT
+        SUM(CASE WHEN result = 'Win' THEN 1 ELSE 0 END) AS total_wins,
+        SUM(CASE WHEN result = 'Loss' THEN 1 ELSE 0 END) AS total_losses,
+        SUM(CASE WHEN result = 'Push' THEN 1 ELSE 0 END) AS total_pushes,
+        SUM(
+            CASE
+                WHEN result = 'Win' AND odds_american > 0 THEN (odds_american / 100.0) * 100
+                WHEN result = 'Win' AND odds_american < 0 THEN (100.0 / ABS(odds_american)) * 100
+                WHEN result = 'Loss' THEN -100.0
+                ELSE 0
+            END
+        ) / 100.0 AS net_units
+    FROM ai_picks
+    WHERE result IN ('Win', 'Loss', 'Push');
+    """
+    cur.execute(query)
+    row = cur.fetchone()
+    conn.close()
+
+    if not row:
+        return {"wins": 0, "losses": 0, "pushes": 0, "units": 0.0}
+
+    return {
+        "wins": row[0] or 0,
+        "losses": row[1] or 0,
+        "pushes": row[2] or 0,
+        "units": round(row[3] or 0.0, 2),
+    }
 
 
 # --- GLOBAL PERFORMANCE METRICS DISPLAY (MOVED TO TOP) ---
-st.header("🏆 Historical Performance")
-metric_cols = st.columns(3)
+st.markdown("## 🏆 Historical Performance")
 
-# Display metrics for all three sports automatically
+summary = fetch_all_sports_summary()
+wl_summary = f"{summary['wins']}-{summary['losses']}-{summary['pushes']}"
+color = "green" if summary['units'] >= 0 else "red"
+
+# Centered row with compact spacing
+st.markdown(
+    f"""
+    <div style='display: flex; justify-content: center; gap: 40px; margin-top: -20px; margin-bottom: 10px;'>
+        <div><b>W/L/P:</b> {wl_summary}</div>
+        <div><b>Units:</b> <span style='color:{color}; font-weight:bold;'>{summary['units']:+.2f}u</span></div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+metric_cols = st.columns(3)
 display_performance_metrics("NFL", metric_cols[0])
 display_performance_metrics("NCAAF", metric_cols[1])
 display_performance_metrics("MLB", metric_cols[2])
-
 
 # -----------------------------
 # Main AI Pick Generation Logic
@@ -469,34 +536,48 @@ if st.session_state.generated_picks:
 # --- AI Picks History Table ---
 st.header("📜 AI Picks History")
 ai_picks_history = list_ai_picks()
+
 if ai_picks_history:
     df = pd.DataFrame(ai_picks_history)
 
-    # Ensure confidence is a numeric type for correct sorting, defaulting errors to 0
-    df['confidence_numeric'] = pd.to_numeric(
-        df['confidence'], errors='coerce').fillna(0)
+    # --- NEW: Filter out completed picks (win/loss/push) ---
+    completed_statuses = {"win", "loss", "push"}
+    df = df[~df["result"].astype(str).str.lower().isin(completed_statuses)]
 
-    # --- NEW: Sort by the numeric confidence score in descending order ---
-    df.sort_values(by='confidence_numeric', ascending=False, inplace=True)
+    # Ensure confidence is numeric for proper sorting
+    df["confidence_numeric"] = pd.to_numeric(
+        df["confidence"], errors="coerce").fillna(0)
 
-    # Convert confidence numbers to stars for display
+    # Sort descending by confidence
+    df.sort_values(by="confidence_numeric", ascending=False, inplace=True)
+
+    # Convert confidence to stars for display
     def score_to_stars(score):
         try:
             return "⭐" * max(1, min(5, int(score)))
         except (ValueError, TypeError):
             return "⭐"
 
-    df['Confidence (Stars)'] = df['confidence_numeric'].apply(score_to_stars)
+    df["Confidence (Stars)"] = df["confidence_numeric"].apply(score_to_stars)
 
-    # Define and reorder columns for display.
-    # The 'result' column (Win/Loss/Pending) is now explicitly included.
-    display_cols = ['date', 'sport', 'game', 'pick', 'market',
-                    'line', 'odds_american', 'result', 'Confidence (Stars)', 'reasoning']
+    # Define and reorder display columns
+    display_cols = [
+        "date",
+        "sport",
+        "game",
+        "pick",
+        "market",
+        "line",
+        "odds_american",
+        "result",
+        "Confidence (Stars)",
+        "reasoning",
+    ]
 
-    # Rename the new confidence column for the final display
     df_display = df[display_cols].rename(
         columns={"Confidence (Stars)": "confidence"})
 
     st.dataframe(df_display, width="stretch", hide_index=True)
+
 else:
     st.info("No AI picks have been saved yet.")

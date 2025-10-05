@@ -1,5 +1,3 @@
-# cleanup_picks.py
-
 import sqlite3
 import os
 
@@ -13,30 +11,35 @@ TABLE_NAME = "ai_picks"
 
 
 def delete_low_confidence_picks(conn):
-    """Deletes rows with a confidence score of less than 2 or NULL."""
-    print("Scanning for low-confidence picks...")
+    """Deletes low-confidence picks (confidence < 2) but only if result = 'Pending'."""
+    print("🔍 Scanning for low-confidence pending picks...")
     cur = conn.cursor()
 
     cur.execute(
-        f"DELETE FROM {TABLE_NAME} WHERE confidence IS NULL OR CAST(confidence AS INTEGER) < 2"
+        f"""
+        DELETE FROM {TABLE_NAME}
+        WHERE (confidence IS NULL OR CAST(confidence AS INTEGER) < 2)
+        AND (result IS NULL OR LOWER(result) = 'pending')
+        """
     )
     deleted_count = cur.rowcount
     conn.commit()
 
     if deleted_count > 0:
-        print(f"✅ Deleted {deleted_count} low-confidence picks.")
+        print(f"✅ Deleted {deleted_count} low-confidence pending picks.")
     else:
-        print("No low-confidence picks found.")
+        print("No low-confidence pending picks found.")
 
 
 def delete_duplicate_picks(conn):
-    """Deletes duplicate picks, keeping only the most recent entry per market/pick by date."""
-    print("\nScanning for duplicate picks...")
+    """Deletes duplicate pending picks, keeping only the most recent per market/pick."""
+    print("\n🔍 Scanning for duplicate pending picks...")
     cur = conn.cursor()
 
     query = f"""
         DELETE FROM {TABLE_NAME}
-        WHERE id NOT IN (
+        WHERE (result IS NULL OR LOWER(result) = 'pending')
+        AND id NOT IN (
             SELECT id
             FROM (
                 SELECT id,
@@ -45,6 +48,7 @@ def delete_duplicate_picks(conn):
                            ORDER BY date DESC
                        ) AS rn
                 FROM {TABLE_NAME}
+                WHERE (result IS NULL OR LOWER(result) = 'pending')
             ) ranked
             WHERE rn = 1
         )
@@ -54,23 +58,20 @@ def delete_duplicate_picks(conn):
     conn.commit()
 
     if deleted_count > 0:
-        print(
-            f"✅ Deleted {deleted_count} duplicate picks (kept latest by date).")
+        print(f"✅ Deleted {deleted_count} duplicate pending picks.")
     else:
-        print("No duplicate picks found.")
+        print("No duplicate pending picks found.")
 
 
 def delete_conflicting_picks(conn):
-    """
-    Deletes conflicting picks for the same game+market, keeping only the most recent one.
-    This ensures we don't store both sides of the same bet.
-    """
-    print("\nScanning for conflicting picks (same game+market)...")
+    """Deletes conflicting pending picks (same game+market, opposite sides)."""
+    print("\n🔍 Scanning for conflicting pending picks...")
     cur = conn.cursor()
 
     query = f"""
         DELETE FROM {TABLE_NAME}
-        WHERE id NOT IN (
+        WHERE (result IS NULL OR LOWER(result) = 'pending')
+        AND id NOT IN (
             SELECT id
             FROM (
                 SELECT id,
@@ -79,6 +80,7 @@ def delete_conflicting_picks(conn):
                            ORDER BY date DESC
                        ) AS rn
                 FROM {TABLE_NAME}
+                WHERE (result IS NULL OR LOWER(result) = 'pending')
             ) ranked
             WHERE rn = 1
         )
@@ -88,16 +90,15 @@ def delete_conflicting_picks(conn):
     conn.commit()
 
     if deleted_count > 0:
-        print(
-            f"✅ Deleted {deleted_count} conflicting picks (kept newest per game+market).")
+        print(f"✅ Deleted {deleted_count} conflicting pending picks.")
     else:
-        print("No conflicting picks found.")
+        print("No conflicting pending picks found.")
 
 
 def main():
-    """Main function to run all cleanup tasks."""
+    """Runs all cleanup tasks for pending picks."""
     if not os.path.exists(DB_PATH):
-        print(f"Error: Database file not found at '{DB_PATH}'")
+        print(f"❌ Error: Database file not found at '{DB_PATH}'")
         return
 
     conn = None
@@ -109,10 +110,10 @@ def main():
         delete_duplicate_picks(conn)
         delete_conflicting_picks(conn)
 
-        print("\nDatabase cleanup complete!")
+        print("\n🧹 Database cleanup complete (pending picks only)!")
 
     except Exception as e:
-        print(f"\nAn error occurred: {e}")
+        print(f"\n❌ An error occurred: {e}")
     finally:
         if conn:
             conn.close()

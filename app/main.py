@@ -104,8 +104,30 @@ async def record_result(res: BetResult):
         row = cur.fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Bet not found")
+
         odds, stake = row
-        profit = (stake * (odds - 1)) if res.outcome == "win" else -stake
-        cur.execute("UPDATE bets SET outcome=?, profit=? WHERE id=?",
-                    (res.outcome, profit, res.bet_id))
-    return {"bet_id": res.bet_id, "profit": profit}
+        outcome = res.outcome.lower().strip()
+
+        # --- NEW: Include 'push' handling ---
+        if outcome == "win":
+            profit = stake * (odds - 1)
+        elif outcome == "loss":
+            profit = -stake
+        elif outcome == "push":
+            profit = 0.0
+        else:
+            raise HTTPException(
+                status_code=400, detail=f"Invalid outcome '{outcome}'")
+
+        cur.execute(
+            "UPDATE bets SET outcome=?, profit=? WHERE id=?",
+            (outcome, profit, res.bet_id),
+        )
+        conn.commit()
+
+    return {
+        "bet_id": res.bet_id,
+        "outcome": outcome,
+        "profit": profit,
+        "units": 0 if outcome == "push" else profit / stake if stake else 0,
+    }
