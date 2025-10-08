@@ -86,7 +86,7 @@ def fetch_kalshi_consensus(sport_key: str, target_date: str):
         f"📡 Kalshi API: Returned {len(markets)} markets after filtering future-close for {sport_key.upper()}")
 
     if not markets:
-        print(f"⚠️ No markets found after filtering for future close times.")
+        print("⚠️ No markets found after filtering for future close times.")
         return
 
     # Sanitize volumes / open_interest

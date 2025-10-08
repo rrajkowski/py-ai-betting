@@ -2,13 +2,14 @@ import streamlit as st
 import requests
 import json
 import os
+import sqlite3
+from datetime import datetime, timezone
 from openai import OpenAI
 import google.generativeai as genai
 from .db import get_db, init_ai_picks
 from .const import RAPIDAPI_KEY, HEADERS
-
-# --- Load API Keys from .env ---
 from dotenv import load_dotenv
+
 load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
@@ -17,19 +18,15 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
 
-
-# --- NEW: Schema migration for historical_games table ---
+# -------------------------
+# DB Migration for historical_games
+# -------------------------
 
 
 def migrate_historical_games():
-    """
-    Ensures the historical_games table exists with the correct, final schema.
-    This is the single source of truth for this table's structure.
-    """
+    """Ensures the historical_games table exists with full schema."""
     conn = get_db()
     cur = conn.cursor()
-
-    # Create the table with the complete schema if it doesn't exist
     cur.execute("""
         CREATE TABLE IF NOT EXISTS historical_games (
             id TEXT PRIMARY KEY,
@@ -42,29 +39,24 @@ def migrate_historical_games():
             away_team TEXT
         )
     """)
-
-    # For backward compatibility, check for and add columns if missing from an old DB
     cur.execute("PRAGMA table_info(historical_games)")
-    # Use a set for faster lookups
     cols = {row['name'] for row in cur.fetchall()}
-
     if "home_team" not in cols:
         cur.execute("ALTER TABLE historical_games ADD COLUMN home_team TEXT")
     if "away_team" not in cols:
         cur.execute("ALTER TABLE historical_games ADD COLUMN away_team TEXT")
-
     conn.commit()
     conn.close()
 
 
-# --- Run Migrations on Import ---
 init_ai_picks()
 migrate_historical_games()
-
 
 # -------------------------
 # Odds & Scores APIs
 # -------------------------
+
+
 def fetch_odds(sport="americanfootball_ncaaf"):
     url = f"https://odds.p.rapidapi.com/v4/sports/{sport}/odds"
     querystring = {
@@ -87,35 +79,29 @@ def fetch_scores(sport="americanfootball_ncaaf", days_from=1):
     r.raise_for_status()
     return r.json()
 
+# -------------------------
+# Historical Data Caching
+# -------------------------
 
-# --- Historical Data Caching & Fetching  ---
-# --- Historical Data Caching & Fetching (CORRECTED) ---
+
 def _fetch_and_cache_historical_scores(sport_key, sport_name, team, limit=6, days_from=20):
     conn = get_db()
     cur = conn.cursor()
     history = []
-
-    # 1. Check cache using CORRECT schema (home_team, away_team)
     query = "SELECT * FROM historical_games WHERE sport = ? AND (home_team = ? OR away_team = ?) ORDER BY date DESC LIMIT ?"
     cur.execute(query, (sport_name, team, team, limit))
     cached_games = [dict(row) for row in cur.fetchall()]
 
     if len(cached_games) >= limit:
-        st.write(
-            f"Found {len(cached_games)} cached historical games for {team}.")
         conn.close()
         return cached_games
 
-    # 2. Fallback to live API
-    st.write(
-        "Fetching live scores from API...")
     try:
         scores_data = fetch_scores(sport=sport_key, days_from=days_from)
     except Exception:
         conn.close()
         return []
 
-    # 3. Parse and update cache using CORRECT schema
     for game in scores_data:
         if not game.get('completed', False):
             continue
@@ -129,16 +115,20 @@ def _fetch_and_cache_historical_scores(sport_key, sport_name, team, limit=6, day
             continue
 
         record = {
-            "id": game.get('id'), "sport": sport_name,
-            "game": f"{away_team} @ {home_team}", "score": f"{home_score}-{away_score}",
+            "id": game.get('id'),
+            "sport": sport_name,
+            "game": f"{away_team} @ {home_team}",
+            "score": f"{home_score}-{away_score}",
             "winner": home_team if int(home_score) > int(away_score) else away_team,
-            "date": game.get('commence_time'), "home_team": home_team, "away_team": away_team
+            "date": game.get('commence_time'),
+            "home_team": home_team,
+            "away_team": away_team,
         }
         cur.execute("""
             INSERT OR IGNORE INTO historical_games (id, sport, game, score, winner, date, home_team, away_team)
             VALUES (:id, :sport, :game, :score, :winner, :date, :home_team, :away_team)
         """, record)
-        if team == home_team or team == away_team:
+        if team in (home_team, away_team):
             history.append(record)
 
     conn.commit()
@@ -146,227 +136,193 @@ def _fetch_and_cache_historical_scores(sport_key, sport_name, team, limit=6, day
     return sorted(history, key=lambda x: x['date'], reverse=True)[:limit]
 
 
-def fetch_historical_ncaaf(team_name, limit=25):
-    return _fetch_and_cache_historical_scores("americanfootball_ncaaf", "NCAAF", team_name, limit)
+def fetch_historical_ncaaf(team_name, limit=25): return _fetch_and_cache_historical_scores(
+    "americanfootball_ncaaf", "NCAAF", team_name, limit)
 
 
-def fetch_historical_nfl(team_name, limit=16):
-    return _fetch_and_cache_historical_scores("americanfootball_nfl", "NFL", team_name, limit)
+def fetch_historical_nfl(team_name, limit=16): return _fetch_and_cache_historical_scores(
+    "americanfootball_nfl", "NFL", team_name, limit)
+def fetch_historical_mlb(team_name, limit=4): return _fetch_and_cache_historical_scores(
+    "baseball_mlb", "MLB", team_name, limit)
 
 
-def fetch_historical_mlb(team_name, limit=4):
-    return _fetch_and_cache_historical_scores("baseball_mlb", "MLB", team_name, limit)
-
-
-def fetch_historical_other(team_name, limit=6):
-    return []
-
+def fetch_historical_other(team_name, limit=6): return []
 
 # -------------------------
-# AI Model Helper Functions
+# AI Model Helpers
 # -------------------------
 
 
 def _call_openai_model(model_name, prompt):
-    """Sends a prompt to an OpenAI model and returns the parsed 'picks'."""
     if not OPENAI_API_KEY:
-        raise ValueError(
-            "OPENAI_API_KEY not found. Please set it in your .env file."
-        )
-
+        raise ValueError("OPENAI_API_KEY not set.")
     client = OpenAI(api_key=OPENAI_API_KEY)
-
-    # Build request
-    base_request = dict(
+    req = dict(
         model=model_name,
         messages=[
-            {
-                "role": "system",
-                "content": "You are a betting assistant. Respond ONLY with valid JSON that matches the schema.",
-            },
-            {
-                "role": "user",
-                "content": f"Return the picks as a JSON object with key 'picks'. Use this context:\n\n{prompt}\n\nFormat: JSON only.",
-            },
+            {"role": "system", "content": "You are a betting assistant returning valid JSON."},
+            {"role": "user", "content": f"Return picks JSON only:\n\n{prompt}"}
         ],
         response_format={"type": "json_object"},
         timeout=90.0,
     )
-
-    # Only include temperature for models that allow it
     if not model_name.startswith("gpt-5"):
-        base_request["temperature"] = 0.6
-
-    # Call OpenAI
-    resp = client.chat.completions.create(**base_request)
-
-    raw_output = resp.choices[0].message.content
+        req["temperature"] = 0.6
+    resp = client.chat.completions.create(**req)
+    raw = resp.choices[0].message.content
     try:
-        return json.loads(raw_output).get("picks", [])
+        return json.loads(raw).get("picks", [])
     except Exception:
-        # fallback: return empty if parsing fails
         return []
 
 
 def _call_gemini_model(model_name, prompt):
-    """Sends a prompt to a Gemini model and returns the parsed 'picks'."""
     if not GEMINI_API_KEY:
-        raise ValueError(
-            "GEMINI_API_KEY not found. Please set it in your .env file.")
-
-    st.write(f"Generating picks with Google model: {model_name}...")
-    # Enforce JSON output for Gemini
-    generation_config = genai.types.GenerationConfig(
+        raise ValueError("GEMINI_API_KEY not set.")
+    gen_config = genai.types.GenerationConfig(
         response_mime_type="application/json")
-    model = genai.GenerativeModel(
-        model_name, generation_config=generation_config)
-
+    model = genai.GenerativeModel(model_name, generation_config=gen_config)
     resp = model.generate_content(prompt)
     return json.loads(resp.text).get("picks", [])
 
-# In app/ai_picks.py
+# -------------------------
+# Generate AI Picks
+# -------------------------
 
 
 def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=None, kalshi_context=None):
-    """
-    Generate betting picks using a multi-provider, multi-tier model fallback system,
-    with validation and data enrichment to ensure data quality.
-    """
-    # Define the base context
     context = {
         "odds_count": len(odds_df),
         "sport": sport.upper(),
         "sample_odds": odds_df.head(15).to_dict(orient="records"),
         "history": history_data,
     }
-
-    # Merge in optional extra context
     if context_payload:
         context["extra_context"] = context_payload
-
-    # Merge Kalshi market context (with popularity scores)
     if kalshi_context:
         context["kalshi"] = kalshi_context
 
-    # Build prompt
     prompt = f"""
-    You are a hyper-efficient sports betting analyst. Your goal is to quickly identify the best value bets.
-
-    Instructions:
-    1.  Analyze the provided context, including odds, historical performance, and Kalshi sentiment data (popularity_score, volume_24h, open_interest).
-    2.  When popularity_score is high, treat the game as "high buzz". Higher volume_24h indicates recent betting buzz, while higher open_interest indicates sustained commitment.
-    3.  Evaluate not just the match-level popularity but also which side (team) shows stronger sentiment. If one team’s Kalshi side has clearly higher open_interest or volume_24h, note that as momentum.
-    4.  Each object in the "picks" list MUST contain these exact keys:
-        "game", "sport", "pick", "market", "line", "odds_american", "confidence", "reasoning".
-    5.  The "odds_american" field is mandatory and must be the numeric odds value (e.g., -110, 150).
-    6.  The 'confidence' value MUST be an integer from 2 to 5. Do not return 1-star picks.
-    7.  All picks must be for DIFFERENT GAMES.
-    8.  Only consider odds between +150 and -150.
-    9.  Return concise, data-backed picks using odds, historical performance, and Kalshi sentiment.
-    10.  If no bets meet the 2-star threshold, return an empty "picks" list.
-    11.  Final check for a valid response must include: game, sport, pick, market, line, odds_american, confidence (2–5), reasoning.
-
+    You are an AI sports betting analyst.
+    Return JSON only with key 'picks', each containing:
+    game, sport, pick, market, line, odds_american, confidence (2–5), reasoning.
     Context: {json.dumps(context, indent=2)}
     """
 
-    # Define the sequence of AI models to attempt
-    models_to_try = [
+    models = [
         {'provider': 'google', 'name': 'gemini-2.5-pro'},
         {'provider': 'openai', 'name': 'gpt-5-mini'},
         {'provider': 'openai', 'name': 'gpt-5'},
     ]
 
     parsed = []
-    for model in models_to_try:
+    for m in models:
         try:
-            if model['provider'] == 'google':
-                parsed = _call_gemini_model(model['name'], prompt)
-            elif model['provider'] == 'openai':
-                parsed = _call_openai_model(model['name'], prompt)
-
+            if m['provider'] == 'google':
+                parsed = _call_gemini_model(m['name'], prompt)
+            else:
+                parsed = _call_openai_model(m['name'], prompt)
             if parsed:
                 st.success(
-                    f"Successfully generated {len(parsed)} picks using {model['provider']}'s {model['name']}!"
-                )
+                    f"Generated {len(parsed)} picks using {m['provider']}:{m['name']}")
                 break
-            else:
-                st.warning(
-                    f"Model {model['name']} returned no picks. Trying next model..."
-                )
         except Exception as e:
-            st.warning(
-                f"Model {model['name']} failed: {e}. Trying next model..."
-            )
+            st.warning(f"{m['name']} failed: {e}")
             continue
 
     if not parsed:
         st.error("All models failed to generate picks.")
         return []
 
-    # Post-processing and validation
-    if isinstance(parsed[0], dict):
-        for pick in parsed:
-            if 'sport' not in pick or not pick.get('sport'):
-                pick['sport'] = sport
+    from .db import insert_ai_picks
 
-            if 'odds_american' not in pick or pick.get('odds_american') is None:
-                try:
-                    matching_odds = odds_df[
-                        (odds_df['game'] == pick.get('game')) &
-                        (odds_df['pick'] == pick.get('pick'))
-                    ]['odds_american'].iloc[0]
-                    pick['odds_american'] = matching_odds
-                except (IndexError, KeyError):
-                    pass
+    unique_picks, seen = [], set()
+    for pick in parsed:
+        pick.setdefault("sport", sport)
+        if 'odds_american' not in pick or pick.get('odds_american') is None:
+            try:
+                pick['odds_american'] = odds_df[
+                    (odds_df['game'] == pick.get('game')) &
+                    (odds_df['pick'] == pick.get('pick'))
+                ]['odds_american'].iloc[0]
+            except Exception:
+                pass
 
-        from .db import insert_ai_picks, get_existing_picks
-        existing_picks = get_existing_picks()
+        gm_key = (pick.get('game', '').strip(), pick.get('market', '').strip())
+        if gm_key in seen:
+            continue
+        seen.add(gm_key)
+        unique_picks.append(pick)
 
-        unique_picks = []
-        dupe_count = 0
-        conflict_count = 0
-        seen_game_markets = set()
+    if unique_picks:
+        insert_ai_picks(unique_picks)
+        st.toast(f"Saved {len(unique_picks)} new picks.")
+    else:
+        st.toast("No new picks to save.")
+    return parsed
 
-        for pick in parsed:
-            game_id = pick.get('game', '').strip()
-            market = pick.get('market', '').strip()
-            pick_side = pick.get('pick', '').strip()
+# -------------------------
+# NEW: Auto-grading and Match Time Sync
+# -------------------------
 
-            # key for conflict detection: same game + same market
-            gm_key = (game_id, market)
 
-            # Prevent direct duplicates (same side)
-            if (pick_side, market) in existing_picks:
-                dupe_count += 1
-                continue
+def update_ai_pick_results():
+    """
+    Auto-updates AI picks from 'Pending' to Win/Loss/Push
+    based on fetched live/final scores.
+    """
+    conn = get_db()
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT id, game, pick, sport, commence_time FROM ai_picks WHERE LOWER(result)='pending'")
+    pending = cur.fetchall()
+    if not pending:
+        print("No pending picks to update.")
+        conn.close()
+        return
 
-            # Prevent opposite/conflicting sides
-            if gm_key in seen_game_markets:
-                conflict_count += 1
-                continue
+    print(f"🔍 Checking {len(pending)} pending picks...")
+    updated = 0
 
-            unique_picks.append(pick)
-            seen_game_markets.add(gm_key)
-
-        if dupe_count > 0:
-            st.info(
-                f"Ignored {dupe_count} duplicate picks based on team+market.")
-
-        if conflict_count > 0:
-            st.info(
-                f"Ignored {conflict_count} conflicting picks for the same game+market.")
+    for row in pending:
+        sport = row["sport"].lower().replace(" ", "_")
+        commence = row["commence_time"]
+        if not commence:
+            continue
+        commence_dt = datetime.fromisoformat(commence.replace("Z", "+00:00"))
+        if datetime.now(timezone.utc) < commence_dt:
+            continue
 
         try:
-            if unique_picks:
-                insert_ai_picks(unique_picks)
-                st.toast(f"Saved {len(unique_picks)} new AI picks to history!")
-            else:
-                st.toast("No new unique picks to save.")
-        except Exception as e:
-            st.error(f"Failed to save AI picks: {e}")
-    else:
-        st.warning(
-            "AI returned unstructured data. Picks were displayed but not saved to history."
-        )
+            scores = fetch_scores(sport=sport, days_from=2)
+        except Exception:
+            continue
 
-    return parsed
+        for g in scores:
+            if not g.get("completed"):
+                continue
+            if g.get("home_team") in row["game"] and g.get("away_team") in row["game"]:
+                home, away = g["home_team"], g["away_team"]
+                hs = next((s["score"]
+                          for s in g["scores"] if s["name"] == home), None)
+                as_ = next((s["score"]
+                           for s in g["scores"] if s["name"] == away), None)
+                if hs is None or as_ is None:
+                    continue
+                result = "Push"
+                if hs == as_:
+                    result = "Push"
+                elif (row["pick"] == home and hs > as_) or (row["pick"] == away and as_ > hs):
+                    result = "Win"
+                else:
+                    result = "Loss"
+
+                cur.execute("UPDATE ai_picks SET result=? WHERE id=?",
+                            (result, row["id"]))
+                updated += 1
+                break
+
+    conn.commit()
+    conn.close()
+    print(f"✅ Updated {updated} picks.")

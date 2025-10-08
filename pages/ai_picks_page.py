@@ -1,3 +1,4 @@
+from app.ai_picks import update_ai_pick_results
 import pandas as pd
 import streamlit as st
 import pytz
@@ -30,6 +31,11 @@ from app.ai_picks import (
 # Run at import to guarantee schemas are correct
 init_ai_picks()
 init_prompt_context_db()  # NEW: Initialize the new prompt context table
+
+st.sidebar.markdown("### ⚙️ Maintenance")
+if st.sidebar.button("🔁 Update Pick Results"):
+    update_ai_pick_results()
+    st.success("AI Picks updated from live scores!")
 
 # Set the desired local timezone for display (PST/PDT)
 # Use 'America/Los_Angeles' for PST/PDT to handle daylight savings automatically
@@ -251,20 +257,6 @@ def display_performance_metrics(sport_name, col_container):
             st.info("No completed picks found.")
             return
 
-        # ---- Calculate Totals ----
-        total_wins = sum(r.get("total_wins", 0) for r in summary)
-        total_losses = sum(r.get("total_losses", 0) for r in summary)
-        total_pushes = sum(r.get("total_pushes", 0)
-                           for r in summary) if "total_pushes" in summary[0] else 0
-        total_units = sum(r.get("net_units", 0) for r in summary)
-
-        avg_conf = (
-            sum(int(r.get("star_rating", 0)) * (r.get("total_wins", 0) + r.get("total_losses", 0))
-                for r in summary)
-            / max(total_wins + total_losses, 1)
-        )
-        avg_stars = "⭐" * round(avg_conf)
-
         # ---- Compact Table Header ----
         header_cols = st.columns([1, 1, 1])
         header_cols[0].markdown("**W/L/P**")
@@ -290,20 +282,6 @@ def display_performance_metrics(sport_name, col_container):
                 unsafe_allow_html=True,
             )
 
-        # ---- Totals Row ----
-        st.markdown(
-            "<hr style='margin: 4px 0; border: 0.5px solid var(--text-color); opacity: 0.2;'>",
-            unsafe_allow_html=True,
-        )
-        total_color = "green" if total_units >= 0 else "red"
-        total_cols = st.columns([1, 1, 1])
-        total_cols[0].markdown(
-            f"**{total_wins}-{total_losses}-{total_pushes}**")
-        total_cols[1].markdown(f"**{avg_stars}**")
-        total_cols[2].markdown(
-            f"<span style='color:{total_color}; font-weight:bold;'>**{total_units:+.2f}u**</span>",
-            unsafe_allow_html=True,
-        )
 
 # Aggregate results for ALL sports
 
