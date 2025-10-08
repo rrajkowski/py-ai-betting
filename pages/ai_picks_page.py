@@ -1,4 +1,3 @@
-from app.ai_picks import update_ai_pick_results
 import pandas as pd
 import streamlit as st
 import pytz
@@ -23,7 +22,8 @@ from app.ai_picks import (
     fetch_historical_mlb,
     fetch_historical_ncaaf,
     generate_ai_picks,
-    fetch_scores
+    fetch_scores,
+    update_ai_pick_results
 )
 
 
