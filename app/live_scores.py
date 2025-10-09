@@ -26,10 +26,11 @@ def display_live_scores():
         "NFL": fetch_scores(sport="americanfootball_nfl", days_from=1),
         "NCAAF": fetch_scores(sport="americanfootball_ncaaf", days_from=1),
         "MLB": fetch_scores(sport="baseball_mlb", days_from=1),
+        "NBA": fetch_scores(sport="basketball_nba", days_from=1),
     }
 
-    emojis = {"NFL": "🏈", "NCAAF": "🎓", "MLB": "⚾️"}
-    cols = st.columns(3)
+    emojis = {"NFL": "🏈", "NCAAF": "🎓", "MLB": "⚾️", "NBA": "🏀"}
+    cols = st.columns(4)
 
     # Current UTC for cutoff logic
     now_utc = datetime.now(timezone.utc)
