@@ -518,18 +518,19 @@ ai_picks_history = list_ai_picks()
 if ai_picks_history:
     df = pd.DataFrame(ai_picks_history)
 
-    # --- NEW: Filter out completed picks (win/loss/push) ---
+    # --- Filter out completed picks (win/loss/push) ---
     completed_statuses = {"win", "loss", "push"}
     df = df[~df["result"].astype(str).str.lower().isin(completed_statuses)]
 
-    # Ensure confidence is numeric for proper sorting
+    # --- NEW: Filter out low-confidence (1–2 star) picks ---
     df["confidence_numeric"] = pd.to_numeric(
         df["confidence"], errors="coerce").fillna(0)
+    df = df[df["confidence_numeric"] >= 3]
 
-    # Sort descending by confidence
+    # --- Sort descending by confidence ---
     df.sort_values(by="confidence_numeric", ascending=False, inplace=True)
 
-    # Convert confidence to stars for display
+    # --- Convert confidence to stars for display ---
     def score_to_stars(score):
         try:
             return "⭐" * max(1, min(5, int(score)))
@@ -538,7 +539,7 @@ if ai_picks_history:
 
     df["Confidence (Stars)"] = df["confidence_numeric"].apply(score_to_stars)
 
-    # Define and reorder display columns
+    # --- Define and reorder display columns ---
     display_cols = [
         "date",
         "sport",
@@ -553,7 +554,8 @@ if ai_picks_history:
     ]
 
     df_display = df[display_cols].rename(
-        columns={"Confidence (Stars)": "confidence"})
+        columns={"Confidence (Stars)": "confidence"}
+    )
 
     st.dataframe(df_display, width="stretch", hide_index=True)
 

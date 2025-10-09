@@ -191,6 +191,12 @@ def _call_gemini_model(model_name, prompt):
 
 
 def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=None, kalshi_context=None):
+    """
+    Generate betting picks using a multi-provider, multi-tier model fallback system,
+    with validation and data enrichment to ensure data quality.
+    """
+
+    # --- Context Assembly ---
     context = {
         "odds_count": len(odds_df),
         "sport": sport.upper(),
@@ -202,17 +208,31 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
     if kalshi_context:
         context["kalshi"] = kalshi_context
 
+    # --- AI Prompt (updated for 3–5 star threshold only) ---
     prompt = f"""
-    You are an AI sports betting analyst.
-    Return JSON only with key 'picks', each containing:
-    game, sport, pick, market, line, odds_american, confidence (2–5), reasoning.
+    You are a hyper-efficient sports betting analyst. Your goal is to quickly identify the best value bets.
+
+    Instructions:
+    1. Analyze the provided context, including odds, historical performance, and Kalshi sentiment data (popularity_score, volume_24h, open_interest).
+    2. Focus only on strong, data-supported bets.
+    3. Each object in the "picks" list MUST contain these exact keys:
+       "game", "sport", "pick", "market", "line", "odds_american", "confidence", "reasoning".
+    4. Only include picks with **confidence ratings of 3, 4, or 5 stars**.
+       (Do NOT return any 1-star or 2-star picks.)
+    5. The "odds_american" field must be numeric (e.g., -110, 150).
+    6. All picks must be for DIFFERENT GAMES.
+    7. Exclude odds outside the range (+150 to -150).
+    8. The reasoning must clearly connect odds + sentiment to confidence.
+    9. If no picks meet the 3-star threshold, return an empty "picks" list.
+
     Context: {json.dumps(context, indent=2)}
     """
 
+    # --- Model Fallback Chain ---
     models = [
         {'provider': 'google', 'name': 'gemini-2.5-pro'},
         {'provider': 'openai', 'name': 'gpt-5-mini'},
-        {'provider': 'openai', 'name': 'gpt-5'},
+        {'provider': 'openai', 'name': 'gpt-5-nano'},
     ]
 
     parsed = []
@@ -222,6 +242,7 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
                 parsed = _call_gemini_model(m['name'], prompt)
             else:
                 parsed = _call_openai_model(m['name'], prompt)
+
             if parsed:
                 st.success(
                     f"Generated {len(parsed)} picks using {m['provider']}:{m['name']}")
@@ -236,9 +257,20 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
 
     from .db import insert_ai_picks
 
+    # --- Deduplication + Validation ---
     unique_picks, seen = [], set()
     for pick in parsed:
         pick.setdefault("sport", sport)
+
+        # --- Skip 1–2 star confidence picks ---
+        try:
+            conf_val = int(pick.get("confidence", 0))
+            if conf_val < 3:
+                continue
+        except (ValueError, TypeError):
+            continue
+
+        # --- Ensure odds_american is populated ---
         if 'odds_american' not in pick or pick.get('odds_american') is None:
             try:
                 pick['odds_american'] = odds_df[
@@ -248,17 +280,21 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
             except Exception:
                 pass
 
+        # --- Prevent duplicate or conflicting picks ---
         gm_key = (pick.get('game', '').strip(), pick.get('market', '').strip())
         if gm_key in seen:
             continue
+
         seen.add(gm_key)
         unique_picks.append(pick)
 
+    # --- Save Only Valid Picks ---
     if unique_picks:
         insert_ai_picks(unique_picks)
         st.toast(f"Saved {len(unique_picks)} new picks.")
     else:
         st.toast("No new picks to save.")
+
     return parsed
 
 # -------------------------
