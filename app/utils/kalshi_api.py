@@ -55,6 +55,7 @@ def fetch_kalshi_consensus(sport_key: str, target_date: str):
         "americanfootball_nfl": {"ticker": "KXNFLGAME", "limit": 16},
         "americanfootball_ncaaf": {"ticker": "KXNCAAFGAME", "limit": 50},
         "baseball_mlb": {"ticker": "KXMLBGAME", "limit": 10},
+        "basketball_nba": {"ticker": "KXNBAGAME", "limit": 10},
     }
 
     sport_info = sport_map.get(sport_key.lower())

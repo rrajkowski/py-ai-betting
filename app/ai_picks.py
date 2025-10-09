@@ -142,8 +142,14 @@ def fetch_historical_ncaaf(team_name, limit=25): return _fetch_and_cache_histori
 
 def fetch_historical_nfl(team_name, limit=16): return _fetch_and_cache_historical_scores(
     "americanfootball_nfl", "NFL", team_name, limit)
+
+
 def fetch_historical_mlb(team_name, limit=4): return _fetch_and_cache_historical_scores(
     "baseball_mlb", "MLB", team_name, limit)
+
+
+def fetch_historical_nba(team_name, limit=4): return _fetch_and_cache_historical_scores(
+    "basketball_nba", "NBA", team_name, limit)
 
 
 def fetch_historical_other(team_name, limit=6): return []

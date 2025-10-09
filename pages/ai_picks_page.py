@@ -19,6 +19,7 @@ from app.utils.kalshi_api import fetch_kalshi_consensus
 from app.ai_picks import (
     fetch_odds,
     fetch_historical_nfl,
+    fetch_historical_nba,
     fetch_historical_mlb,
     fetch_historical_ncaaf,
     generate_ai_picks,
@@ -135,6 +136,8 @@ def refresh_bet_results():
             sport_key = 'americanfootball_ncaaf'
         elif sport == 'MLB':
             sport_key = 'baseball_mlb'
+        elif sport == 'NBA':
+            sport_key = 'basketball_nba'
         else:
             continue
 
@@ -339,10 +342,11 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-metric_cols = st.columns(3)
+metric_cols = st.columns(4)
 display_performance_metrics("NFL", metric_cols[0])
 display_performance_metrics("NCAAF", metric_cols[1])
 display_performance_metrics("MLB", metric_cols[2])
+display_performance_metrics("NBA", metric_cols[3])
 
 # -----------------------------
 # Main AI Pick Generation Logic
@@ -440,6 +444,8 @@ def run_ai_picks(sport_key, sport_name):
             history = fetch_historical_nfl(history_team)
         elif sport_key == "baseball_mlb":
             history = fetch_historical_mlb(history_team)
+        elif sport_key == "basketball_nba":
+            history = fetch_historical_nba(history_team)
         else:
             history = []
 
@@ -460,7 +466,7 @@ def run_ai_picks(sport_key, sport_name):
 
 # --- UI Controls (Buttons) ---
 st.header("Generate New Picks")
-col1, col2, col3 = st.columns(3)
+col1, col2, col3, col4 = st.columns(4)
 with col1:
     if st.button("🏈 Generate NFL Picks", width="stretch"):
         st.session_state.generated_picks = None  # Clear previous results
@@ -473,6 +479,10 @@ with col3:
     if st.button("⚾ Generate MLB Picks", width="stretch"):
         st.session_state.generated_picks = None
         run_ai_picks("baseball_mlb", "MLB")
+with col4:
+    if st.button("🏀 Generate NBA Picks", width="stretch"):
+        st.session_state.generated_picks = None
+        run_ai_picks("basketball_nba", "NBA")
 
 
 # --- Display Newly Generated Picks (with Error Handling) ---
