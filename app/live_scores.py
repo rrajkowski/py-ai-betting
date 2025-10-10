@@ -4,9 +4,10 @@ from app.ai_picks import fetch_scores
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
+st.set_page_config(layout="wide", page_title="Live & Recent Scores")
+
 
 def display_live_scores():
-    st.header("Live & Recent Scores")
 
     # --- Style Config ---
     box_style = """
@@ -14,7 +15,8 @@ def display_live_scores():
         border-radius: 8px;
         padding: 12px;
         margin-bottom: 12px;
-        background-color: var(--secondary-background-color);
+        color: black;
+        background-color: #f0f0f0;
     """
     status_style_live = "background-color: #d90429; color: white; padding: 2px 6px; border-radius: 4px; border: 1px solid black;"
     status_style_default = "color: var(--gray-60); font-size: 12px; font-weight: bold;"
