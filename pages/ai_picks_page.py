@@ -368,9 +368,9 @@ def run_ai_picks(sport_key, sport_name):
             last_pick_time = last_pick_time.replace(tzinfo=timezone.utc)
 
         # Use the 12-hour wait time
-        # next_run_time = last_pick_time + timedelta(hours=12)
+        next_run_time = last_pick_time + timedelta(hours=12)
         # TEMPORARY: 1 minute for testing
-        next_run_time = last_pick_time + timedelta(minutes=1)
+        # next_run_time = last_pick_time + timedelta(minutes=1)
 
         time_to_wait = next_run_time - now_utc
 
