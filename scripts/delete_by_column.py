@@ -10,9 +10,9 @@ DB_PATH = os.path.join(
     "bets.db"
 )
 TABLE_NAME = "ai_picks"
-COLUMN_TO_CLEAN = "date"  # column to check
+COLUMN_TO_CLEAN = "pick"  # column to check
 # value that indicates missing data
-VALUE_TO_CLEAN = ""
+VALUE_TO_CLEAN = "Seattle Mariners"
 
 
 def delete_rows_with_missing_data(table: str, column: str, value: str):
