@@ -40,18 +40,82 @@ def init_prompt_context_db():
         );
     """)
 
-    # Attempt to add the 'sport' column if it was previously missing (migration)
-    try:
-        cur.execute(f"ALTER TABLE {CONTEXT_TABLE} ADD COLUMN sport TEXT")
-        print(f"✅ Added missing 'sport' column to {CONTEXT_TABLE}")
-    except sqlite3.OperationalError:
-        pass  # Column already exists
+    # --- Schema migration: Add 'sport' column if missing ---
+    cur.execute(f"PRAGMA table_info({CONTEXT_TABLE})")
+    cols = {row['name'] for row in cur.fetchall()}
+    if "sport" not in cols:
+        cur.execute(
+            f"ALTER TABLE {CONTEXT_TABLE} ADD COLUMN sport TEXT")
+
+    conn.commit()
+    conn.close()
+    print(f"✅ Unified context database '{CONTEXT_TABLE}' initialized.")
+
+
+def init_ai_picks():
+    """
+    Initializes the ai_picks table with an improved schema,
+    including a new 'commence_time' column for accurate pending pick cleanup.
+    """
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS ai_picks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT,
+            sport TEXT,
+            game TEXT,
+            pick TEXT,
+            market TEXT,
+            line REAL,
+            odds_american INTEGER,
+            result TEXT DEFAULT 'Pending',
+            confidence TEXT,
+            reasoning TEXT,
+            commence_time TEXT
+        )
+    """)
+
+    # --- Schema migration: Add 'commence_time' column if missing ---
+    cur.execute("PRAGMA table_info(ai_picks)")
+    cols = {row['name'] for row in cur.fetchall()}
+    if 'commence_time' not in cols:
+        cur.execute("ALTER TABLE ai_picks ADD COLUMN commence_time TEXT")
 
     conn.commit()
     conn.close()
 
 
-def insert_context(category, context_type, game_id, match_date, data, sport, team_pick=None, source=None):
+def insert_ai_picks(picks):
+    """
+    Batch inserts AI-generated picks into the database.
+    Now correctly uses 'commence_time' for the 'date' field.
+    """
+    conn = get_db()
+    cur = conn.cursor()
+    for pick in picks:
+        cur.execute("""
+            INSERT INTO ai_picks (date, sport, game, pick, market, line, odds_american, result, confidence, reasoning, commence_time)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            # Correctly use commence_time for the date field
+            pick.get("commence_time"),
+            pick.get("sport"),
+            pick.get("game"),
+            pick.get("pick"),
+            pick.get("market"),
+            pick.get("line"),
+            pick.get("odds_american"),
+            pick.get("result", "Pending"),
+            pick.get("confidence"),
+            pick.get("reasoning"),
+            pick.get("commence_time")
+        ))
+    conn.commit()
+    conn.close()
+
+
+def insert_context(category: str, context_type: str, game_id: str, match_date: str, sport: str, data: dict, source: str, team_pick: str | None = None):
     """
     Inserts a single row of context data into the prompt_context table.
     Data object is serialized to JSON string before insertion.
@@ -67,7 +131,7 @@ def insert_context(category, context_type, game_id, match_date, data, sport, tea
         context_type,
         game_id,
         match_date,
-        sport,  # Now included in the insertion list
+        sport,
         team_pick,
         json.dumps(data),
         source
@@ -84,7 +148,6 @@ def fetch_context_by_date(match_date: str, sport: str):
     conn = get_db()
     cur = conn.cursor()
 
-    # CRITICAL FIX: Added 'AND sport = ?' to the WHERE clause
     cur.execute(f"""
         SELECT * FROM {CONTEXT_TABLE} WHERE match_date = ? AND sport = ?
     """, (match_date, sport,))
@@ -92,14 +155,9 @@ def fetch_context_by_date(match_date: str, sport: str):
     rows = [dict(r) for r in cur.fetchall()]
     conn.close()
 
-    # Decode the JSON string back into a Python object
     for row in rows:
         try:
-            # The 'data' column stores the complex JSON payload
             row['data'] = json.loads(row['data'])
         except (TypeError, json.JSONDecodeError):
             row['data'] = {}
-        # The 'sport' is explicitly returned, ensuring it's available for filtering
-        # in the context builder.
-
     return rows

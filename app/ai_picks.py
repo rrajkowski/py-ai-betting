@@ -6,7 +6,7 @@ import sqlite3
 from datetime import datetime, timezone
 from openai import OpenAI
 import google.generativeai as genai
-from .db import get_db, init_ai_picks
+from .db import get_db, init_ai_picks, insert_ai_picks
 from .const import RAPIDAPI_KEY, HEADERS
 from dotenv import load_dotenv
 
@@ -58,6 +58,9 @@ migrate_historical_games()
 
 
 def fetch_odds(sport="americanfootball_ncaaf"):
+    """
+    Fetches odds from the API and filters out any games that have already started.
+    """
     url = f"https://odds.p.rapidapi.com/v4/sports/{sport}/odds"
     querystring = {
         "regions": "us", "oddsFormat": "american",
@@ -69,7 +72,22 @@ def fetch_odds(sport="americanfootball_ncaaf"):
     }
     r = requests.get(url, headers=headers, params=querystring)
     r.raise_for_status()
-    return r.json()
+    all_games = r.json()
+
+    now_utc = datetime.now(timezone.utc)
+    future_games = []
+    for game in all_games:
+        commence_time_str = game.get('commence_time')
+        if not commence_time_str:
+            continue
+        try:
+            commence_time = datetime.fromisoformat(
+                commence_time_str.replace("Z", "+00:00"))
+            if commence_time > now_utc:
+                future_games.append(game)
+        except ValueError:
+            continue
+    return future_games
 
 
 def fetch_scores(sport="americanfootball_ncaaf", days_from=1):
@@ -78,7 +96,6 @@ def fetch_scores(sport="americanfootball_ncaaf", days_from=1):
     r = requests.get(url, headers=HEADERS, params=params)
     r.raise_for_status()
     return r.json()
-
 # -------------------------
 # Historical Data Caching
 # -------------------------
@@ -136,7 +153,7 @@ def _fetch_and_cache_historical_scores(sport_key, sport_name, team, limit=6, day
     return sorted(history, key=lambda x: x['date'], reverse=True)[:limit]
 
 
-def fetch_historical_ncaaf(team_name, limit=25): return _fetch_and_cache_historical_scores(
+def fetch_historical_ncaaf(team_name, limit=30): return _fetch_and_cache_historical_scores(
     "americanfootball_ncaaf", "NCAAF", team_name, limit)
 
 
@@ -144,15 +161,15 @@ def fetch_historical_nfl(team_name, limit=16): return _fetch_and_cache_historica
     "americanfootball_nfl", "NFL", team_name, limit)
 
 
-def fetch_historical_mlb(team_name, limit=4): return _fetch_and_cache_historical_scores(
+def fetch_historical_mlb(team_name, limit=10): return _fetch_and_cache_historical_scores(
     "baseball_mlb", "MLB", team_name, limit)
 
 
-def fetch_historical_nba(team_name, limit=4): return _fetch_and_cache_historical_scores(
+def fetch_historical_nba(team_name, limit=10): return _fetch_and_cache_historical_scores(
     "basketball_nba", "NBA", team_name, limit)
 
 
-def fetch_historical_other(team_name, limit=6): return []
+def fetch_historical_other(team_name, limit=10): return []
 
 # -------------------------
 # AI Model Helpers
@@ -198,11 +215,8 @@ def _call_gemini_model(model_name, prompt):
 
 def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=None, kalshi_context=None):
     """
-    Generate betting picks using a multi-provider, multi-tier model fallback system,
-    with validation and data enrichment to ensure data quality.
+    Generate betting picks with robust data enrichment to ensure commence_time is saved.
     """
-
-    # --- Context Assembly ---
     context = {
         "odds_count": len(odds_df),
         "sport": sport.upper(),
@@ -214,27 +228,22 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
     if kalshi_context:
         context["kalshi"] = kalshi_context
 
-    # --- AI Prompt (updated for 3–5 star threshold only) ---
     prompt = f"""
     You are a hyper-efficient sports betting analyst. Your goal is to quickly identify the best value bets.
-
     Instructions:
     1. Analyze the provided context, including odds, historical performance, and Kalshi sentiment data (popularity_score, volume_24h, open_interest).
     2. Focus only on strong, data-supported bets.
-    3. Each object in the "picks" list MUST contain these exact keys:
-       "game", "sport", "pick", "market", "line", "odds_american", "confidence", "reasoning".
-    4. Only include picks with **confidence ratings of 3, 4, or 5 stars**.
-       (Do NOT return any 1-star or 2-star picks.)
-    5. The "odds_american" field must be numeric (e.g., -110, 150).
-    6. All picks must be for DIFFERENT GAMES.
-    7. Exclude odds outside the range (+150 to -150).
-    8. The reasoning must clearly connect odds + sentiment to confidence.
-    9. If no picks meet the 3-star threshold, return an empty "picks" list.
-
+    3. Critically, only select games where the `commence_time` is in the future. Do not pick games that have already started.
+    4. Each object in the "picks" list MUST contain these exact keys: "game", "sport", "pick", "market", "line", "odds_american", "confidence", "reasoning".
+    5. Only include picks with **confidence ratings of 3, 4, or 5 stars**. (Do NOT return any 1-star or 2-star picks.)
+    6. The "odds_american" field must be numeric (e.g., -110, 150).
+    7. All picks must be for DIFFERENT GAMES.
+    8. Exclude odds outside the range (+150 to -150).
+    9. The reasoning must clearly connect odds + sentiment to confidence.
+    10. Return a maximum of 3 picks. If no picks meet the 3-star threshold, return an empty "picks" list.
     Context: {json.dumps(context, indent=2)}
     """
 
-    # --- Model Fallback Chain ---
     models = [
         {'provider': 'google', 'name': 'gemini-2.5-pro'},
         {'provider': 'openai', 'name': 'gpt-5-mini'},
@@ -261,40 +270,53 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
         st.error("All models failed to generate picks.")
         return []
 
-    from .db import insert_ai_picks
-
-    # --- Deduplication + Validation ---
     unique_picks, seen = [], set()
     for pick in parsed:
         pick.setdefault("sport", sport)
-
-        # --- Skip 1–2 star confidence picks ---
         try:
-            conf_val = int(pick.get("confidence", 0))
-            if conf_val < 3:
+            if int(pick.get("confidence", 0)) < 3:
                 continue
         except (ValueError, TypeError):
             continue
 
-        # --- Ensure odds_american is populated ---
-        if 'odds_american' not in pick or pick.get('odds_american') is None:
-            try:
-                pick['odds_american'] = odds_df[
-                    (odds_df['game'] == pick.get('game')) &
-                    (odds_df['pick'] == pick.get('pick'))
-                ]['odds_american'].iloc[0]
-            except Exception:
-                pass
+        # --- FIX APPLIED: Use robust matching to find and add commence_time ---
+        try:
+            ai_game_string = pick.get('game', '').lower()
+            if not ai_game_string:
+                continue
 
-        # --- Prevent duplicate or conflicting picks ---
+            # Iterate through the original odds data to find a reliable match
+            for _, row in odds_df.iterrows():
+                away_team_full = row.get('away_team', '').lower()
+                home_team_full = row.get('home_team', '').lower()
+
+                # **CRITICAL FIX**: Ensure team names are not empty before splitting
+                if away_team_full and home_team_full:
+                    # Isolate mascot names for more flexible matching
+                    away_mascot = away_team_full.split()[-1]
+                    home_mascot = home_team_full.split()[-1]
+
+                    # Check if both mascots are present in the AI's game string
+                    if away_mascot and home_mascot and \
+                       away_mascot in ai_game_string and home_mascot in ai_game_string:
+
+                        # If odds are missing, populate them from the matched row
+                        if 'odds_american' not in pick or pick.get('odds_american') is None:
+                            pick['odds_american'] = row['odds_american']
+
+                        # ALWAYS populate commence_time from the definitive source
+                        pick['commence_time'] = row['commence_time']
+                        break  # Stop searching once a match is found
+        except Exception as e:
+            st.warning(f"Could not enrich pick for '{pick.get('game')}': {e}")
+            pass
+
         gm_key = (pick.get('game', '').strip(), pick.get('market', '').strip())
         if gm_key in seen:
             continue
-
         seen.add(gm_key)
         unique_picks.append(pick)
 
-    # --- Save Only Valid Picks ---
     if unique_picks:
         insert_ai_picks(unique_picks)
         st.toast(f"Saved {len(unique_picks)} new picks.")
@@ -302,9 +324,8 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
         st.toast("No new picks to save.")
 
     return parsed
-
 # -------------------------
-# NEW: Auto-grading and Match Time Sync
+# Auto-grading and Match Time Sync
 # -------------------------
 
 
@@ -353,9 +374,10 @@ def update_ai_pick_results():
                 if hs is None or as_ is None:
                     continue
                 result = "Push"
-                if hs == as_:
+                if int(hs) == int(as_):
                     result = "Push"
-                elif (row["pick"] == home and hs > as_) or (row["pick"] == away and as_ > hs):
+                elif (row["pick"] == home and int(hs) > int(as_)) or \
+                     (row["pick"] == away and int(as_) > int(hs)):
                     result = "Win"
                 else:
                     result = "Loss"

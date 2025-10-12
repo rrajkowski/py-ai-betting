@@ -1,7 +1,6 @@
-from datetime import datetime
+from datetime import datetime, timezone
 import sqlite3
 import os
-import pytz  # Import pytz for timezone awareness
 from app.odds import american_to_probability
 
 
@@ -20,21 +19,30 @@ def get_db():
 
 def get_most_recent_pick_timestamp(sport_name):
     """
-    Finds the timestamp of the most recent AI pick for a given sport,
-    and returns it as a timezone-aware UTC object.
+    Finds the timestamp of the most recent AI pick for a given sport
+    that is not in the future, returning a timezone-aware UTC object.
     """
     conn = get_db()
     cur = conn.cursor()
+
+    # This query now ignores any picks with a date in the future,
+    # preventing bad data from breaking the time-limit logic.
+    now_utc_str = datetime.now(timezone.utc).isoformat()
     cur.execute(
-        "SELECT MAX(date) FROM ai_picks WHERE sport = ?",
-        (sport_name,)
+        "SELECT MAX(date) FROM ai_picks WHERE sport = ? AND date <= ?",
+        (sport_name, now_utc_str)
     )
+
     result = cur.fetchone()
     conn.close()
+
     if result and result[0]:
-        # Convert the ISO string from DB to a timezone-aware UTC datetime object
-        dt = datetime.fromisoformat(result[0])
-        return pytz.utc.localize(dt)
+        date_str = result[0]
+        dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt
+
     return None
 
 
@@ -44,22 +52,6 @@ def normalize_line(value):
         return float(value)
     except (TypeError, ValueError):
         return None
-
-
-def migrate_ai_picks():
-    """Ensure ai_picks has all expected columns."""
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("PRAGMA table_info(ai_picks)")
-    cols = [r[1] for r in cur.fetchall()]
-    if "sport" not in cols:
-        cur.execute("ALTER TABLE ai_picks ADD COLUMN sport TEXT")
-    if "line" not in cols:
-        cur.execute("ALTER TABLE ai_picks ADD COLUMN line REAL")
-    if "result" not in cols:  # ADD RESULT COLUMN FOR TRACKING W/L
-        cur.execute("ALTER TABLE ai_picks ADD COLUMN result TEXT")
-    conn.commit()
-    conn.close()
 
 # -------------------------
 # Bets Table
@@ -125,22 +117,18 @@ def list_bets(limit=50):
     return rows
 
 # -------------------------
-# AI Picks Table
-# -------------------------
-# -------------------------
 # AI Picks Table (Refactored)
 # -------------------------
 
 
 def init_ai_picks():
     """
-    Ensures the ai_picks table exists and has the correct schema.
-    This is the single source of truth for the table structure.
+    Ensures the ai_picks table exists and has the correct schema,
+    including commence_time for accurate scheduling.
     """
     conn = get_db()
     cur = conn.cursor()
 
-    # 1. Create the table with the ideal schema if it doesn't exist
     cur.execute("""
         CREATE TABLE IF NOT EXISTS ai_picks (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -152,25 +140,18 @@ def init_ai_picks():
             odds_american REAL,
             confidence TEXT,
             reasoning TEXT,
-            date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            result TEXT -- Added result column for tracking W/L
+            date TEXT,
+            result TEXT DEFAULT 'Pending',
+            commence_time TEXT
         )
     """)
 
-    # 2. Check for any missing columns and add them (for backward compatibility)
     cur.execute("PRAGMA table_info(ai_picks)")
     existing_cols = {row['name'] for row in cur.fetchall()}
 
-    required_cols = {
-        "game": "TEXT", "sport": "TEXT", "pick": "TEXT", "market": "TEXT",
-        "line": "REAL", "odds_american": "REAL", "confidence": "TEXT",
-        "reasoning": "TEXT", "date": "TIMESTAMP", "result": "TEXT"  # Include new column
-    }
-
-    for col, col_type in required_cols.items():
-        if col not in existing_cols:
-            print(f"⚠️ Adding missing column '{col}' to ai_picks table.")
-            cur.execute(f"ALTER TABLE ai_picks ADD COLUMN {col} {col_type}")
+    if 'commence_time' not in existing_cols:
+        print("⚠️ Adding missing column 'commence_time' to ai_picks table.")
+        cur.execute("ALTER TABLE ai_picks ADD COLUMN commence_time TEXT")
 
     conn.commit()
     conn.close()
@@ -200,13 +181,14 @@ def list_ai_picks(limit=50):
 
 
 def insert_ai_picks(picks: list):
-    """Batch inserts multiple AI picks using a single transaction for efficiency."""
+    """
+    Batch inserts multiple AI picks, ensuring commence_time is saved correctly.
+    """
     conn = get_db()
     cur = conn.cursor()
 
     picks_to_insert = []
     for p in picks:
-        # Sanitize data before insertion
         try:
             line = float(p.get("line"))
         except (TypeError, ValueError):
@@ -217,16 +199,19 @@ def insert_ai_picks(picks: list):
         except (TypeError, ValueError):
             odds = None
 
+        commence_time = p.get("commence_time")
+
         picks_to_insert.append((
             p.get("game"), p.get("sport"), p.get("pick"), p.get("market"),
-            line, odds, p.get("confidence"), p.get("reasoning"), p.get(
-                "result", "Pending")  # Default result to Pending
+            line, odds, p.get("confidence"), p.get("reasoning"),
+            commence_time,  # Use commence_time for the 'date' field
+            p.get("result", "Pending"),
+            commence_time
         ))
 
-    # Use executemany for an efficient batch insert
     cur.executemany("""
-        INSERT INTO ai_picks (game, sport, pick, market, line, odds_american, confidence, reasoning, result)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO ai_picks (game, sport, pick, market, line, odds_american, confidence, reasoning, date, result, commence_time)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, picks_to_insert)
 
     conn.commit()
@@ -234,27 +219,27 @@ def insert_ai_picks(picks: list):
 
 
 def insert_ai_pick(pick: dict):
-    """Insert a single AI pick safely."""
+    """
+    Insert a single AI pick, ensuring commence_time is saved correctly.
+    """
     conn = get_db()
     cur = conn.cursor()
 
-    # Defensive handling for line values (avoid "ML" issues)
-    line_value = pick.get("line")
     try:
-        line_value = float(line_value)
+        line_value = float(pick.get("line"))
     except (TypeError, ValueError):
         line_value = None
 
-    # Defensive handling for odds (use odds_american only)
-    odds_value = pick.get("odds_american")
     try:
-        odds_value = float(odds_value)
+        odds_value = float(pick.get("odds_american"))
     except (TypeError, ValueError):
         odds_value = None
 
+    commence_time = pick.get("commence_time")
+
     cur.execute("""
-        INSERT INTO ai_picks (game, sport, pick, market, line, odds_american, confidence, reasoning, result)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO ai_picks (game, sport, pick, market, line, odds_american, confidence, reasoning, date, result, commence_time)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         pick.get("game"),
         pick.get("sport"),
@@ -264,7 +249,9 @@ def insert_ai_pick(pick: dict):
         odds_value,
         pick.get("confidence"),
         pick.get("reasoning"),
-        pick.get("result", "Pending"),  # Default result to Pending
+        commence_time,  # Use commence_time for the 'date' field
+        pick.get("result", "Pending"),
+        commence_time,
     ))
 
     conn.commit()
@@ -274,11 +261,7 @@ def insert_ai_pick(pick: dict):
 def fetch_performance_summary(sport_name):
     """
     Calculates and returns Win/Loss/Push/Units by confidence level for a given sport.
-    The profit calculation assumes 1 unit = $100.
-
-    Includes 'Push' outcomes as neutral (0 units gained or lost).
     """
-
     conn = get_db()
     cur = conn.cursor()
 
@@ -290,12 +273,12 @@ def fetch_performance_summary(sport_name):
         SUM(CASE WHEN result = 'Push' THEN 1 ELSE 0 END) AS total_pushes,
         SUM(
             CASE
-                WHEN result = 'Win' AND odds_american > 0 THEN (odds_american / 100.0) * 100
-                WHEN result = 'Win' AND odds_american < 0 THEN (100.0 / ABS(odds_american)) * 100
-                WHEN result = 'Loss' THEN -100.0
-                ELSE 0 -- Push or no result
+                WHEN result = 'Win' AND odds_american > 0 THEN (odds_american / 100.0)
+                WHEN result = 'Win' AND odds_american < 0 THEN (100.0 / ABS(odds_american))
+                WHEN result = 'Loss' THEN -1.0
+                ELSE 0
             END
-        ) / 100.0 AS net_units
+        ) AS net_units
     FROM
         ai_picks
     WHERE
@@ -315,11 +298,9 @@ def fetch_performance_summary(sport_name):
 def get_unsettled_picks():
     """
     Fetches all picks from the ai_picks table that have a 'Pending' result.
-    These picks need to have their W/L status checked against live scores.
     """
     conn = get_db()
     cur = conn.cursor()
-    # The query retrieves ALL columns because check_if_pick_won needs pick, market, game, and line.
     cur.execute(
         "SELECT * FROM ai_picks WHERE result = 'Pending' OR result IS NULL")
     rows = [dict(r) for r in cur.fetchall()]
@@ -330,7 +311,6 @@ def get_unsettled_picks():
 def update_pick_result(pick_id, result):
     """
     Updates the 'result' column for a specific pick ID.
-    Result should be 'Win', 'Loss', or 'Push'.
     """
     conn = get_db()
     cur = conn.cursor()

@@ -1,5 +1,7 @@
 import sqlite3
 import os
+from datetime import datetime, timezone
+
 
 # Define the path to your database file
 DB_PATH = os.path.join(
@@ -95,6 +97,66 @@ def delete_conflicting_picks(conn):
         print("No conflicting pending picks found.")
 
 
+def delete_stuck_pending_picks(conn):
+    """
+    Deletes pending picks with a 'commence_time' in the past.
+    This now correctly targets games that have already started.
+    """
+    print("\n🔍 Scanning for stuck pending picks (commence_time in the past)...")
+    cur = conn.cursor()
+
+    # --- MODERNIZED DATE HANDLING ---
+    # Use timezone-aware datetime.now(timezone.utc) instead of deprecated utcnow().
+    # The strftime format is kept to match the '...Z' suffix from the odds API,
+    # ensuring correct string comparison in SQLite.
+    now_utc_str = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+
+    query = f"""
+        DELETE FROM {TABLE_NAME}
+        WHERE
+            (result IS NULL OR LOWER(result) = 'pending') AND
+            (commence_time IS NOT NULL AND commence_time < '{now_utc_str}')
+    """
+    cur.execute(query)
+    deleted_count = cur.rowcount
+    conn.commit()
+
+    if deleted_count > 0:
+        print(f"✅ Deleted {deleted_count} stuck pending picks.")
+    else:
+        print("No stuck pending picks found.")
+
+
+def delete_rows_without_date(conn):
+    """Deletes all rows from the ai_picks table where the date is NULL."""
+    print("🧹 Starting cleanup of picks with no date...")
+
+    try:
+        cur = conn.cursor()
+
+        # SQL query to delete rows where the 'date' column is NULL
+        query = f"DELETE FROM {TABLE_NAME} WHERE date IS NULL"
+
+        cur.execute(query)
+
+        # Get the number of rows that were deleted
+        deleted_count = cur.rowcount
+
+        # Commit the changes to the database
+        conn.commit()
+
+        if deleted_count > 0:
+            print(
+                f"✅ Success! Deleted {deleted_count} picks that were missing a date.")
+        else:
+            print(
+                "👍 No picks with missing dates were found. Your database is already clean!")
+
+    except Exception as e:
+        print(f"❌ An error occurred during the cleanup: {e}")
+        conn.rollback()  # Roll back any changes if an error occurs
+
+
 def main():
     """Runs all cleanup tasks for pending picks."""
     if not os.path.exists(DB_PATH):
@@ -109,6 +171,8 @@ def main():
         delete_low_confidence_picks(conn)
         delete_duplicate_picks(conn)
         delete_conflicting_picks(conn)
+        delete_stuck_pending_picks(conn)
+        delete_rows_without_date(conn)
 
         print("\n🧹 Database cleanup complete (pending picks only)!")
 

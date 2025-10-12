@@ -1,8 +1,8 @@
+from zoneinfo import ZoneInfo
 import pandas as pd
 import streamlit as st
-import pytz
 import requests
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 # Updated imports to include all necessary functions for metrics and auto-refresh
 from app.db import (
     get_most_recent_pick_timestamp,
@@ -17,14 +17,13 @@ from app.utils.context_builder import create_super_prompt_payload
 from app.utils.scraper import run_scrapers
 from app.utils.kalshi_api import fetch_kalshi_consensus
 from app.ai_picks import (
-    fetch_odds,
-    fetch_historical_nfl,
-    fetch_historical_nba,
-    fetch_historical_mlb,
-    fetch_historical_ncaaf,
-    generate_ai_picks,
     fetch_scores,
-    update_ai_pick_results
+    update_ai_pick_results,
+    generate_ai_picks,  # Make sure to import generate_ai_picks
+    fetch_historical_nfl,
+    fetch_historical_ncaaf,
+    fetch_historical_mlb,
+    fetch_historical_nba
 )
 
 
@@ -204,20 +203,19 @@ def refresh_bet_results():
         # 2. Iterate through unsettled picks and update results
         current_sport_name = sport_key.split('_')[-1].upper()
         for pick in [p for p in unsettled_picks if p['sport'] == current_sport_name]:
+            # --- Safely skip picks with a NULL date to prevent crash ---
+            if not pick['date']:
+                continue
+
             game_id = pick['game']
-            pick_date = pick['date'][:10]  # Extract date from pick's timestamp
+            pick_date = pick['date'][:10]
 
             if game_id in game_score_map:
                 scores = game_score_map[game_id]
-
-                # CRITICAL: Check for game ID and date match to resolve duplicate games
                 if scores['date'] == pick_date:
-
-                    # Calculate Win/Loss/Push
                     result = check_if_pick_won(
                         pick, scores['home'], scores['away'])
-
-                    if result not in ['Pending']:
+                    if result != 'Pending':
                         update_pick_result(pick['id'], result)
                         updated_count += 1
 
@@ -354,32 +352,41 @@ display_performance_metrics("NBA", metric_cols[3])
 
 
 def run_ai_picks(sport_key, sport_name):
-    # Determine the target analysis date
-    # Get today's date in UTC and format as YYYY-MM-DD
-    target_date = datetime.now(pytz.utc).strftime('%Y-%m-%d')
+    """
+    Main function to generate AI picks, with corrected timezone and time-limit handling.
+    """
+    target_date = datetime.now(timezone.utc).strftime('%Y-%m-%d')
 
-    # --- Time Limit Check ---
+    # This function now correctly ignores future-dated picks
     last_pick_time = get_most_recent_pick_timestamp(sport_name)
-    now_utc = datetime.now(pytz.utc)
+    now_utc = datetime.now(timezone.utc)
 
     if last_pick_time:
-        next_run_time = last_pick_time + timedelta(hours=12)  # 12-hour limit
-        # next_run_time = last_pick_time +  timedelta(minutes=1)  # 1min for testing
+        # The temporary check for future dates is removed.
+        # This logic now correctly enforces the 12-hour rule.
+        if last_pick_time.tzinfo is None:
+            last_pick_time = last_pick_time.replace(tzinfo=timezone.utc)
+
+        # Use the 12-hour wait time
+        # next_run_time = last_pick_time + timedelta(hours=12)
+        # TEMPORARY: 1 minute for testing
+        next_run_time = last_pick_time + timedelta(minutes=1)
+
         time_to_wait = next_run_time - now_utc
 
         if time_to_wait > timedelta(0):
-            hours, remainder = divmod(time_to_wait.total_seconds(), 3600)
+            hours, remainder = divmod(
+                time_to_wait.total_seconds(), 3600)
             minutes, _ = divmod(remainder, 60)
-            local_tz = pytz.timezone(LOCAL_TZ_NAME)
+            local_tz = ZoneInfo(LOCAL_TZ_NAME)
             last_pick_local = last_pick_time.astimezone(local_tz)
-
             st.info(
-                f"Picks for {sport_name} were generated today. Last generated: {last_pick_local.strftime('%Y-%m-%d %I:%M %p %Z')}. "
+                f"Picks for {sport_name} were generated recently. Last generated: {last_pick_local.strftime('%Y-%m-%d %I:%M %p %Z')}. "
                 f"Please wait {int(hours)} hours and {int(minutes)} minutes before running again. ⏳"
             )
             return
 
-    # --- UI Status Indicators Setup (NEW) ---
+    # --- UI Status Indicators and Data Fetching ---
     status_cols = st.columns(3)
     status_placeholders = {
         'scrape': status_cols[0].empty(),
@@ -387,31 +394,22 @@ def run_ai_picks(sport_key, sport_name):
         'context': status_cols[2].empty(),
     }
 
-    # 1. Data Acquisition (Scraping/Realtime API)
-    with st.spinner("Step 1: Fetching Expert Consensus and Public Data..."):
-        # 1a. Expert Consensus (Storage - Scrape)
+    with st.spinner("Step 1: Fetching latest data..."):
         status_placeholders['scrape'].info("🟡 Fetching Expert Consensus...")
-        # NOTE: run_scrapers now takes the sport_key to filter the scrape
         run_scrapers(target_date, sport_key)
-        status_placeholders['scrape'].success("✅ Expert Consensus Data Saved.")
-
-        # 1b. Public Consensus (Realtime - Kalshi API)
+        status_placeholders['scrape'].success("✅ Expert Consensus Saved.")
         status_placeholders['api'].info("🟡 Fetching Public Consensus...")
-        # Placeholder: Assumes insertion
         fetch_kalshi_consensus(sport_key, target_date)
-        status_placeholders['api'].success("✅ Public Consensus Data Saved.")
+        status_placeholders['api'].success("✅ Public Consensus Saved.")
 
-    # 2. Context Aggregation
-    status_placeholders['context'].info("🟡 Building LLM Context Payload...")
-    # Merge all data sources into a single payload for the LLM
-    context_payload = create_super_prompt_payload(
-        target_date, sport_key)  # NEW: Passed sport_key
-    status_placeholders['context'].success(
-        f"✅ Context Built ({len(context_payload.get('games', []))} Games)")
+    with st.spinner("Step 2: Building AI context..."):
+        status_placeholders['context'].info("🟡 Building LLM Context...")
+        context_payload = create_super_prompt_payload(target_date, sport_key)
+        status_placeholders['context'].success(
+            f"✅ Context Built ({len(context_payload.get('games', []))} Games)")
 
-    # --- 4. Model Execution (Existing Logic) ---
-    with st.spinner(f"Step 2: AI is analyzing {sport_name} games with {len(context_payload.get('games', []))} context blocks..."):
-
+    with st.spinner(f"Step 3: AI is analyzing {sport_name} games..."):
+        from app.ai_picks import fetch_odds
         raw_odds = fetch_odds(sport_key)
 
         if not raw_odds:
@@ -424,63 +422,49 @@ def run_ai_picks(sport_key, sport_name):
                              if b["key"] == "draftkings"), None)
             if not bookmaker:
                 continue
-            details = {
-                "game": f"{row['away_team']} @ {row['home_team']}", "sport": sport_name}
+            details = {"game": f"{row['away_team']} @ {row['home_team']}",
+                       "sport": sport_name, "commence_time": row.get('commence_time')}
             for market in bookmaker.get("markets", []):
                 for outcome in market.get("outcomes", []):
                     bet = details.copy()
                     bet.update({"market": market["key"], "pick": outcome.get(
                         "name"), "odds_american": outcome.get("price"), "line": outcome.get("point")})
                     normalized_odds.append(bet)
-
         if not normalized_odds:
             st.warning("No odds found from DraftKings.")
             return
 
         history_team = raw_odds[0]['home_team']
-        if sport_key == "americanfootball_ncaaf":
-            history = fetch_historical_ncaaf(history_team)
-        elif sport_key == "americanfootball_nfl":
-            history = fetch_historical_nfl(history_team)
-        elif sport_key == "baseball_mlb":
-            history = fetch_historical_mlb(history_team)
-        elif sport_key == "basketball_nba":
-            history = fetch_historical_nba(history_team)
-        else:
-            history = []
+        history_map = {"americanfootball_ncaaf": fetch_historical_ncaaf, "americanfootball_nfl": fetch_historical_nfl,
+                       "baseball_mlb": fetch_historical_mlb, "basketball_nba": fetch_historical_nba}
+        history = history_map.get(sport_key, lambda x: [])(history_team)
 
-        # --- 5. Generate Picks (The Super-Prompt now receives the Context) ---
-        # NOTE: generate_ai_picks was updated to handle the context argument
         odds_df = pd.DataFrame(normalized_odds)
-
-        # Pass the context payload to generate_ai_picks
-        picks = generate_ai_picks(odds_df, history, sport=sport_name,
-                                  context_payload=context_payload)
+        picks = generate_ai_picks(
+            odds_df, history, sport=sport_name, context_payload=context_payload)
         st.session_state.generated_picks = picks
 
-    # Clear the temporary status indicators after the whole process finishes
-    status_placeholders['scrape'].empty()
-    status_placeholders['api'].empty()
-    status_placeholders['context'].empty()
+    for placeholder in status_placeholders.values():
+        placeholder.empty()
 
 
 # --- UI Controls (Buttons) ---
 st.header("Generate New Picks")
 col1, col2, col3, col4 = st.columns(4)
 with col1:
-    if st.button("🏈 Generate NFL Picks", width="stretch"):
-        st.session_state.generated_picks = None  # Clear previous results
+    if st.button("🏈 Generate NFL Picks", width='stretch'):
+        st.session_state.generated_picks = None
         run_ai_picks("americanfootball_nfl", "NFL")
 with col2:
-    if st.button("🎓 Generate NCAAF Picks", width="stretch"):
+    if st.button("🎓 Generate NCAAF Picks", width='stretch'):
         st.session_state.generated_picks = None
         run_ai_picks("americanfootball_ncaaf", "NCAAF")
 with col3:
-    if st.button("⚾ Generate MLB Picks", width="stretch"):
+    if st.button("⚾ Generate MLB Picks", width='stretch'):
         st.session_state.generated_picks = None
         run_ai_picks("baseball_mlb", "MLB")
 with col4:
-    if st.button("🏀 Generate NBA Picks", width="stretch"):
+    if st.button("🏀 Generate NBA Picks", width='stretch'):
         st.session_state.generated_picks = None
         run_ai_picks("basketball_nba", "NBA")
 
@@ -567,7 +551,7 @@ if ai_picks_history:
         columns={"Confidence (Stars)": "confidence"}
     )
 
-    st.dataframe(df_display, width="stretch", hide_index=True)
+    st.dataframe(df_display, width='stretch', hide_index=True)
 
 else:
     st.info("No AI picks have been saved yet.")
