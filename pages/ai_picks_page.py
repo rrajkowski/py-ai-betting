@@ -1,3 +1,4 @@
+import os
 from zoneinfo import ZoneInfo
 import pandas as pd
 import streamlit as st
@@ -356,36 +357,35 @@ def run_ai_picks(sport_key, sport_name):
     Main function to generate AI picks, with corrected timezone and time-limit handling.
     """
     target_date = datetime.now(timezone.utc).strftime('%Y-%m-%d')
-
-    # This function now correctly ignores future-dated picks
     last_pick_time = get_most_recent_pick_timestamp(sport_name)
     now_utc = datetime.now(timezone.utc)
 
     if last_pick_time:
-        # The temporary check for future dates is removed.
-        # This logic now correctly enforces the 12-hour rule.
-        if last_pick_time.tzinfo is None:
-            last_pick_time = last_pick_time.replace(tzinfo=timezone.utc)
+        if last_pick_time > now_utc:
+            st.warning(
+                "Future-dated pick found. Ignoring time limit for this run.")
+        else:
+            if last_pick_time.tzinfo is None:
+                last_pick_time = last_pick_time.replace(tzinfo=timezone.utc)
 
-        # Use the 12-hour wait time
-        next_run_time = last_pick_time + timedelta(hours=12)
-        # TEMPORARY: 1 minute for testing
-        # next_run_time = last_pick_time + timedelta(minutes=1)
+            # --- FIX APPLIED: Use an environment variable for reliable local detection ---
+            environment = os.getenv("ENVIRONMENT", "production")
 
-        time_to_wait = next_run_time - now_utc
+            if environment == "development":
+                wait_duration = timedelta(minutes=1)
+            else:
+                wait_duration = timedelta(hours=12)
 
-        if time_to_wait > timedelta(0):
-            hours, remainder = divmod(
-                time_to_wait.total_seconds(), 3600)
-            minutes, _ = divmod(remainder, 60)
-            local_tz = ZoneInfo(LOCAL_TZ_NAME)
-            last_pick_local = last_pick_time.astimezone(local_tz)
-            st.info(
-                f"Picks for {sport_name} were generated recently. Last generated: {last_pick_local.strftime('%Y-%m-%d %I:%M %p %Z')}. "
-                f"Please wait {int(hours)} hours and {int(minutes)} minutes before running again. ⏳"
-            )
-            return
+            next_run_time = last_pick_time + wait_duration
+            time_to_wait = next_run_time - now_utc
 
+            if time_to_wait > timedelta(0):
+                hours, remainder = divmod(time_to_wait.total_seconds(), 3600)
+                minutes, _ = divmod(remainder, 60)
+                local_tz = ZoneInfo(LOCAL_TZ_NAME)
+                last_pick_local = last_pick_time.astimezone(local_tz)
+                st.info(f"Picks for {sport_name} were generated recently. Last generated: {last_pick_local.strftime('%Y-%m-%d %I:%M %p %Z')}. Please wait {int(hours)} hours and {int(minutes)} minutes before running again. ⏳")
+                return
     # --- UI Status Indicators and Data Fetching ---
     status_cols = st.columns(3)
     status_placeholders = {

@@ -279,7 +279,7 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
         except (ValueError, TypeError):
             continue
 
-        # --- FIX APPLIED: Use robust matching to find and add commence_time ---
+        # --- Use robust matching to find and add commence_time ---
         try:
             ai_game_string = pick.get('game', '').lower()
             if not ai_game_string:
@@ -290,7 +290,7 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
                 away_team_full = row.get('away_team', '').lower()
                 home_team_full = row.get('home_team', '').lower()
 
-                # **CRITICAL FIX**: Ensure team names are not empty before splitting
+                # ** Ensure team names are not empty before splitting
                 if away_team_full and home_team_full:
                     # Isolate mascot names for more flexible matching
                     away_mascot = away_team_full.split()[-1]
