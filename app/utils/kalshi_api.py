@@ -11,6 +11,7 @@ class KalshiClient:
     Kalshi API client wrapper for public market data requests only (no auth).
     """
 
+    # NOTE: Using the standard production API URL
     API_URL = "https://api.elections.kalshi.com/trade-api/v2"
 
     def __init__(self):
@@ -40,17 +41,19 @@ def compute_popularity(market: dict, max_v24h: int, max_oi: int) -> float:
     v24h = market.get("volume_24h", 0) or 0
     oi = market.get("open_interest", 0) or 0
 
-    v24h_norm = v24h / max_v24h if max_v24h > 0 else 0
-    oi_norm = oi / max_oi if max_oi > 0 else 0
+    # Avoid division by zero
+    norm_v24h = v24h / max_v24h if max_v24h else 0
+    norm_oi = oi / max_oi if max_oi else 0
 
-    # Weighted blend: 60% recent buzz, 40% sustained interest
-    return round(0.6 * v24h_norm + 0.4 * oi_norm, 4)
+    # Simple weighted average
+    return round((norm_v24h * 0.6) + (norm_oi * 0.4), 3)
 
 
 def fetch_kalshi_consensus(sport_key: str, target_date: str):
     """
-    Fetch public consensus for sports (NFL, NCAAF, MLB), only for upcoming markets.
+    Fetches public consensus for US sports (NFL, NCAAF, MLB, NBA) and stores them in DB.
     """
+    # 1. Map internal sport key to Kalshi series ticker
     sport_map = {
         "americanfootball_nfl": {"ticker": "KXNFLGAME", "limit": 16},
         "americanfootball_ncaaf": {"ticker": "KXNCAAFGAME", "limit": 30},
@@ -59,32 +62,43 @@ def fetch_kalshi_consensus(sport_key: str, target_date: str):
     }
 
     sport_info = sport_map.get(sport_key.lower())
+
     if not sport_info:
-        print(f"📡 Kalshi API: Skipping {sport_key} (unsupported).")
+        print(
+            f"📡 Kalshi API: Skipping {sport_key}. Series ticker unsupported."
+        )
         return
 
     client = KalshiClient()
 
-    # Define current timestamp as min_close_ts to exclude markets that already closed / live
-    now_ts = int(datetime.now(timezone.utc).timestamp())
+    # NOTE: Kalshi uses 'series_ticker' to group related events (e.g., all NFL markets)
+    markets_params = {"series_ticker": sport_info["ticker"], "status": "open"}
+    print(
+        f"📡 Kalshi API: Fetching open markets for series {sport_info['ticker']}..."
+    )
+    markets_response = client.request("GET", "/markets", params=markets_params)
 
-    params = {
-        "series_ticker": sport_info["ticker"],
-        "status": "open",
-        "limit": sport_info["limit"],
-        "min_close_ts": now_ts + 1,  # only markets closing in the future
-    }
-
-    resp = client.request("GET", "/markets", params=params)
-    if not resp or resp.status_code != 200:
-        print(
-            f"⚠️ Kalshi API request failed for {sport_info['ticker']} ({resp})")
+    if not markets_response:
         return
 
-    data = resp.json()
+    data = markets_response.json()
     markets = data.get("markets", [])
+    market_count_raw = len(markets)
+
+    # --- Filter for future markets and process ---
+    now_utc = datetime.now(timezone.utc)
+
+    # CRITICAL: Filter markets to only include those that close in the future
+    # This comparison unifies the date format: ISO string is converted to a UTC datetime object for comparison.
+    markets = [
+        m for m in markets
+        if m.get("close_time")
+        and datetime.fromisoformat(m["close_time"].replace("Z", "+00:00")) > now_utc
+    ]
+
     print(
-        f"📡 Kalshi API: Returned {len(markets)} markets after filtering future-close for {sport_key.upper()}")
+        f"📡 Kalshi API: Found {market_count_raw} raw markets, {len(markets)} closing in the future for {sport_key.upper()}"
+    )
 
     if not markets:
         print("⚠️ No markets found after filtering for future close times.")
@@ -95,7 +109,10 @@ def fetch_kalshi_consensus(sport_key: str, target_date: str):
     max_oi = max((m.get("open_interest", 0) or 0) for m in markets) or 1
 
     for m in markets:
+        market_id = m.get("ticker")
         last_price = m.get("last_price")
+
+        # Skip if price is missing (no liquidity/no consensus)
         if last_price is None:
             continue
 
@@ -106,23 +123,25 @@ def fetch_kalshi_consensus(sport_key: str, target_date: str):
             "market_title": m.get("title"),
             "implied_prob_yes": implied_prob,
             "implied_prob_no": round(1.0 - implied_prob, 3),
-            "market_ticker": m.get("ticker"),
-            # check the field name (docs use close_time) :contentReference[oaicite:1]{index=1}
-            "market_close": m.get("close_time") or m.get("close_time"),
+            "market_ticker": market_id,
+            # Use close_time, which is an ISO 8601 string, for date unification
+            "market_close": m.get("close_time"),
             "volume_24h": m.get("volume_24h", 0),
             "open_interest": m.get("open_interest", 0),
             "popularity_score": popularity_score,
         }
 
+        # Store context
         insert_context(
             category="realtime",
             context_type="public_consensus",
-            game_id=m.get("ticker"),
-            match_date=target_date,
-            sport=sport_key,
+            game_id=market_id,
+            match_date=target_date,  # Uses the grouping date (YYYY-MM-DD)
+            sport=sport_info["ticker"],
             data=context_data,
             source="kalshi",
         )
 
     print(
-        f"✅ Kalshi API: Stored {len(markets)} future-close markets for {sport_key.upper()}")
+        f"✅ Kalshi API: Stored public consensus data for {sport_info['ticker']} markets."
+    )

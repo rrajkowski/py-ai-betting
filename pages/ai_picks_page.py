@@ -154,7 +154,7 @@ def refresh_bet_results():
         scores_data = []
         try:
             # Enforce the daysFrom=2 limit due to API constraints.
-            scores_data = fetch_scores(sport=sport_key, days_from=2)
+            scores_data = fetch_scores(sport=sport_key, days_from=1)
         except requests.exceptions.HTTPError as e:
             # Handle the 422 Client Error gracefully, assuming the sport data stream is closed.
             if e.response.status_code == 422:
@@ -368,7 +368,7 @@ def run_ai_picks(sport_key, sport_name):
             if last_pick_time.tzinfo is None:
                 last_pick_time = last_pick_time.replace(tzinfo=timezone.utc)
 
-            # --- FIX APPLIED: Use an environment variable for reliable local detection ---
+            # --- Use an environment variable for reliable local detection ---
             environment = os.getenv("ENVIRONMENT", "production")
 
             if environment == "development":

@@ -18,13 +18,22 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
 
+
+def _safe_parse_datetime(date_str: str):
+    """Safely parse ISO datetime to UTC datetime, return None if invalid."""
+    if not date_str or str(date_str).strip().lower() in ("none", "<none>", "null", "", "nan"):
+        return None
+    try:
+        return datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+    except Exception:
+        return None
+
 # -------------------------
 # DB Migration for historical_games
 # -------------------------
 
 
 def migrate_historical_games():
-    """Ensures the historical_games table exists with full schema."""
     conn = get_db()
     cur = conn.cursor()
     cur.execute("""
@@ -58,9 +67,6 @@ migrate_historical_games()
 
 
 def fetch_odds(sport="americanfootball_ncaaf"):
-    """
-    Fetches odds from the API and filters out any games that have already started.
-    """
     url = f"https://odds.p.rapidapi.com/v4/sports/{sport}/odds"
     querystring = {
         "regions": "us", "oddsFormat": "american",
@@ -77,16 +83,10 @@ def fetch_odds(sport="americanfootball_ncaaf"):
     now_utc = datetime.now(timezone.utc)
     future_games = []
     for game in all_games:
-        commence_time_str = game.get('commence_time')
-        if not commence_time_str:
-            continue
-        try:
-            commence_time = datetime.fromisoformat(
-                commence_time_str.replace("Z", "+00:00"))
-            if commence_time > now_utc:
-                future_games.append(game)
-        except ValueError:
-            continue
+        dt = _safe_parse_datetime(game.get('commence_time'))
+        if dt and dt > now_utc:
+            game['commence_time'] = dt.isoformat()
+            future_games.append(game)
     return future_games
 
 
@@ -96,6 +96,7 @@ def fetch_scores(sport="americanfootball_ncaaf", days_from=1):
     r = requests.get(url, headers=HEADERS, params=params)
     r.raise_for_status()
     return r.json()
+
 # -------------------------
 # Historical Data Caching
 # -------------------------
@@ -122,6 +123,9 @@ def _fetch_and_cache_historical_scores(sport_key, sport_name, team, limit=6, day
     for game in scores_data:
         if not game.get('completed', False):
             continue
+        dt = _safe_parse_datetime(game.get('commence_time'))
+        if not dt:
+            continue
         home_team = game.get('home_team')
         away_team = game.get('away_team')
         home_score = next((s['score'] for s in game.get(
@@ -137,7 +141,7 @@ def _fetch_and_cache_historical_scores(sport_key, sport_name, team, limit=6, day
             "game": f"{away_team} @ {home_team}",
             "score": f"{home_score}-{away_score}",
             "winner": home_team if int(home_score) > int(away_score) else away_team,
-            "date": game.get('commence_time'),
+            "date": dt.isoformat(),
             "home_team": home_team,
             "away_team": away_team,
         }
@@ -153,23 +157,24 @@ def _fetch_and_cache_historical_scores(sport_key, sport_name, team, limit=6, day
     return sorted(history, key=lambda x: x['date'], reverse=True)[:limit]
 
 
-def fetch_historical_ncaaf(team_name, limit=30): return _fetch_and_cache_historical_scores(
-    "americanfootball_ncaaf", "NCAAF", team_name, limit)
+def fetch_historical_ncaaf(team_name, limit=30):
+    return _fetch_and_cache_historical_scores("americanfootball_ncaaf", "NCAAF", team_name, limit)
 
 
-def fetch_historical_nfl(team_name, limit=16): return _fetch_and_cache_historical_scores(
-    "americanfootball_nfl", "NFL", team_name, limit)
+def fetch_historical_nfl(team_name, limit=16):
+    return _fetch_and_cache_historical_scores("americanfootball_nfl", "NFL", team_name, limit)
 
 
-def fetch_historical_mlb(team_name, limit=10): return _fetch_and_cache_historical_scores(
-    "baseball_mlb", "MLB", team_name, limit)
+def fetch_historical_mlb(team_name, limit=10):
+    return _fetch_and_cache_historical_scores("baseball_mlb", "MLB", team_name, limit)
 
 
-def fetch_historical_nba(team_name, limit=10): return _fetch_and_cache_historical_scores(
-    "basketball_nba", "NBA", team_name, limit)
+def fetch_historical_nba(team_name, limit=10):
+    return _fetch_and_cache_historical_scores("basketball_nba", "NBA", team_name, limit)
 
 
-def fetch_historical_other(team_name, limit=10): return []
+def fetch_historical_other(team_name, limit=10):
+    return []
 
 # -------------------------
 # AI Model Helpers
@@ -214,9 +219,6 @@ def _call_gemini_model(model_name, prompt):
 
 
 def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=None, kalshi_context=None):
-    """
-    Generate betting picks with robust data enrichment to ensure commence_time is saved.
-    """
     context = {
         "odds_count": len(odds_df),
         "sport": sport.upper(),
@@ -235,12 +237,12 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
     2. Focus only on strong, data-supported bets.
     3. Critically, only select games where the `commence_time` is in the future. Do not pick games that have already started.
     4. Each object in the "picks" list MUST contain these exact keys: "game", "sport", "pick", "market", "line", "odds_american", "confidence", "reasoning".
-    5. Only include picks with **confidence ratings of 3, 4, or 5 stars**. (Do NOT return any 1-star or 2-star picks.)
+    5. Only include picks with **confidence ratings of 3, 4, or 5 stars**.
     6. The "odds_american" field must be numeric (e.g., -110, 150).
     7. All picks must be for DIFFERENT GAMES.
     8. Exclude odds outside the range (+150 to -150).
     9. The reasoning must clearly connect odds + sentiment to confidence.
-    10. Return a maximum of 3 picks. If no picks meet the 3-star threshold, return an empty "picks" list.
+    10. Return a maximum of 3 picks.
     Context: {json.dumps(context, indent=2)}
     """
 
@@ -253,11 +255,8 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
     parsed = []
     for m in models:
         try:
-            if m['provider'] == 'google':
-                parsed = _call_gemini_model(m['name'], prompt)
-            else:
-                parsed = _call_openai_model(m['name'], prompt)
-
+            parsed = _call_gemini_model(
+                m['name'], prompt) if m['provider'] == 'google' else _call_openai_model(m['name'], prompt)
             if parsed:
                 st.success(
                     f"Generated {len(parsed)} picks using {m['provider']}:{m['name']}")
@@ -273,43 +272,18 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
     unique_picks, seen = [], set()
     for pick in parsed:
         pick.setdefault("sport", sport)
+        dt = _safe_parse_datetime(
+            pick.get('commence_time') or pick.get('date'))
+        if not dt:
+            st.info(f"Ignoring pick missing valid date: {pick.get('game')}")
+            continue
+        pick['commence_time'] = dt.isoformat()
+
         try:
             if int(pick.get("confidence", 0)) < 3:
                 continue
         except (ValueError, TypeError):
             continue
-
-        # --- Use robust matching to find and add commence_time ---
-        try:
-            ai_game_string = pick.get('game', '').lower()
-            if not ai_game_string:
-                continue
-
-            # Iterate through the original odds data to find a reliable match
-            for _, row in odds_df.iterrows():
-                away_team_full = row.get('away_team', '').lower()
-                home_team_full = row.get('home_team', '').lower()
-
-                # ** Ensure team names are not empty before splitting
-                if away_team_full and home_team_full:
-                    # Isolate mascot names for more flexible matching
-                    away_mascot = away_team_full.split()[-1]
-                    home_mascot = home_team_full.split()[-1]
-
-                    # Check if both mascots are present in the AI's game string
-                    if away_mascot and home_mascot and \
-                       away_mascot in ai_game_string and home_mascot in ai_game_string:
-
-                        # If odds are missing, populate them from the matched row
-                        if 'odds_american' not in pick or pick.get('odds_american') is None:
-                            pick['odds_american'] = row['odds_american']
-
-                        # ALWAYS populate commence_time from the definitive source
-                        pick['commence_time'] = row['commence_time']
-                        break  # Stop searching once a match is found
-        except Exception as e:
-            st.warning(f"Could not enrich pick for '{pick.get('game')}': {e}")
-            pass
 
         gm_key = (pick.get('game', '').strip(), pick.get('market', '').strip())
         if gm_key in seen:
@@ -324,16 +298,13 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
         st.toast("No new picks to save.")
 
     return parsed
+
 # -------------------------
 # Auto-grading and Match Time Sync
 # -------------------------
 
 
 def update_ai_pick_results():
-    """
-    Auto-updates AI picks from 'Pending' to Win/Loss/Push
-    based on fetched live/final scores.
-    """
     conn = get_db()
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
@@ -349,14 +320,14 @@ def update_ai_pick_results():
     updated = 0
 
     for row in pending:
-        sport = row["sport"].lower().replace(" ", "_")
         commence = row["commence_time"]
-        if not commence:
+        dt = _safe_parse_datetime(commence)
+        if not dt:
             continue
-        commence_dt = datetime.fromisoformat(commence.replace("Z", "+00:00"))
-        if datetime.now(timezone.utc) < commence_dt:
+        if datetime.now(timezone.utc) < dt:
             continue
 
+        sport = row["sport"].lower().replace(" ", "_")
         try:
             scores = fetch_scores(sport=sport, days_from=2)
         except Exception:
@@ -376,12 +347,10 @@ def update_ai_pick_results():
                 result = "Push"
                 if int(hs) == int(as_):
                     result = "Push"
-                elif (row["pick"] == home and int(hs) > int(as_)) or \
-                     (row["pick"] == away and int(as_) > int(hs)):
+                elif (row["pick"] == home and int(hs) > int(as_)) or (row["pick"] == away and int(as_) > int(hs)):
                     result = "Win"
                 else:
                     result = "Loss"
-
                 cur.execute("UPDATE ai_picks SET result=? WHERE id=?",
                             (result, row["id"]))
                 updated += 1
