@@ -510,7 +510,9 @@ st.header("📜 AI Picks History")
 ai_picks_history = list_ai_picks()
 
 if ai_picks_history:
-    df = pd.DataFrame(ai_picks_history)
+    df = pd.DataFrame(ai_picks_history).sort_values(
+        by=["date", "id"], ascending=False, na_position="last"
+    )
 
     # --- Filter out completed picks (win/loss/push) ---
     completed_statuses = {"win", "loss", "push"}
