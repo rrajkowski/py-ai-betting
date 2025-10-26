@@ -165,11 +165,11 @@ def fetch_historical_nfl(team_name, limit=16):
     return _fetch_and_cache_historical_scores("americanfootball_nfl", "NFL", team_name, limit)
 
 
-def fetch_historical_mlb(team_name, limit=10):
+def fetch_historical_mlb(team_name, limit=4):
     return _fetch_and_cache_historical_scores("baseball_mlb", "MLB", team_name, limit)
 
 
-def fetch_historical_nba(team_name, limit=10):
+def fetch_historical_nba(team_name, limit=12):
     return _fetch_and_cache_historical_scores("basketball_nba", "NBA", team_name, limit)
 
 
@@ -211,7 +211,12 @@ def _call_gemini_model(model_name, prompt):
         response_mime_type="application/json")
     model = genai.GenerativeModel(model_name, generation_config=gen_config)
     resp = model.generate_content(prompt)
-    return json.loads(resp.text).get("picks", [])
+    resp_json = json.loads(resp.text)
+    if isinstance(resp_json, list):
+        parsed = resp_json
+    else:
+        parsed = resp_json.get("picks", [])
+    return parsed
 
 # -------------------------
 # Generate AI Picks
@@ -236,13 +241,14 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
     1. Analyze the provided context, including odds, historical performance, and Kalshi sentiment data (popularity_score, volume_24h, open_interest).
     2. Focus only on strong, data-supported bets.
     3. Critically, only select games where the `commence_time` is in the future. Do not pick games that have already started.
-    4. Each object in the "picks" list MUST contain these exact keys: "game", "sport", "pick", "market", "line", "odds_american", "confidence", "reasoning".
+    4. Each object in the "picks" list MUST contain these exact keys: "game", "sport", "pick", "market", "line", "odds_american", "confidence", "reasoning", "commence_time".
     5. Only include picks with **confidence ratings of 3, 4, or 5 stars**.
     6. The "odds_american" field must be numeric (e.g., -110, 150).
-    7. All picks must be for DIFFERENT GAMES.
-    8. Exclude odds outside the range (+150 to -150).
-    9. The reasoning must clearly connect odds + sentiment to confidence.
-    10. Return a maximum of 3 picks.
+    7. The "commence_time" field must be copied exactly from the source game data in ISO format.
+    8. All picks must be for DIFFERENT GAMES.
+    9. Exclude odds outside the range (+150 to -150).
+    10. The reasoning must clearly connect odds + sentiment to confidence.
+    11. Return a maximum of 3 picks.
     Context: {json.dumps(context, indent=2)}
     """
 
@@ -275,9 +281,10 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
         dt = _safe_parse_datetime(
             pick.get('commence_time') or pick.get('date'))
         if not dt:
-            st.info(f"Ignoring pick missing valid date: {pick.get('game')}")
-            continue
-        pick['commence_time'] = dt.isoformat()
+            st.warning(
+                f"⏰ Missing commence_time for {pick.get('game')}, defaulting to now()")
+            dt = datetime.now(timezone.utc)
+            pick['commence_time'] = dt.isoformat()
 
         try:
             if int(pick.get("confidence", 0)) < 3:

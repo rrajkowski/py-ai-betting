@@ -1,6 +1,7 @@
 import sqlite3
 import os
 import json
+from typing import Optional
 
 # NOTE: Assumes bets.db lives in the root directory (two levels up from /app/utils/)
 DB_PATH = os.getenv(
@@ -89,33 +90,36 @@ def init_ai_picks():
 def insert_ai_picks(picks):
     """
     Batch inserts AI-generated picks into the database.
-    Now correctly uses 'commence_time' for the 'date' field.
     """
     conn = get_db()
     cur = conn.cursor()
+
     for pick in picks:
-        cur.execute("""
-            INSERT INTO ai_picks (date, sport, game, pick, market, line, odds_american, result, confidence, reasoning, commence_time)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            # Correctly use commence_time for the date field
-            pick.get("commence_time"),
-            pick.get("sport"),
-            pick.get("game"),
-            pick.get("pick"),
-            pick.get("market"),
-            pick.get("line"),
-            pick.get("odds_american"),
-            pick.get("result", "Pending"),
-            pick.get("confidence"),
-            pick.get("reasoning"),
-            pick.get("commence_time")
-        ))
+        try:
+            cur.execute("""
+                INSERT INTO ai_picks (date, sport, game, pick, market, line, odds_american, result, confidence, reasoning, commence_time)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                pick.get("commence_time"),  # Use commence_time for the date field
+                pick.get("sport"),
+                pick.get("game"),
+                pick.get("pick"),
+                pick.get("market"),
+                pick.get("line"),
+                pick.get("odds_american"),
+                pick.get("result", "Pending"),
+                pick.get("confidence"),
+                pick.get("reasoning"),
+                pick.get("commence_time")
+            ))
+        except Exception as e:
+            print(f"❌ Error inserting AI pick: {e}")
+
     conn.commit()
     conn.close()
 
 
-def insert_context(category: str, context_type: str, game_id: str, match_date: str, sport: str, data: dict, source: str, team_pick: str | None = None):
+def insert_context(category: str, context_type: str, game_id: str, match_date: str, sport: str, data: dict, source: str, team_pick: Optional[str] = None):
     """
     Inserts a single row of context data into the prompt_context table.
     Data object is serialized to JSON string before insertion.
