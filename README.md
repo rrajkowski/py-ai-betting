@@ -8,7 +8,7 @@ This project leverages Google's Gemini 2.5 Pro as its primary model for analysis
 
 - Multi-Provider AI Engine: Prioritizes Google's Gemini 2.5 Pro for analysis and automatically falls back to OpenAI's GPT-5 models (gpt-5-mini, etc.) if the primary model fails.
 
-- Automated Pick Generation: Generates daily betting picks for NFL, NCAAF, and MLB across major markets (Moneyline, Spreads, Totals).
+- Automated Pick Generation: Generates daily betting picks for NFL, NCAAF, NCAAB, and NBA across major markets (Moneyline, Spreads, Totals).
 
 - Historical Caching: Caches recent game scores in a local SQLite database to minimize API calls and reduce costs.
 

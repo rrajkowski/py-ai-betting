@@ -1,101 +1,51 @@
-Rank,Team,Source,Date,Conference
-1,Ohio State Buckeyes,AP/Coaches,2025-09-28,Big Ten
-2,Oregon Ducks,AP/Coaches,2025-09-28,Big Ten
-3,Miami Hurricanes,AP/Coaches,2025-09-28,ACC
-4,Ole Miss Rebels,AP/Coaches,2025-09-28,SEC
-5,Oklahoma Sooners,AP/Coaches,2025-09-28,SEC
-6,Texas A&M Aggies,AP/Coaches,2025-09-28,SEC
-7,Penn State Nittany Lions,AP/Coaches,2025-09-28,Big Ten
-8,Indiana Hoosiers,AP/Coaches,2025-09-28,Big Ten
-9,Texas Longhorns,AP/Coaches,2025-09-28,SEC
-10,Alabama Crimson Tide,AP/Coaches,2025-09-28,SEC
-11,Texas Tech Red Raiders,AP/Coaches,2025-09-28,Big 12
-12,Georgia Bulldogs,AP/Coaches,2025-09-28,SEC
-13,LSU Tigers,AP/Coaches,2025-09-28,SEC
-14,Iowa State Cyclones,AP/Coaches,2025-09-28,Big 12
-15,Tennessee Volunteers,AP/Coaches,2025-09-28,SEC
-16,Vanderbilt Commodores,AP/Coaches,2025-09-28,SEC
-17,Georgia Tech Yellow Jackets,AP/Coaches,2025-09-28,ACC
-18,Florida State Seminoles,AP/Coaches,2025-09-28,ACC
-19,Missouri Tigers,AP/Coaches,2025-09-28,SEC
-20,Michigan Wolverines,AP/Coaches,2025-09-28,Big Ten
-21,Notre Dame Fighting Irish,AP/Coaches,2025-09-28,FBS Independent
-22,Illinois Fighting Illini,AP/Coaches,2025-09-28,Big Ten
-23,BYU Cougars,AP/Coaches,2025-09-28,Big 12
-24,Virginia Cavaliers,AP/Coaches,2025-09-28,ACC
-25,Arizona State Sun Devils,AP/Coaches,2025-09-28,Big 12
-26,USC Trojans,Athlon Sports,2025-09-28,Big Ten
-27,TCU Horned Frogs,Athlon Sports,2025-09-28,Big 12
-28,South Florida Bulls,Athlon Sports,2025-09-28,American
-29,Auburn Tigers,Athlon Sports,2025-09-28,SEC
-30,Utah Utes,Athlon Sports,2025-09-28,Big 12
-31,Louisville Cardinals,Athlon Sports,2025-09-28,ACC
-32,Mississippi State Bulldogs,Athlon Sports,2025-09-28,SEC
-33,Washington Huskies,Athlon Sports,2025-09-28,Big Ten
-34,Baylor Bears,Athlon Sports,2025-09-28,Big 12
-35,South Carolina Gamecocks,Athlon Sports,2025-09-28,SEC
-36,Nebraska Cornhuskers,Athlon Sports,2025-09-28,Big Ten
-37,Iowa Hawkeyes,Athlon Sports,2025-09-28,Big Ten
-38,Memphis Tigers,Athlon Sports,2025-09-28,American
-39,Tulane Green Wave,Athlon Sports,2025-09-28,American
-40,Kansas Jayhawks,Athlon Sports,2025-09-28,Big 12
-41,SMU Mustangs,Athlon Sports,2025-09-28,ACC
-42,Boise State Broncos,Athlon Sports,2025-09-28,Mountain West
-43,Syracuse Orange,Athlon Sports,2025-09-28,ACC
-44,Clemson Tigers,Athlon Sports,2025-09-28,ACC
-45,Houston Cougars,Athlon Sports,2025-09-28,Big 12
-46,Maryland Terrapins,Athlon Sports,2025-09-28,Big Ten
-47,Arizona Wildcats,Athlon Sports,2025-09-28,Big 12
-48,Duke Blue Devils,Athlon Sports,2025-09-28,ACC
-49,Arkansas Razorbacks,Athlon Sports,2025-09-28,SEC
-50,Navy Midshipmen,Athlon Sports,2025-09-28,American
-51,Florida Gators,Athlon Sports,2025-09-28,SEC
-52,Michigan State Spartans,Athlon Sports,2025-09-28,Big Ten
-53,NC State Wolfpack,Athlon Sports,2025-09-28,ACC
-54,UNLV Rebels,Athlon Sports,2025-09-28,Mountain West
-55,California Golden Bears,Athlon Sports,2025-09-28,ACC
-56,Minnesota Golden Gophers,Athlon Sports,2025-09-28,Big Ten
-57,Rutgers Scarlet Knights,Athlon Sports,2025-09-28,Big Ten
-58,James Madison Dukes,Athlon Sports,2025-09-28,Sun Belt
-59,Colorado Buffaloes,Athlon Sports,2025-09-28,Big 12
-60,Cincinnati Bearcats,Athlon Sports,2025-09-28,Big 12
-61,Ohio Bobcats,Athlon Sports,2025-09-28,MAC
-62,UCF Knights,Athlon Sports,2025-09-28,Big 12
-63,Texas State Bobcats,Athlon Sports,2025-09-28,Sun Belt
-64,North Texas Mean Green,Athlon Sports,2025-09-28,American
-65,Kentucky Wildcats,Athlon Sports,2025-09-28,SEC
-66,UTSA Roadrunners,Athlon Sports,2025-09-28,American
-67,West Virginia Mountaineers,Athlon Sports,2025-09-28,Big 12
-68,Pitt Panthers,Athlon Sports,2025-09-28,ACC
-69,Old Dominion Monarchs,Athlon Sports,2025-09-28,Sun Belt
-70,Fresno State Bulldogs,Athlon Sports,2025-09-28,Mountain West
-71,Wisconsin Badgers,Athlon Sports,2025-09-28,Big Ten
-72,North Carolina Tar Heels,Athlon Sports,2025-09-28,ACC
-73,Toledo Rockets,Athlon Sports,2025-09-28,MAC
-74,Army Black Knights,Athlon Sports,2025-09-28,American
-75,Virginia Tech Hokies,Athlon Sports,2025-09-28,ACC
-76,Kansas State Wildcats,Athlon Sports,2025-09-28,Big 12
-77,Northwestern Wildcats,Athlon Sports,2025-09-28,Big Ten
-78,Western Kentucky Hilltoppers,Athlon Sports,2025-09-28,C-USA
-79,East Carolina Pirates,Athlon Sports,2025-09-28,American
-80,Wake Forest Demon Deacons,Athlon Sports,2025-09-28,ACC
-81,Miami (Ohio) RedHawks,Athlon Sports,2025-09-28,MAC
-82,Hawaii Rainbow Warriors,Athlon Sports,2025-09-28,Mountain West
-83,New Mexico Lobos,Athlon Sports,2025-09-28,Mountain West
-84,Utah State Aggies,Athlon Sports,2025-09-28,Mountain West
-85,Delaware Fightin' Blue Hens,Athlon Sports,2025-09-28,C-USA
-86,Stanford Cardinal,Athlon Sports,2025-09-28,ACC
-87,Boston College Eagles,Athlon Sports,2025-09-28,ACC
-88,San Diego State Aztecs,Athlon Sports,2025-09-28,Mountain West
-89,Louisiana Tech Bulldogs,Athlon Sports,2025-09-28,C-USA
-90,Rice Owls,Athlon Sports,2025-09-28,American
-91,Air Force Falcons,Athlon Sports,2025-09-28,Mountain West
-92,UConn Huskies,Athlon Sports,2025-09-28,FBS Independent
-93,Troy Trojans,Athlon Sports,2025-09-28,Sun Belt
-94,Buffalo Bulls,Athlon Sports,2025-09-28,MAC
-95,Purdue Boilermakers,Athlon Sports,2025-09-28,Big Ten
-96,Georgia Southern Eagles,Athlon Sports,2025-09-28,Sun Belt
-97,Bowling Green Falcons,Athlon Sports,2025-09-28,MAC
-98,Jacksonville State Gamecocks,Athlon Sports,2025-09-28,C-USA
-99,Colorado State Rams,Athlon Sports,2025-09-28,Mountain West
-100,UCLA Bruins,Athlon Sports,2025-09-28,Big Ten
+Rank,Team,Record,Conference,Source
+1,Ohio State Buckeyes,8-0,Big Ten,AP
+2,Indiana Hoosiers,9-0,Big Ten,AP
+3,Texas A&M Aggies,8-0,SEC,AP
+4,Alabama Crimson Tide,7-1,SEC,AP
+5,Georgia Bulldogs,7-1,SEC,AP
+6,Ole Miss Rebels,8-1,SEC,AP
+7,BYU Cougars,8-0,Big 12,AP
+8,Texas Tech Red Raiders,8-1,Big 12,AP
+9,Oregon Ducks,7-1,Big Ten,AP
+10,Notre Dame Fighting Irish,6-2,FBS Independent,AP
+11,Texas Longhorns,7-2,SEC,AP
+12,Oklahoma Sooners,7-2,SEC,AP
+13,Utah Utes,7-2,Big 12,AP
+14,Virginia Cavaliers,8-1,ACC,AP
+15,Louisville Cardinals,7-1,ACC,AP
+16,Vanderbilt Commodores,7-2,SEC,AP
+17,Georgia Tech Yellow Jackets,8-1,ACC,AP
+18,Miami Hurricanes,6-2,ACC,AP
+19,USC Trojans,6-2,Big Ten,AP
+20,Iowa Hawkeyes,6-2,Big Ten,AP
+21,Michigan Wolverines,7-2,Big Ten,AP
+22,Missouri Tigers,6-2,SEC,AP
+23,Washington Huskies,6-2,Big Ten,AP
+24,Pittsburgh Panthers,7-2,ACC,AP
+25,Tennessee Volunteers,6-3,SEC,AP
+26,Memphis Tigers,8-2,American,AP (CBS extension)
+27,Cincinnati Bearcats,7-2,Big 12,AP (CBS extension)
+28,Houston Cougars,8-2,Big 12,AP (CBS extension)
+29,North Texas Mean Green,8-1,American,AP (CBS extension)
+30,South Florida Bulls,7-2,American,AP (CBS extension)
+31,James Madison Dukes,7-1,Sun Belt,AP (CBS extension)
+32,TCU Horned Frogs,6-2,Big 12,AP (CBS extension)
+33,Illinois Fighting Illini,6-3,Big Ten,AP (CBS extension)
+34,San Diego State Aztecs,7-1,Mountain West,AP (CBS extension)
+35,SMU Mustangs,7-3,ACC,AP (CBS extension)
+36,Arizona State Sun Devils,6-3,Big 12,AP (CBS extension)
+37,LSU Tigers,5-3,SEC,AP (CBS extension)
+38,Nebraska Cornhuskers,6-3,Big Ten,AP (CBS extension)
+39,Duke Blue Devils,5-3,ACC,AP (CBS extension)
+40,Tulane Green Wave,7-2,American,AP (CBS extension)
+41,Arizona Wildcats,5-3,Big 12,AP (CBS extension)
+42,Navy Midshipmen,7-1,American,AP (CBS extension)
+43,Iowa State Cyclones,5-4,Big 12,AP (CBS extension)
+44,Minnesota Golden Gophers,6-3,Big Ten,AP (CBS extension)
+45,Baylor Bears,5-4,Big 12,AP (CBS extension)
+46,Kansas Jayhawks,5-4,Big 12,AP (CBS extension)
+47,NC State Wolfpack,5-4,ACC,AP (CBS extension)
+48,Mississippi State Bulldogs,5-5,SEC,AP (CBS extension)
+49,Northwestern Wildcats,5-4,Big Ten,AP (CBS extension)
+50,Florida State Seminoles,4-4,ACC,AP (CBS extension)

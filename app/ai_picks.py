@@ -3,11 +3,12 @@ import requests
 import json
 import os
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from openai import OpenAI
 import google.generativeai as genai
 from .db import get_db, init_ai_picks, insert_ai_picks
 from .const import RAPIDAPI_KEY, HEADERS
+from .utils.sport_config import SportConfig
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -67,6 +68,20 @@ migrate_historical_games()
 
 
 def fetch_odds(sport="americanfootball_ncaaf"):
+    """
+    Fetch odds from RapidAPI with seasonal awareness and 7-day filtering.
+
+    Args:
+        sport: Sport key (e.g., 'americanfootball_nfl')
+
+    Returns:
+        List of upcoming games with odds (next 7 days only)
+    """
+    # Check if sport is in season
+    if not SportConfig.is_in_season(sport):
+        print(f"📊 Odds API: Skipping {sport.upper()} - out of season")
+        return []
+
     url = f"https://odds.p.rapidapi.com/v4/sports/{sport}/odds"
     querystring = {
         "regions": "us", "oddsFormat": "american",
@@ -76,17 +91,33 @@ def fetch_odds(sport="americanfootball_ncaaf"):
         "x-rapidapi-key": RAPIDAPI_KEY,
         "x-rapidapi-host": "odds.p.rapidapi.com"
     }
-    r = requests.get(url, headers=headers, params=querystring)
-    r.raise_for_status()
-    all_games = r.json()
+
+    try:
+        r = requests.get(url, headers=headers, params=querystring, timeout=15)
+        r.raise_for_status()
+        all_games = r.json()
+    except requests.exceptions.Timeout:
+        print(f"❌ Odds API timeout for {sport}")
+        return []
+    except requests.exceptions.HTTPError as e:
+        print(f"❌ Odds API HTTP error for {sport}: {e.response.status_code}")
+        return []
+    except Exception as e:
+        print(f"❌ Odds API error for {sport}: {e}")
+        return []
 
     now_utc = datetime.now(timezone.utc)
+    max_future_date = now_utc + timedelta(days=7)  # Only next 7 days
     future_games = []
+
     for game in all_games:
         dt = _safe_parse_datetime(game.get('commence_time'))
-        if dt and dt > now_utc:
+        if dt and now_utc < dt <= max_future_date:  # Filter to 7-day window
             game['commence_time'] = dt.isoformat()
             future_games.append(game)
+
+    print(
+        f"📊 Odds API: Found {len(future_games)}/{len(all_games)} upcoming games for {SportConfig.get_sport_name(sport)}")
     return future_games
 
 
@@ -157,20 +188,44 @@ def _fetch_and_cache_historical_scores(sport_key, sport_name, team, limit=6, day
     return sorted(history, key=lambda x: x['date'], reverse=True)[:limit]
 
 
-def fetch_historical_ncaaf(team_name, limit=30):
-    return _fetch_and_cache_historical_scores("americanfootball_ncaaf", "NCAAF", team_name, limit)
+def fetch_historical_ncaaf(team_name, limit=None):
+    """Fetch NCAAF historical games with optimized limit."""
+    if limit is None:
+        limit = SportConfig.get_historical_limit("americanfootball_ncaaf")
+    days = SportConfig.get_historical_days("americanfootball_ncaaf")
+    return _fetch_and_cache_historical_scores("americanfootball_ncaaf", "NCAAF", team_name, limit, days)
 
 
-def fetch_historical_nfl(team_name, limit=16):
-    return _fetch_and_cache_historical_scores("americanfootball_nfl", "NFL", team_name, limit)
+def fetch_historical_nfl(team_name, limit=None):
+    """Fetch NFL historical games with optimized limit."""
+    if limit is None:
+        limit = SportConfig.get_historical_limit("americanfootball_nfl")
+    days = SportConfig.get_historical_days("americanfootball_nfl")
+    return _fetch_and_cache_historical_scores("americanfootball_nfl", "NFL", team_name, limit, days)
 
 
-def fetch_historical_mlb(team_name, limit=4):
-    return _fetch_and_cache_historical_scores("baseball_mlb", "MLB", team_name, limit)
+# def fetch_historical_mlb(team_name, limit=None):  # Season over
+#     """Fetch MLB historical games with optimized limit."""
+#     if limit is None:
+#         limit = SportConfig.get_historical_limit("baseball_mlb")
+#     days = SportConfig.get_historical_days("baseball_mlb")
+#     return _fetch_and_cache_historical_scores("baseball_mlb", "MLB", team_name, limit, days)
 
 
-def fetch_historical_nba(team_name, limit=12):
-    return _fetch_and_cache_historical_scores("basketball_nba", "NBA", team_name, limit)
+def fetch_historical_ncaab(team_name, limit=None):
+    """Fetch NCAAB historical games with optimized limit."""
+    if limit is None:
+        limit = SportConfig.get_historical_limit("basketball_ncaab")
+    days = SportConfig.get_historical_days("basketball_ncaab")
+    return _fetch_and_cache_historical_scores("basketball_ncaab", "NCAAB", team_name, limit, days)
+
+
+def fetch_historical_nba(team_name, limit=None):
+    """Fetch NBA historical games with optimized limit."""
+    if limit is None:
+        limit = SportConfig.get_historical_limit("basketball_nba")
+    days = SportConfig.get_historical_days("basketball_nba")
+    return _fetch_and_cache_historical_scores("basketball_nba", "NBA", team_name, limit, days)
 
 
 def fetch_historical_other(team_name, limit=10):
@@ -236,19 +291,52 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
         context["kalshi"] = kalshi_context
 
     prompt = f"""
-    You are a hyper-efficient sports betting analyst. Your goal is to quickly identify the best value bets.
+    You are a hyper-efficient sports betting analyst. Your goal is to quickly identify the best value bets using multi-source consensus.
+
     Instructions:
-    1. Analyze the provided context, including odds, historical performance, and Kalshi sentiment data (popularity_score, volume_24h, open_interest).
-    2. Focus only on strong, data-supported bets.
-    3. Critically, only select games where the `commence_time` is in the future. Do not pick games that have already started.
-    4. Each object in the "picks" list MUST contain these exact keys: "game", "sport", "pick", "market", "line", "odds_american", "confidence", "reasoning", "commence_time".
-    5. Only include picks with **confidence ratings of 3, 4, or 5 stars**.
-    6. The "odds_american" field must be numeric (e.g., -110, 150).
-    7. The "commence_time" field must be copied exactly from the source game data in ISO format.
-    8. All picks must be for DIFFERENT GAMES.
-    9. Exclude odds outside the range (+150 to -150).
-    10. The reasoning must clearly connect odds + sentiment to confidence.
-    11. Return a maximum of 3 picks.
+    1. Analyze the provided context, including:
+       - Odds from DraftKings
+       - Historical performance data
+       - Kalshi sentiment data (popularity_score, volume_24h, open_interest)
+       - Expert consensus from multiple sources (OddsShark, OddsTrader, CBS Sports)
+       - Team rankings (NCAAB/NCAAF): AP Poll, Coaches Poll, CBS Rankings
+
+    2. **CONSENSUS WEIGHTING** (CRITICAL):
+       - **ONLY use sources that are EXPLICITLY present in the context data**
+       - Available sources: "oddsshark", "oddstrader", "cbs_sports", "kalshi"
+       - If 2+ sources agree on the SAME bet (same team, same market, similar line): **BOOST confidence by +1 star**
+       - If 3+ sources agree: **BOOST confidence by +2 stars**
+       - OddsTrader 4-star picks = High confidence baseline
+       - CBS Sports 5+ expert consensus = High confidence baseline
+       - Kalshi high volume (>1000) + high open interest (>5000) = Medium confidence boost
+       - **RANKING BOOST (NCAAB/NCAAF only)**:
+         * Top 10 vs Top 10 matchup = +1 confidence boost (high-quality game)
+         * Top 25 vs Top 25 matchup = +0.5 confidence boost
+         * Ranked team favored by 10+ points over unranked = High confidence in favorite
+         * Unranked team getting points vs Top 10 = Potential upset value
+
+    3. **CONFIDENCE RATING SYSTEM**:
+       - 5 stars: 3+ sources agree OR 2 sources + strong Kalshi sentiment
+       - 4 stars: 2 sources agree OR 1 high-confidence source + Kalshi boost
+       - 3 stars: 1 high-confidence source OR multiple medium sources
+       - Only include picks with **3, 4, or 5 stars**
+
+    4. **VALIDATION RULES**:
+       - Only select games where `commence_time` is in the future (not started)
+       - All picks must be for DIFFERENT GAMES
+       - Exclude odds outside the range (+150 to -150)
+       - Each pick MUST contain: "game", "sport", "pick", "market", "line", "odds_american", "confidence", "reasoning", "commence_time", "sources_agreeing"
+
+    5. **OUTPUT FORMAT**:
+       - "odds_american" must be numeric (e.g., -110, 150)
+       - "commence_time" must be copied exactly from source in ISO format
+       - "confidence" must be 3, 4, or 5 (integer)
+       - "sources_agreeing" must list ONLY sources that ACTUALLY appear in the context data for this specific game and pick
+       - **DO NOT invent or hallucinate sources** - only list sources if they explicitly recommend this exact pick in the context
+       - "reasoning" must explain: (a) which sources agree (with proof from context), (b) why consensus is strong, (c) how Kalshi sentiment supports it, (d) for NCAAB/NCAAF: mention team rankings and matchup quality
+
+    6. Return a maximum of 3 picks, prioritizing highest consensus first.
+
     Context: {json.dumps(context, indent=2)}
     """
 

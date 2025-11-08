@@ -25,13 +25,14 @@ def display_live_scores():
 
     # --- Fetch scores (pulls 1 day of history) ---
     sports_data = {
-        "NFL": fetch_scores(sport="americanfootball_nfl", days_from=1),
-        "NCAAF": fetch_scores(sport="americanfootball_ncaaf", days_from=1),
-        "MLB": fetch_scores(sport="baseball_mlb", days_from=1),
-        "NBA": fetch_scores(sport="basketball_nba", days_from=1),
+        "NFL": fetch_scores(sport="americanfootball_nfl", days_from=2),
+        "NCAAF": fetch_scores(sport="americanfootball_ncaaf", days_from=2),
+        # "MLB": fetch_scores(sport="baseball_mlb", days_from=2),  # Season over
+        "NCAAB": fetch_scores(sport="basketball_ncaab", days_from=2),
+        "NBA": fetch_scores(sport="basketball_nba", days_from=2),
     }
 
-    emojis = {"NFL": "🏈", "NCAAF": "🎓", "MLB": "⚾️", "NBA": "🏀"}
+    emojis = {"NFL": "🏈", "NCAAF": "🎓", "NCAAB": "🏀", "NBA": "🏀"}
     cols = st.columns(4)
 
     # Current UTC for cutoff logic

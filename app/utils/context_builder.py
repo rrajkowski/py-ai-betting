@@ -1,5 +1,6 @@
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from app.utils.db import fetch_context_by_date  # Assumed to take (date, sport)
+from app.utils.team_mapper import enrich_game_with_rankings
 
 # Define the canonical structure for the AI super-prompt
 CANONICAL_CONTEXT_STRUCTURE = {
@@ -16,23 +17,54 @@ def build_merged_context(target_date: str, sport: str):
     """
     Queries the database for all context data for the target date AND SPORT,
     and merges it into a single canonical JSON payload grouped by game_id.
+    Optimized with 7-day filtering and better logging.
 
     Args:
         target_date: The date to check for context (YYYY-MM-DD).
-        sport: The sport to filter the context by (e.g., 'NFL').
+        sport: The sport to filter the context by (e.g., 'NFL', 'NCAAB').
 
     Returns:
         A list of dictionaries, one for each game, ready for the LLM prompt.
     """
-    # CRITICAL CHANGE: Pass sport to filter the database query
+    # Fetch all context from database
     raw_context = fetch_context_by_date(target_date, sport)
+
+    print(
+        f"🔍 Context Builder: Found {len(raw_context)} raw context records for {sport} on {target_date}")
+
+    if not raw_context:
+        print(
+            f"⚠️ Context Builder: No context data found for {sport}. Check if scrapers/API ran successfully.")
+        return []
 
     # Group data by game_id
     games_map = {}
+    now_utc = datetime.now(timezone.utc)
+    max_future_date = now_utc + timedelta(days=7)
+
+    skipped_count = 0
 
     for row in raw_context:
         game_id = row['game_id']
         context_type = row['context_type']
+        match_date_str = row.get('match_date')
+
+        # Filter out games outside 7-day window
+        if match_date_str:
+            try:
+                match_dt = datetime.fromisoformat(
+                    match_date_str.replace("Z", "+00:00"))
+                if match_dt.tzinfo is None:
+                    match_dt = match_dt.replace(tzinfo=timezone.utc)
+
+                # Skip past games or games too far in future
+                if match_dt < now_utc or match_dt > max_future_date:
+                    skipped_count += 1
+                    continue
+            except Exception as e:
+                print(
+                    f"⚠️ Context Builder: Invalid date format for {game_id}: {match_date_str}")
+                continue
 
         if game_id not in games_map:
             # Initialize with the canonical structure
@@ -40,19 +72,43 @@ def build_merged_context(target_date: str, sport: str):
                 "game_id": game_id,
                 "match_date": row['match_date'],
                 # team_pick might be null if no initial odds match was found
-                "teams": {"team_pick": row['team_pick']},
+                "teams": {"team_pick": row.get('team_pick')},
                 "context": CANONICAL_CONTEXT_STRUCTURE.copy()
             }
 
         # Merge data into the correct context type slot
-        # NOTE: For simplicity, this assumes the last/latest context_type entry is the desired one.
-        # For ensemble_notes, you would merge list entries.
-
         if context_type in games_map[game_id]["context"]:
             # Handle aggregation if necessary, but for now, overwrite with the data payload
-            games_map[game_id]["context"][context_type] = row['data']
+            games_map[game_id]["context"][context_type] = row.get('data', {})
 
-    return list(games_map.values())
+    games_list = list(games_map.values())
+
+    # Enrich games with ranking data for NCAAB and NCAAF
+    if sport.upper() in ['NCAAB', 'NCAAF']:
+        print(
+            f"🏆 Context Builder: Enriching {len(games_list)} games with {sport} rankings...")
+        for game in games_list:
+            game_id = game.get('game_id', '')
+            if game_id:
+                ranking_info = enrich_game_with_rankings(game_id, sport)
+                if 'error' not in ranking_info:
+                    game['ranking_info'] = ranking_info
+
+                    # Add summary to context for easy AI access
+                    matchup = ranking_info.get('matchup_quality', {})
+                    if matchup.get('matchup_type') != 'unranked':
+                        game['context']['ranking_summary'] = {
+                            'matchup_type': matchup.get('matchup_type'),
+                            'quality_score': matchup.get('quality_score'),
+                            'away_rank': matchup.get('away_rank'),
+                            'home_rank': matchup.get('home_rank'),
+                            'rank_differential': matchup.get('rank_differential')
+                        }
+
+    print(
+        f"✅ Context Builder: Built context for {len(games_list)} games ({skipped_count} filtered out)")
+
+    return games_list
 
 
 def create_super_prompt_payload(target_date: str, sport: str):

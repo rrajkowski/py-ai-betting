@@ -1,6 +1,8 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+from typing import Optional
 import requests
 from app.utils.db import insert_context
+from app.utils.sport_config import SportConfig
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -17,7 +19,7 @@ class KalshiClient:
     def __init__(self):
         self.session = requests.Session()
 
-    def request(self, method: str, path: str, params: dict | None = None) -> requests.Response | None:
+    def request(self, method: str, path: str, params: Optional[dict] = None) -> Optional[requests.Response]:
         """Perform an unauthenticated Kalshi API request (public market data)."""
         url = f"{self.API_URL}{path}"
         try:
@@ -51,33 +53,50 @@ def compute_popularity(market: dict, max_v24h: int, max_oi: int) -> float:
 
 def fetch_kalshi_consensus(sport_key: str, target_date: str):
     """
-    Fetches public consensus for US sports (NFL, NCAAF, MLB, NBA) and stores them in DB.
+    Fetches public consensus for US sports with seasonal awareness and dynamic limits.
+    Optimized to only fetch data for in-season sports with appropriate game counts.
+
+    Args:
+        sport_key: Sport identifier (e.g., 'americanfootball_nfl')
+        target_date: Target date for grouping (YYYY-MM-DD)
     """
-    # 1. Map internal sport key to Kalshi series ticker
-    sport_map = {
-        "americanfootball_nfl": {"ticker": "KXNFLGAME", "limit": 16},
-        "americanfootball_ncaaf": {"ticker": "KXNCAAFGAME", "limit": 30},
-        "baseball_mlb": {"ticker": "KXMLBGAME", "limit": 4},
-        "basketball_nba": {"ticker": "KXNBAGAME", "limit": 12},
-    }
-
-    sport_info = sport_map.get(sport_key.lower())
-
-    if not sport_info:
-        print(
-            f"📡 Kalshi API: Skipping {sport_key}. Series ticker unsupported."
-        )
+    # 1. Check if sport is in season
+    if not SportConfig.is_in_season(sport_key):
+        print(f"📡 Kalshi API: Skipping {sport_key.upper()} - out of season")
         return
 
-    client = KalshiClient()
+    # 2. Get sport configuration
+    ticker = SportConfig.get_kalshi_ticker(sport_key)
+    sport_name_upper = SportConfig.get_sport_name(
+        sport_key)  # Get proper sport name
 
-    # NOTE: Kalshi uses 'series_ticker' to group related events (e.g., all NFL markets)
-    markets_params = {"series_ticker": sport_info["ticker"], "status": "open"}
+    if not ticker:
+        print(
+            f"📡 Kalshi API: Skipping {sport_key} - no Kalshi ticker configured")
+        return
+
+    # 3. Get dynamic limit based on day of week
+    dynamic_limit = SportConfig.get_dynamic_limit(sport_key)
+    if dynamic_limit == 0:
+        print(
+            f"📡 Kalshi API: Skipping {sport_key.upper()} - no games expected today")
+        return
+
     print(
-        f"📡 Kalshi API: Fetching open markets for series {sport_info['ticker']}..."
-    )
-    markets_response = client.request("GET", "/markets", params=markets_params)
+        f"📡 Kalshi API: Fetching {sport_name_upper} markets (limit: {dynamic_limit})...")
 
+    client = KalshiClient()
+    now_utc = datetime.now(timezone.utc)
+
+    # 4. Fetch markets with status filter
+    markets_params = {
+        "series_ticker": ticker,
+        "status": "open",
+        # Fetch extra to account for filtering
+        "limit": min(dynamic_limit * 3, 200)
+    }
+
+    markets_response = client.request("GET", "/markets", params=markets_params)
     if not markets_response:
         return
 
@@ -85,35 +104,51 @@ def fetch_kalshi_consensus(sport_key: str, target_date: str):
     markets = data.get("markets", [])
     market_count_raw = len(markets)
 
-    # --- Filter for future markets and process ---
-    now_utc = datetime.now(timezone.utc)
+    # 5. Filter for upcoming games only (close time in next 7 days)
+    max_future_date = now_utc + timedelta(days=7)
 
-    # CRITICAL: Filter markets to only include those that close in the future
-    # This comparison unifies the date format: ISO string is converted to a UTC datetime object for comparison.
-    markets = [
-        m for m in markets
-        if m.get("close_time")
-        and datetime.fromisoformat(m["close_time"].replace("Z", "+00:00")) > now_utc
-    ]
+    filtered_markets = []
+    for m in markets:
+        close_time_str = m.get("close_time")
+        if not close_time_str:
+            continue
+
+        try:
+            close_time = datetime.fromisoformat(
+                close_time_str.replace("Z", "+00:00"))
+            # Only include markets closing between now and 7 days from now
+            if now_utc < close_time <= max_future_date:
+                filtered_markets.append(m)
+        except (ValueError, AttributeError):
+            continue
+
+    # 6. Sort by close time (soonest first) and apply dynamic limit
+    filtered_markets.sort(key=lambda m: m.get("close_time", ""))
+    markets = filtered_markets[:dynamic_limit]
 
     print(
-        f"📡 Kalshi API: Found {market_count_raw} raw markets, {len(markets)} closing in the future for {sport_key.upper()}"
+        f"📡 Kalshi API: Found {market_count_raw} raw markets, "
+        f"{len(filtered_markets)} upcoming (next 7 days), "
+        f"using top {len(markets)} for {sport_key.upper()}"
     )
 
     if not markets:
-        print("⚠️ No markets found after filtering for future close times.")
+        print("⚠️ No upcoming markets found after filtering")
         return
 
-    # Sanitize volumes / open_interest
+    # 7. Calculate popularity scores
     max_v24h = max((m.get("volume_24h", 0) or 0) for m in markets) or 1
     max_oi = max((m.get("open_interest", 0) or 0) for m in markets) or 1
 
+    stored_count = 0
+
+    # 8. Process and store markets
     for m in markets:
         market_id = m.get("ticker")
         last_price = m.get("last_price")
 
         # Skip if price is missing (no liquidity/no consensus)
-        if last_price is None:
+        if last_price is None or market_id is None:
             continue
 
         implied_prob = round(last_price / 100.0, 3)
@@ -124,24 +159,23 @@ def fetch_kalshi_consensus(sport_key: str, target_date: str):
             "implied_prob_yes": implied_prob,
             "implied_prob_no": round(1.0 - implied_prob, 3),
             "market_ticker": market_id,
-            # Use close_time, which is an ISO 8601 string, for date unification
             "market_close": m.get("close_time"),
             "volume_24h": m.get("volume_24h", 0),
             "open_interest": m.get("open_interest", 0),
             "popularity_score": popularity_score,
         }
 
-        # Store context
+        # Store context with proper sport name (not ticker)
         insert_context(
             category="realtime",
             context_type="public_consensus",
             game_id=market_id,
-            match_date=target_date,  # Uses the grouping date (YYYY-MM-DD)
-            sport=sport_info["ticker"],
+            match_date=target_date,
+            sport=sport_name_upper,  # Use sport name, not ticker
             data=context_data,
             source="kalshi",
         )
+        stored_count += 1
 
     print(
-        f"✅ Kalshi API: Stored public consensus data for {sport_info['ticker']} markets."
-    )
+        f"✅ Kalshi API: Stored {stored_count} markets for {sport_name_upper}")

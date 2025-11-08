@@ -148,15 +148,41 @@ def fetch_context_by_date(match_date: str, sport: str):
     """
     Fetches all context records for a specific date AND sport.
     Returns a list of dictionaries with 'data' decoded from JSON.
+    Includes debug logging to help diagnose context issues.
     """
     conn = get_db()
     cur = conn.cursor()
 
+    # Debug: Check what sports are in the database
+    cur.execute(f"SELECT DISTINCT sport FROM {CONTEXT_TABLE}")
+    available_sports = [row[0] for row in cur.fetchall()]
+    print(f"🔍 DB Debug: Available sports in database: {available_sports}")
+
+    # Debug: Check what dates are in the database for this sport
+    cur.execute(
+        f"SELECT DISTINCT match_date FROM {CONTEXT_TABLE} WHERE sport = ?", (sport,))
+    available_dates = [row[0] for row in cur.fetchall()]
+    # Show first 5
+    print(f"🔍 DB Debug: Available dates for {sport}: {available_dates[:5]}...")
+
+    # Main query
     cur.execute(f"""
         SELECT * FROM {CONTEXT_TABLE} WHERE match_date = ? AND sport = ?
     """, (match_date, sport,))
 
     rows = [dict(r) for r in cur.fetchall()]
+
+    # Debug: Show breakdown by context_type
+    if rows:
+        context_types = {}
+        for row in rows:
+            ct = row.get('context_type', 'unknown')
+            context_types[ct] = context_types.get(ct, 0) + 1
+        print(f"🔍 DB Debug: Context types found: {context_types}")
+    else:
+        print(
+            f"⚠️ DB Debug: No records found for sport='{sport}' and date='{match_date}'")
+
     conn.close()
 
     for row in rows:
@@ -164,4 +190,5 @@ def fetch_context_by_date(match_date: str, sport: str):
             row['data'] = json.loads(row['data'])
         except (TypeError, json.JSONDecodeError):
             row['data'] = {}
+
     return rows

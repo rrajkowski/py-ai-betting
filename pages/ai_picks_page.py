@@ -23,7 +23,8 @@ from app.ai_picks import (
     generate_ai_picks,  # Make sure to import generate_ai_picks
     fetch_historical_nfl,
     fetch_historical_ncaaf,
-    fetch_historical_mlb,
+    # fetch_historical_mlb,  # Season over
+    fetch_historical_ncaab,
     fetch_historical_nba
 )
 
@@ -134,8 +135,10 @@ def refresh_bet_results():
             sport_key = 'americanfootball_nfl'
         elif sport == 'NCAAF':
             sport_key = 'americanfootball_ncaaf'
-        elif sport == 'MLB':
-            sport_key = 'baseball_mlb'
+        # elif sport == 'MLB':  # Season over
+        #     sport_key = 'baseball_mlb'
+        elif sport == 'NCAAB':
+            sport_key = 'basketball_ncaab'
         elif sport == 'NBA':
             sport_key = 'basketball_nba'
         else:
@@ -344,7 +347,7 @@ st.markdown(
 metric_cols = st.columns(4)
 display_performance_metrics("NFL", metric_cols[0])
 display_performance_metrics("NCAAF", metric_cols[1])
-display_performance_metrics("MLB", metric_cols[2])
+display_performance_metrics("NCAAB", metric_cols[2])
 display_performance_metrics("NBA", metric_cols[3])
 
 # -----------------------------
@@ -436,7 +439,8 @@ def run_ai_picks(sport_key, sport_name):
 
         history_team = raw_odds[0]['home_team']
         history_map = {"americanfootball_ncaaf": fetch_historical_ncaaf, "americanfootball_nfl": fetch_historical_nfl,
-                       "baseball_mlb": fetch_historical_mlb, "basketball_nba": fetch_historical_nba}
+                       # "baseball_mlb": fetch_historical_mlb,  # Season over
+                       "basketball_ncaab": fetch_historical_ncaab, "basketball_nba": fetch_historical_nba}
         history = history_map.get(sport_key, lambda x: [])(history_team)
 
         odds_df = pd.DataFrame(normalized_odds)
@@ -460,11 +464,11 @@ with col2:
         st.session_state.generated_picks = None
         run_ai_picks("americanfootball_ncaaf", "NCAAF")
 with col3:
-    if st.button("⚾ Generate MLB Picks", width='stretch'):
+    if st.button("🏀 Generate NCAAB Picks", width='stretch'):
         st.session_state.generated_picks = None
-        run_ai_picks("baseball_mlb", "MLB")
+        run_ai_picks("basketball_ncaab", "NCAAB")
 with col4:
-    if st.button("🏀 Generate NBA Picks", width='stretch'):
+    if st.button("🏀🏆 Generate NBA Picks", width='stretch'):
         st.session_state.generated_picks = None
         run_ai_picks("basketball_nba", "NBA")
 
