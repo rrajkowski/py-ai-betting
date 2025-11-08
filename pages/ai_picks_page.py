@@ -460,7 +460,7 @@ with col1:
         st.session_state.generated_picks = None
         run_ai_picks("americanfootball_nfl", "NFL")
 with col2:
-    if st.button("🎓 Generate NCAAF Picks", width='stretch'):
+    if st.button("🏈 Generate NCAAF Picks", width='stretch'):
         st.session_state.generated_picks = None
         run_ai_picks("americanfootball_ncaaf", "NCAAF")
 with col3:
@@ -468,7 +468,7 @@ with col3:
         st.session_state.generated_picks = None
         run_ai_picks("basketball_ncaab", "NCAAB")
 with col4:
-    if st.button("🏀🏆 Generate NBA Picks", width='stretch'):
+    if st.button("🏀 Generate NBA Picks", width='stretch'):
         st.session_state.generated_picks = None
         run_ai_picks("basketball_nba", "NBA")
 
