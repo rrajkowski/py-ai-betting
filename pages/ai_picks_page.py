@@ -322,6 +322,10 @@ def display_performance_metrics(sport_name, col_container):
 
 
 def fetch_all_sports_summary():
+    """
+    Calculates aggregate W/L/P and units across all sports.
+    Units calculation: Win = profit based on odds, Loss = -1 unit, Push = 0 units.
+    """
     conn = get_db()
     cur = conn.cursor()
 
@@ -332,12 +336,12 @@ def fetch_all_sports_summary():
         SUM(CASE WHEN result = 'Push' THEN 1 ELSE 0 END) AS total_pushes,
         SUM(
             CASE
-                WHEN result = 'Win' AND odds_american > 0 THEN (odds_american / 100.0) * 100
-                WHEN result = 'Win' AND odds_american < 0 THEN (100.0 / ABS(odds_american)) * 100
-                WHEN result = 'Loss' THEN -100.0
+                WHEN result = 'Win' AND odds_american > 0 THEN (odds_american / 100.0)
+                WHEN result = 'Win' AND odds_american < 0 THEN (100.0 / ABS(odds_american))
+                WHEN result = 'Loss' THEN -1.0
                 ELSE 0
             END
-        ) / 100.0 AS net_units
+        ) AS net_units
     FROM ai_picks
     WHERE result IN ('Win', 'Loss', 'Push');
     """

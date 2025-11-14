@@ -32,11 +32,38 @@ def check_authentication():
         # This is expected in local development
 
         # Only show warning on localhost (not on Streamlit Cloud)
+        # Use multiple methods to detect if running locally
         import os
-        is_cloud = os.getenv('STREAMLIT_SHARING_MODE') or os.getenv(
-            'STREAMLIT_CLOUD')
 
-        if not is_cloud and st.session_state.get('show_auth_warning', True):
+        # Method 1: Check secrets for IS_LOCAL flag (most reliable)
+        # Add IS_LOCAL = true to your local .streamlit/secrets.toml
+        # Do NOT add it to Streamlit Cloud secrets
+        is_localhost = st.secrets.get('IS_LOCAL', False)
+
+        # Method 2: If IS_LOCAL not set, try environment detection
+        if not is_localhost:
+            # Check for Streamlit Cloud environment variables
+            is_cloud = bool(os.getenv('STREAMLIT_SHARING_MODE') or
+                            os.getenv('STREAMLIT_CLOUD') or
+                            os.getenv('STREAMLIT_SERVER_HEADLESS'))
+
+            # Check if hostname contains 'streamlit'
+            hostname = os.getenv('HOSTNAME', '')
+            if 'streamlit' in hostname.lower():
+                is_cloud = True
+
+            # Check server address from config
+            try:
+                from streamlit import config
+                server_address = config.get_option('server.address')
+                if server_address and server_address not in ['localhost', '127.0.0.1', '0.0.0.0', '']:
+                    is_cloud = True
+            except Exception:
+                pass
+
+            is_localhost = not is_cloud
+
+        if is_localhost and st.session_state.get('show_auth_warning', True):
             st.warning("""
             ⚠️ **Development Mode**: Authentication is disabled for local testing.
 
