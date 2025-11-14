@@ -61,9 +61,15 @@ def check_authentication():
 
     # Check if user is logged in
     if not is_logged_in:
+        # When [auth.google] is configured, Streamlit automatically shows a login page
+        # We just need to stop execution and show a message
         st.info("🔐 **Please log in to access this app**")
-        if st.button("Log in with Google"):
-            st.login()
+        st.markdown("""
+        **How to log in:**
+        1. Look for the "Log in" button in the top-right corner of the page
+        2. Click it to sign in with Google
+        3. After logging in, you'll be redirected back to this app
+        """)
         st.stop()
         return False
 
