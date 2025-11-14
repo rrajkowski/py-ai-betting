@@ -1,5 +1,13 @@
 # 🚀 Streamlit Cloud Deployment Guide
 
+## ✅ CONFIRMED: Streamlit Native Auth is REQUIRED
+
+According to [Streamlit's official documentation](https://docs.streamlit.io/develop/api-reference/user/st.user):
+
+> "When authentication is configured in secrets.toml, Streamlit will parse the OpenID Connect (OIDC) identity token and copy the attributes to st.user."
+
+**st-paywall requires `st.user` to work**, which means you MUST configure Streamlit's native authentication first.
+
 ## ⚠️ Current Error
 
 If you see: `AttributeError: st.user has no attribute "is_logged_in"`
@@ -101,7 +109,7 @@ If you don't have them yet:
 **Fix:** Add `[auth.google]` section to Streamlit Cloud secrets
 
 ### Error: Login button doesn't appear
-**Fix:** 
+**Fix:**
 1. Check section name is `[auth.google]` (exact spelling)
 2. Make sure `IS_LOCAL` is NOT in cloud secrets
 3. Verify Python version is 3.10
@@ -118,15 +126,56 @@ If you don't have them yet:
 - **st-paywall Docs**: https://st-paywall.readthedocs.io/
 - **Google Cloud Console**: https://console.cloud.google.com/
 
-## ✅ Checklist
+## ✅ FINAL DEPLOYMENT CHECKLIST
 
-- [ ] Added `[auth.google]` section to Streamlit Cloud secrets
-- [ ] Added Stripe configuration to secrets
-- [ ] Set Python version to 3.10
-- [ ] Updated Google OAuth redirect URIs
-- [ ] Removed `IS_LOCAL` from cloud secrets
-- [ ] Saved secrets and redeployed
-- [ ] Tested login flow
+### Required Steps (Must Complete All):
+
+#### 1. ✅ Google OAuth Configuration
+- [ ] Go to [Google Cloud Console](https://console.cloud.google.com/) → APIs & Services → Credentials
+- [ ] Verify OAuth Client ID exists
+- [ ] Add redirect URI: `https://py-ai-sports-betting.streamlit.app`
+- [ ] Copy `client_id` and `client_secret`
+
+#### 2. ✅ Streamlit Cloud Secrets Configuration
+- [ ] Go to https://share.streamlit.io/ → Your App → Settings → Secrets
+- [ ] Add `[auth.google]` section with:
+  - `client_id` (from Google Cloud Console)
+  - `client_secret` (from Google Cloud Console)
+  - `server_metadata_url = "https://accounts.google.com/.well-known/openid-configuration"`
+- [ ] Add Stripe configuration:
+  - `payment_provider = "stripe"`
+  - `testing_mode = false` (for production)
+  - `stripe_api_key` (live key)
+  - `stripe_link` (live payment link)
+  - `stripe_api_key_test` (test key)
+  - `stripe_link_test` (test payment link)
+- [ ] **VERIFY:** `IS_LOCAL` is NOT in cloud secrets (only for localhost)
+- [ ] Save secrets
+
+#### 3. ✅ Python Version
+- [ ] Go to Settings → General
+- [ ] Set Python version to **3.10** (not 3.13)
+- [ ] Save settings
+
+#### 4. ✅ Deploy and Test
+- [ ] Wait for automatic redeploy (watch logs)
+- [ ] Visit your app URL
+- [ ] Verify "Log in with Google" button appears
+- [ ] Test login flow
+- [ ] Test subscription check
+
+### Verification Checklist:
+
+**You've confirmed:**
+- ✅ Added `[auth.google]` section to Streamlit Cloud secrets
+- ✅ Added Stripe configuration to secrets
+- ✅ Changed Python version to 3.10
+- ✅ Made sure `IS_LOCAL` is NOT in cloud secrets
+
+**Still need to verify:**
+- [ ] Google OAuth redirect URIs are updated
+- [ ] Secrets are saved and app has redeployed
+- [ ] Login flow works end-to-end
 
 Your app should now work! 🎉
 
