@@ -94,14 +94,17 @@ If you don't have them yet:
 ### Two-Layer Authentication:
 
 1. **Layer 1: Streamlit Native Auth**
-   - User clicks "Log in with Google"
-   - Streamlit handles OAuth flow
-   - User is authenticated
+   - When `[auth.google]` is configured, Streamlit **automatically** adds a "Log in" button in the top-right corner
+   - User clicks the "Log in" button (provided by Streamlit, not your code)
+   - Streamlit handles the entire OAuth flow
+   - User is authenticated and `st.user.is_logged_in` becomes `True`
 
 2. **Layer 2: st-paywall**
    - Checks if authenticated user has Stripe subscription
    - If yes → full access
    - If no → shows "Subscribe now!" button
+
+**Important:** You do NOT need to call `st.login()` manually. Streamlit handles login automatically when `[auth.google]` is configured.
 
 ## 🐛 Troubleshooting
 
