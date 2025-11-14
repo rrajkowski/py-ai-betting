@@ -30,8 +30,13 @@ def check_authentication():
     except AttributeError:
         # st.user is not available or not properly configured
         # This is expected in local development
-        # Local development mode - show warning and allow access
-        if st.session_state.get('show_auth_warning', True):
+
+        # Only show warning on localhost (not on Streamlit Cloud)
+        import os
+        is_cloud = os.getenv('STREAMLIT_SHARING_MODE') or os.getenv(
+            'STREAMLIT_CLOUD')
+
+        if not is_cloud and st.session_state.get('show_auth_warning', True):
             st.warning("""
             ⚠️ **Development Mode**: Authentication is disabled for local testing.
 
