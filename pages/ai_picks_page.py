@@ -4,6 +4,7 @@ import pandas as pd
 import streamlit as st
 import requests
 from datetime import datetime, timedelta, timezone
+
 # Updated imports to include all necessary functions for metrics and auto-refresh
 from app.db import (
     get_most_recent_pick_timestamp,
@@ -17,6 +18,7 @@ from app.utils.db import get_db, init_prompt_context_db
 from app.utils.context_builder import create_super_prompt_payload
 from app.utils.scraper import run_scrapers
 from app.utils.kalshi_api import fetch_kalshi_consensus
+from app.auth import add_auth_to_page
 from app.ai_picks import (
     fetch_scores,
     update_ai_pick_results,
@@ -28,6 +30,11 @@ from app.ai_picks import (
     fetch_historical_nba
 )
 
+# -----------------------------
+# Authentication & Paywall
+# -----------------------------
+# Protect this page with authentication and subscription check
+add_auth_to_page()
 
 # --- INITIALIZATION ---
 # Run at import to guarantee schemas are correct
@@ -38,6 +45,29 @@ st.sidebar.markdown("### ⚙️ Maintenance")
 if st.sidebar.button("🔁 Update Pick Results"):
     update_ai_pick_results()
     st.success("AI Picks updated from live scores!")
+
+if st.sidebar.button("🧹 Clean Up Picks"):
+    with st.spinner("Cleaning up database..."):
+        from scripts.cleanup_picks import main as cleanup_main
+        import io
+        import sys
+
+        # Capture output from cleanup script
+        old_stdout = sys.stdout
+        sys.stdout = buffer = io.StringIO()
+
+        try:
+            cleanup_main()
+            output = buffer.getvalue()
+            sys.stdout = old_stdout
+
+            # Show output in success message
+            st.success("Database cleanup complete!")
+            with st.expander("📋 Cleanup Details"):
+                st.code(output)
+        except Exception as e:
+            sys.stdout = old_stdout
+            st.error(f"Cleanup failed: {e}")
 
 # Set the desired local timezone for display (PST/PDT)
 # Use 'America/Los_Angeles' for PST/PDT to handle daylight savings automatically
@@ -359,9 +389,10 @@ def run_ai_picks(sport_key, sport_name):
     """
     Main function to generate AI picks, with corrected timezone and time-limit handling.
     """
-    target_date = datetime.now(timezone.utc).strftime('%Y-%m-%d')
-    last_pick_time = get_most_recent_pick_timestamp(sport_name)
+    # Use today's date as starting point - context builder will fetch games for next 3 days
     now_utc = datetime.now(timezone.utc)
+    target_date = now_utc.strftime('%Y-%m-%d')
+    last_pick_time = get_most_recent_pick_timestamp(sport_name)
 
     if last_pick_time:
         if last_pick_time > now_utc:

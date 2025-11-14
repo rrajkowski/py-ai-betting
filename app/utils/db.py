@@ -146,12 +146,25 @@ def insert_context(category: str, context_type: str, game_id: str, match_date: s
 
 def fetch_context_by_date(match_date: str, sport: str):
     """
-    Fetches all context records for a specific date AND sport.
+    Fetches all context records for upcoming games (next 3 days) for a specific sport.
     Returns a list of dictionaries with 'data' decoded from JSON.
     Includes debug logging to help diagnose context issues.
+
+    Args:
+        match_date: Date string in YYYY-MM-DD format (used as starting point)
+        sport: Sport key (e.g., 'americanfootball_nfl' or 'NFL')
     """
+    from datetime import datetime, timedelta
+
     conn = get_db()
     cur = conn.cursor()
+
+    # Convert sport key to uppercase sport name if needed
+    # e.g., 'americanfootball_nfl' -> 'NFL', 'basketball_ncaab' -> 'NCAAB'
+    if '_' in sport:
+        sport_name = sport.split('_')[-1].upper()
+    else:
+        sport_name = sport.upper()
 
     # Debug: Check what sports are in the database
     cur.execute(f"SELECT DISTINCT sport FROM {CONTEXT_TABLE}")
@@ -160,28 +173,45 @@ def fetch_context_by_date(match_date: str, sport: str):
 
     # Debug: Check what dates are in the database for this sport
     cur.execute(
-        f"SELECT DISTINCT match_date FROM {CONTEXT_TABLE} WHERE sport = ?", (sport,))
+        f"SELECT DISTINCT substr(match_date, 1, 10) as date FROM {CONTEXT_TABLE} WHERE sport = ?", (sport_name,))
     available_dates = [row[0] for row in cur.fetchall()]
     # Show first 5
-    print(f"🔍 DB Debug: Available dates for {sport}: {available_dates[:5]}...")
+    print(
+        f"🔍 DB Debug: Available dates for {sport_name}: {available_dates[:5]}...")
 
-    # Main query
+    # Calculate date range: today through next 3 days
+    start_date = datetime.strptime(match_date, '%Y-%m-%d')
+    end_date = start_date + timedelta(days=3)
+    end_date_str = end_date.strftime('%Y-%m-%d')
+
+    print(
+        f"🔍 DB Debug: Looking for games between {match_date} and {end_date_str}")
+
+    # Main query - Get all games in the next 3 days
+    # Use substr to extract date from timestamps like "2025-11-09T14:30:00Z"
     cur.execute(f"""
-        SELECT * FROM {CONTEXT_TABLE} WHERE match_date = ? AND sport = ?
-    """, (match_date, sport,))
+        SELECT * FROM {CONTEXT_TABLE}
+        WHERE sport = ?
+        AND substr(match_date, 1, 10) >= ?
+        AND substr(match_date, 1, 10) <= ?
+    """, (sport_name, match_date, end_date_str))
 
     rows = [dict(r) for r in cur.fetchall()]
 
-    # Debug: Show breakdown by context_type
+    # Debug: Show breakdown by context_type and source
     if rows:
         context_types = {}
+        sources = {}
         for row in rows:
             ct = row.get('context_type', 'unknown')
+            src = row.get('source', 'unknown')
             context_types[ct] = context_types.get(ct, 0) + 1
+            sources[src] = sources.get(src, 0) + 1
         print(f"🔍 DB Debug: Context types found: {context_types}")
+        print(f"🔍 DB Debug: Sources found: {sources}")
     else:
         print(
-            f"⚠️ DB Debug: No records found for sport='{sport}' and date='{match_date}'")
+            f"⚠️ DB Debug: No records found for sport='{sport_name}' between {match_date} and {end_date_str}")
 
     conn.close()
 

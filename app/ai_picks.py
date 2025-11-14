@@ -69,13 +69,13 @@ migrate_historical_games()
 
 def fetch_odds(sport="americanfootball_ncaaf"):
     """
-    Fetch odds from RapidAPI with seasonal awareness and 7-day filtering.
+    Fetch odds from RapidAPI with seasonal awareness and 3-day filtering.
 
     Args:
         sport: Sport key (e.g., 'americanfootball_nfl')
 
     Returns:
-        List of upcoming games with odds (next 7 days only)
+        List of upcoming games with odds (next 3 days only)
     """
     # Check if sport is in season
     if not SportConfig.is_in_season(sport):
@@ -107,12 +107,12 @@ def fetch_odds(sport="americanfootball_ncaaf"):
         return []
 
     now_utc = datetime.now(timezone.utc)
-    max_future_date = now_utc + timedelta(days=7)  # Only next 7 days
+    max_future_date = now_utc + timedelta(days=3)  # Only next 3 days
     future_games = []
 
     for game in all_games:
         dt = _safe_parse_datetime(game.get('commence_time'))
-        if dt and now_utc < dt <= max_future_date:  # Filter to 7-day window
+        if dt and now_utc < dt <= max_future_date:  # Filter to 3-day window
             game['commence_time'] = dt.isoformat()
             future_games.append(game)
 

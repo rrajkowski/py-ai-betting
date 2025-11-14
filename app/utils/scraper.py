@@ -51,7 +51,7 @@ def scrape_oddsshark_consensus(target_date: str, sport: str):
 
         scraped_picks_count = 0
         now_utc = datetime.now(timezone.utc)
-        max_future_date = now_utc + timedelta(days=7)
+        max_future_date = now_utc + timedelta(days=3)
 
         # Limit containers to process based on dynamic limit
         max_containers = min(len(game_containers), dynamic_limit * 2)
@@ -80,7 +80,7 @@ def scrape_oddsshark_consensus(target_date: str, sport: str):
                     if game_datetime < now_utc:
                         continue  # Skip past games
                     if game_datetime > max_future_date:
-                        continue  # Skip games more than 7 days out
+                        continue  # Skip games more than 3 days out
 
                 # Stop if we've reached our limit
                 if scraped_picks_count >= dynamic_limit:
@@ -285,6 +285,14 @@ def scrape_oddstrader_picks(target_date: str, sport: str):
     print(f"📡 OddsTrader: Fetching {sport_name_upper} picks from {url}...")
 
     try:
+        # Check if we're in an environment with an event loop (Streamlit issue)
+        import asyncio
+        try:
+            asyncio.get_event_loop()
+        except RuntimeError:
+            # No event loop - create one for this thread
+            asyncio.set_event_loop(asyncio.new_event_loop())
+
         # Use HTMLSession to render JavaScript
         session = HTMLSession()
         resp = session.get(url, timeout=30)

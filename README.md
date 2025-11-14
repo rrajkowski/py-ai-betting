@@ -6,13 +6,15 @@ This project leverages Google's Gemini 2.5 Pro as its primary model for analysis
 
 ## ✨ Features
 
-- Multi-Provider AI Engine: Prioritizes Google's Gemini 2.5 Pro for analysis and automatically falls back to OpenAI's GPT-5 models (gpt-5-mini, etc.) if the primary model fails.
+- **Multi-Provider AI Engine**: Prioritizes Google's Gemini 2.5 Pro for analysis and automatically falls back to OpenAI's GPT-5 models (gpt-5-mini, etc.) if the primary model fails.
 
-- Automated Pick Generation: Generates daily betting picks for NFL, NCAAF, NCAAB, and NBA across major markets (Moneyline, Spreads, Totals).
+- **Automated Pick Generation**: Generates daily betting picks for NFL, NCAAF, NCAAB, and NBA across major markets (Moneyline, Spreads, Totals).
 
-- Historical Caching: Caches recent game scores in a local SQLite database to minimize API calls and reduce costs.
+- **Historical Caching**: Caches recent game scores in a local SQLite database to minimize API calls and reduce costs.
 
-- Interactive Dashboard: A Streamlit interface to generate new picks, view the AI's reasoning, and browse a history of all generated picks.
+- **Interactive Dashboard**: A Streamlit interface to generate new picks, view the AI's reasoning, and browse a history of all generated picks.
+
+- **🔐 Authentication & Paywall**: Google OAuth authentication with Stripe subscription integration for monetization ($10/month subscriptions with discount code support).
 
 ## ⚙️ Requirements
 - macOS or Linux
@@ -36,6 +38,23 @@ Copy `.env.example` >  `.env` and fill in your keys:
 ```env
 {replace values}
 ```
+
+## 🔐 Authentication & Paywall Setup
+
+To enable Google OAuth authentication and Stripe payment integration:
+
+1. Copy the secrets template:
+   ```bash
+   cp .streamlit/secrets.toml.example .streamlit/secrets.toml
+   ```
+
+2. Follow the detailed setup guide in [PAYWALL_SETUP.md](PAYWALL_SETUP.md) to:
+   - Configure Google OAuth credentials
+   - Set up Stripe subscription products
+   - Create discount codes (optional)
+   - Test the integration
+
+**Note**: The app requires authentication by default. To disable it for development, comment out the `add_auth(required=True)` lines in the app files.
 
 ## ▶️ Run the Backend (FastAPI)
 ```bash

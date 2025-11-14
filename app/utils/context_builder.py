@@ -17,7 +17,7 @@ def build_merged_context(target_date: str, sport: str):
     """
     Queries the database for all context data for the target date AND SPORT,
     and merges it into a single canonical JSON payload grouped by game_id.
-    Optimized with 7-day filtering and better logging.
+    Optimized with 3-day filtering and better logging.
 
     Args:
         target_date: The date to check for context (YYYY-MM-DD).
@@ -40,7 +40,7 @@ def build_merged_context(target_date: str, sport: str):
     # Group data by game_id
     games_map = {}
     now_utc = datetime.now(timezone.utc)
-    max_future_date = now_utc + timedelta(days=7)
+    max_future_date = now_utc + timedelta(days=3)
 
     skipped_count = 0
 
@@ -49,7 +49,7 @@ def build_merged_context(target_date: str, sport: str):
         context_type = row['context_type']
         match_date_str = row.get('match_date')
 
-        # Filter out games outside 7-day window
+        # Filter out games outside 3-day window
         if match_date_str:
             try:
                 match_dt = datetime.fromisoformat(
@@ -73,13 +73,33 @@ def build_merged_context(target_date: str, sport: str):
                 "match_date": row['match_date'],
                 # team_pick might be null if no initial odds match was found
                 "teams": {"team_pick": row.get('team_pick')},
-                "context": CANONICAL_CONTEXT_STRUCTURE.copy()
+                "context": {
+                    "expert_consensus": [],  # Changed to list to aggregate multiple sources
+                    "public_consensus": {},
+                    "neutral_site": {},
+                    "coaching_factors": {},
+                    "ensemble_notes": {},
+                    "confidence_calibration": {}
+                }
             }
 
-        # Merge data into the correct context type slot
-        if context_type in games_map[game_id]["context"]:
-            # Handle aggregation if necessary, but for now, overwrite with the data payload
-            games_map[game_id]["context"][context_type] = row.get('data', {})
+        # Map context types to canonical structure
+        # Expert picks from multiple sources should be aggregated
+        source = row.get('source', 'unknown')
+        data = row.get('data', {})
+
+        if context_type in ['oddsshark_pick', 'oddstrader_pick', 'cbs_expert_pick', 'expert_consensus']:
+            # Add source attribution to the data
+            data_with_source = data.copy() if isinstance(data, dict) else {}
+            data_with_source['source'] = source
+            games_map[game_id]["context"]["expert_consensus"].append(
+                data_with_source)
+        elif context_type == 'public_consensus':
+            # Kalshi data - store as single object
+            games_map[game_id]["context"]["public_consensus"] = data
+        elif context_type in games_map[game_id]["context"]:
+            # Other context types - store directly
+            games_map[game_id]["context"][context_type] = data
 
     games_list = list(games_map.values())
 

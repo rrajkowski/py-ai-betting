@@ -5,7 +5,23 @@ import streamlit as st
 from app.db import init_db, insert_bet, list_bets, init_ai_picks
 from app.utils.db import init_prompt_context_db  # NEW: Import for new table setup
 from app.ai_picks import fetch_odds
+from app.auth import add_auth_to_page
 
+# -----------------------------
+# Page Configuration (MUST be first Streamlit command)
+# -----------------------------
+st.set_page_config(
+    page_title="AI Betting App",
+    page_icon="🏆",
+    layout="wide"
+)
+
+# -----------------------------
+# Authentication & Paywall
+# -----------------------------
+# This checks authentication and subscription status
+# Works in both local (dev mode) and cloud (with st-paywall) environments
+add_auth_to_page()
 
 # --- DBs init ---
 init_db()
@@ -17,11 +33,6 @@ st.title("⚡ AI Sports Betting Dashboard")
 # -----------------------------
 # AI Daily Picks Section
 # -----------------------------
-st.set_page_config(
-    page_title="AI Betting App",
-    page_icon="🏆",
-    layout="wide"
-)
 
 st.page_link("pages/ai_picks_page.py", label="🤖 Go to AI Daily Picks")
 
