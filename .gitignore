@@ -151,6 +151,11 @@ venv.bak/
 # Streamlit secrets
 .streamlit/secrets.toml
 
+# Documentation files with secrets (keep locally, don't commit)
+AUTHENTICATION_SETUP_FINAL.md
+STREAMLIT_CLOUD_CHECKLIST.md
+generate_cookie_secret.py
+
 # Spyder project settings
 .spyderproject
 .spyproject

@@ -1,83 +1,63 @@
 # app/auth.py
 """
 Authentication wrapper for st-paywall that handles both local and cloud environments.
+st-paywall works WITH Streamlit's native authentication system.
 """
 import streamlit as st
 
 
 def check_authentication():
     """
-    Check if user is authenticated and subscribed.
+    Check if user is authenticated and subscribed using st-paywall.
+
+    st-paywall requires Streamlit's native authentication to be enabled.
+    It adds a subscription layer on top of the native auth.
 
     Returns:
         bool: True if user is authenticated and subscribed, False otherwise
     """
-    # Check if st.user is available AND has the required attributes
-    # (Streamlit Cloud with native auth enabled)
-    try:
-        # Try to access st.user.is_logged_in
-        # This will raise AttributeError if not available
-        _ = st.user.is_logged_in
+    # Check if we're running locally using IS_LOCAL flag in secrets
+    is_localhost = st.secrets.get('IS_LOCAL', False)
 
-        # If we get here, st.user is properly configured
-        # Import and use st-paywall
+    # LOCALHOST: Skip authentication for development
+    if is_localhost:
+        if st.session_state.get('show_auth_warning', True):
+            st.warning("""
+            ⚠️ **Development Mode**: Authentication is disabled for local testing.
+            """)
+            st.session_state.show_auth_warning = False
+        return True
+
+    # STREAMLIT CLOUD: Handle native auth + subscription
+    # First, check if user is logged in with Streamlit's native auth
+    if not st.user.is_logged_in:
+        st.info("🔐 **Please log in to access this app**")
+        if st.button("Log in with Google"):
+            st.login()
+        st.stop()
+        return False
+
+    # User is logged in, now check subscription with st-paywall
+    try:
         from st_paywall import add_auth
 
-        # This will handle authentication and subscription check
+        # This checks if the logged-in user has an active Stripe subscription
         add_auth(required=True)
         return True
 
-    except AttributeError:
-        # st.user is not available or not properly configured
-        # This is expected in local development
-
-        # Only show warning on localhost (not on Streamlit Cloud)
-        # Use multiple methods to detect if running locally
-        import os
-
-        # Method 1: Check secrets for IS_LOCAL flag (most reliable)
-        # Add IS_LOCAL = true to your local .streamlit/secrets.toml
-        # Do NOT add it to Streamlit Cloud secrets
-        is_localhost = st.secrets.get('IS_LOCAL', False)
-
-        # Method 2: If IS_LOCAL not set, try environment detection
-        if not is_localhost:
-            # Check for Streamlit Cloud environment variables
-            is_cloud = bool(os.getenv('STREAMLIT_SHARING_MODE') or
-                            os.getenv('STREAMLIT_CLOUD') or
-                            os.getenv('STREAMLIT_SERVER_HEADLESS'))
-
-            # Check if hostname contains 'streamlit'
-            hostname = os.getenv('HOSTNAME', '')
-            if 'streamlit' in hostname.lower():
-                is_cloud = True
-
-            # Check server address from config
-            try:
-                from streamlit import config
-                server_address = config.get_option('server.address')
-                if server_address and server_address not in ['localhost', '127.0.0.1', '0.0.0.0', '']:
-                    is_cloud = True
-            except Exception:
-                pass
-
-            is_localhost = not is_cloud
-
-        if is_localhost and st.session_state.get('show_auth_warning', True):
-            st.warning("""
-            ⚠️ **Development Mode**: Authentication is disabled for local testing.
-
-            """)
-            st.session_state.show_auth_warning = False
-
-        return True
-
     except Exception as e:
-        # Some other error occurred
-        st.error(f"⚠️ Authentication error: {e}")
-        st.info(
-            "Running in development mode. See AUTHENTICATION_FIX.md for setup instructions.")
-        return True
+        # If st-paywall fails, show error
+        st.error(f"⚠️ Subscription check error: {e}")
+        st.info("""
+        **Troubleshooting:**
+        1. Make sure your Streamlit Cloud secrets are configured correctly
+        2. Check that Stripe API keys are valid
+        3. Verify that `st-paywall` is installed (check requirements.txt)
+
+        See STREAMLIT_CLOUD_CHECKLIST.md for complete setup instructions.
+        """)
+        st.stop()
+        return False
 
 
 def add_auth_to_page():
