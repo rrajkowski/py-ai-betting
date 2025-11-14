@@ -29,8 +29,38 @@ def check_authentication():
         return True
 
     # STREAMLIT CLOUD: Handle native auth + subscription
-    # First, check if user is logged in with Streamlit's native auth
-    if not st.user.is_logged_in:
+    # First, check if Streamlit native auth is available
+    try:
+        # Try to access st.user.is_logged_in
+        is_logged_in = st.user.is_logged_in
+    except AttributeError:
+        # st.user is not available - authentication is not configured
+        st.error("🔒 **Authentication Not Configured**")
+        st.info("""
+        **Streamlit native authentication is not enabled.**
+
+        To fix this, add the following to your Streamlit Cloud secrets:
+
+        ```toml
+        [auth.google]
+        client_id = "your-client-id"
+        client_secret = "your-client-secret"
+        server_metadata_url = "https://accounts.google.com/.well-known/openid-configuration"
+        ```
+
+        **Steps:**
+        1. Go to your app settings on Streamlit Cloud
+        2. Click "Secrets"
+        3. Add the `[auth.google]` section with your Google OAuth credentials
+        4. Save and redeploy
+
+        **Note:** Make sure the section name is EXACTLY `[auth.google]` (not `[auth]` or `[google_auth]`)
+        """)
+        st.stop()
+        return False
+
+    # Check if user is logged in
+    if not is_logged_in:
         st.info("🔐 **Please log in to access this app**")
         if st.button("Log in with Google"):
             st.login()
@@ -53,8 +83,6 @@ def check_authentication():
         1. Make sure your Streamlit Cloud secrets are configured correctly
         2. Check that Stripe API keys are valid
         3. Verify that `st-paywall` is installed (check requirements.txt)
-
-        See STREAMLIT_CLOUD_CHECKLIST.md for complete setup instructions.
         """)
         st.stop()
         return False
