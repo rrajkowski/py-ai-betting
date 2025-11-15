@@ -61,14 +61,33 @@ def check_authentication():
 
     # Check if user is logged in
     if not is_logged_in:
-        # When [auth.google] is configured, Streamlit automatically shows a login page
-        # We just need to stop execution and show a message
+        # Show login UI
         st.info("🔐 **Please log in to access this app**")
+
+        # Try to trigger login with a button
+        # Note: st.login() may not work in all contexts, but we'll try it
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            if st.button("🔑 Log in with Google", type="primary", use_container_width=True):
+                try:
+                    st.login()
+                except Exception as e:
+                    st.error(f"Login error: {e}")
+                    st.info("""
+                    **Alternative:** Look for the "Log in" button in the top-right corner of the page.
+
+                    If you don't see it, please check:
+                    1. Streamlit Cloud secrets are configured with `[auth.google]`
+                    2. Google OAuth redirect URI includes your app URL
+                    3. App has been redeployed after adding secrets
+                    """)
+
+        st.markdown("---")
         st.markdown("""
-        **How to log in:**
-        1. Look for the "Log in" button in the top-right corner of the page
-        2. Click it to sign in with Google
-        3. After logging in, you'll be redirected back to this app
+        **Troubleshooting:**
+        - If the button above doesn't work, look for a "Log in" link in the top-right corner
+        - Make sure you're accessing the app from the correct URL
+        - Try refreshing the page
         """)
         st.stop()
         return False
