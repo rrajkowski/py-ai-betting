@@ -68,12 +68,12 @@ def check_authentication():
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
             # Use on_click callback to trigger login
+            # No provider name needed when using generic [auth] format
             st.button(
                 "🔑 Log in with Google",
                 type="primary",
                 use_container_width=True,
-                on_click=st.login,
-                args=["google"]  # Specify "google" provider
+                on_click=st.login
             )
 
         st.markdown("---")
