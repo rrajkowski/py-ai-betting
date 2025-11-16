@@ -88,6 +88,17 @@ def check_authentication():
     try:
         from st_paywall import add_auth
 
+        # DEBUG: Check what secrets are available
+        st.sidebar.write("🔍 **Debug Info:**")
+        st.sidebar.write(
+            f"testing_mode: {st.secrets.get('testing_mode', 'NOT FOUND')}")
+        st.sidebar.write(
+            f"payment_provider: {st.secrets.get('payment_provider', 'NOT FOUND')}")
+        st.sidebar.write(
+            f"Has stripe_api_key: {'stripe_api_key' in st.secrets}")
+        st.sidebar.write(
+            f"Has stripe_api_key_test: {'stripe_api_key_test' in st.secrets}")
+
         # This checks if the logged-in user has an active Stripe subscription
         add_auth(required=True)
         return True
