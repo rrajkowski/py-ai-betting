@@ -120,22 +120,25 @@ def check_authentication():
     try:
         import stripe
 
-        # Get configuration from environment variables (works on Streamlit Cloud)
-        testing_mode = os.getenv('TESTING_MODE', 'false').lower() == 'true'
+        # Get configuration from st.secrets (Streamlit Cloud) or environment variables (fallback)
+        testing_mode_str = st.secrets.get('TESTING_MODE', os.getenv('TESTING_MODE', 'false'))
+        testing_mode = str(testing_mode_str).lower() == 'true'
 
         # Get Stripe API key based on mode
         if testing_mode:
-            stripe_api_key = os.getenv('STRIPE_API_KEY_TEST')
-            stripe_link = os.getenv('STRIPE_LINK_TEST')
+            stripe_api_key = st.secrets.get('STRIPE_API_KEY_TEST', os.getenv('STRIPE_API_KEY_TEST'))
+            stripe_link = st.secrets.get('STRIPE_LINK_TEST', os.getenv('STRIPE_LINK_TEST'))
         else:
-            stripe_api_key = os.getenv('STRIPE_API_KEY')
-            stripe_link = os.getenv('STRIPE_LINK')
+            stripe_api_key = st.secrets.get('STRIPE_API_KEY', os.getenv('STRIPE_API_KEY'))
+            stripe_link = st.secrets.get('STRIPE_LINK', os.getenv('STRIPE_LINK'))
 
         # DEBUG: Show configuration
         st.sidebar.write("🔍 **Stripe Config:**")
         st.sidebar.write(f"Testing mode: {testing_mode}")
         st.sidebar.write(f"Has API key: {stripe_api_key is not None}")
         st.sidebar.write(f"Has link: {stripe_link is not None}")
+        if stripe_api_key:
+            st.sidebar.write(f"API key starts with: {stripe_api_key[:15]}...")
 
         if not stripe_api_key:
             st.error("⚠️ Stripe API key not configured")
