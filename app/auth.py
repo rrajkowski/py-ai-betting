@@ -116,45 +116,116 @@ def check_authentication():
         st.stop()
         return False
 
-    # User is logged in, now check subscription with st-paywall
+    # User is logged in, now check subscription with custom Stripe integration
     try:
-        from st_paywall import add_auth
+        import stripe
 
-        # DEBUG: Check what secrets are available
-        st.sidebar.write("🔍 **Debug Info:**")
-        st.sidebar.write(f"All secrets keys: {list(st.secrets.keys())}")
-        st.sidebar.write(
-            f"testing_mode: {st.secrets.get('testing_mode', 'NOT FOUND')}")
-        st.sidebar.write(
-            f"payment_provider: {st.secrets.get('payment_provider', 'NOT FOUND')}")
-        st.sidebar.write(
-            f"Has stripe_api_key: {'stripe_api_key' in st.secrets}")
-        st.sidebar.write(
-            f"Has stripe_api_key_test: {'stripe_api_key_test' in st.secrets}")
+        # Get configuration from environment variables (works on Streamlit Cloud)
+        testing_mode = os.getenv('TESTING_MODE', 'false').lower() == 'true'
 
-        # Check environment variables
-        st.sidebar.write("🔍 **Environment Variables:**")
-        st.sidebar.write(
-            f"TESTING_MODE: {os.getenv('TESTING_MODE', 'NOT FOUND')}")
-        st.sidebar.write(
-            f"testing_mode: {os.getenv('testing_mode', 'NOT FOUND')}")
-        st.sidebar.write(
-            f"STRIPE_API_KEY: {os.getenv('STRIPE_API_KEY', 'NOT FOUND')[:20] if os.getenv('STRIPE_API_KEY') else 'NOT FOUND'}...")
-        st.sidebar.write(
-            f"stripe_api_key: {os.getenv('stripe_api_key', 'NOT FOUND')[:20] if os.getenv('stripe_api_key') else 'NOT FOUND'}...")
+        # Get Stripe API key based on mode
+        if testing_mode:
+            stripe_api_key = os.getenv('STRIPE_API_KEY_TEST')
+            stripe_link = os.getenv('STRIPE_LINK_TEST')
+        else:
+            stripe_api_key = os.getenv('STRIPE_API_KEY')
+            stripe_link = os.getenv('STRIPE_LINK')
 
-        # This checks if the logged-in user has an active Stripe subscription
-        add_auth(required=True)
+        # DEBUG: Show configuration
+        st.sidebar.write("🔍 **Stripe Config:**")
+        st.sidebar.write(f"Testing mode: {testing_mode}")
+        st.sidebar.write(f"Has API key: {stripe_api_key is not None}")
+        st.sidebar.write(f"Has link: {stripe_link is not None}")
+
+        if not stripe_api_key:
+            st.error("⚠️ Stripe API key not configured")
+            st.info("""
+            **Setup Required:**
+
+            Add these environment variables to Streamlit Cloud:
+            - `STRIPE_API_KEY` (for production)
+            - `STRIPE_LINK` (for production)
+            - `STRIPE_API_KEY_TEST` (for testing)
+            - `STRIPE_LINK_TEST` (for testing)
+            - `TESTING_MODE` (true/false)
+
+            Go to: https://share.streamlit.io/ → Settings → Secrets
+            """)
+            st.stop()
+            return False
+
+        # Check if user has active subscription
+        stripe.api_key = stripe_api_key
+        user_email = st.user.email
+
+        customers = stripe.Customer.list(email=user_email)
+
+        if not customers.data:
+            # No customer found - show subscribe button
+            st.warning(f"� Welcome! Please subscribe to access the app.")
+
+            if stripe_link:
+                st.markdown(f"""
+                <a href="{stripe_link}?prefilled_email={user_email}" target="_blank">
+                    <button style="
+                        background-color: #FF4B4B;
+                        color: white;
+                        padding: 0.5rem 1rem;
+                        border: none;
+                        border-radius: 0.25rem;
+                        cursor: pointer;
+                        font-size: 16px;
+                        font-weight: 500;
+                    ">
+                        🚀 Subscribe Now
+                    </button>
+                </a>
+                """, unsafe_allow_html=True)
+
+            st.stop()
+            return False
+
+        # Check for active subscriptions
+        customer = customers.data[0]
+        subscriptions = stripe.Subscription.list(customer=customer["id"])
+
+        if len(subscriptions.data) == 0:
+            # No active subscription
+            st.warning(f"👋 Welcome back! Your subscription has expired.")
+
+            if stripe_link:
+                st.markdown(f"""
+                <a href="{stripe_link}?prefilled_email={user_email}" target="_blank">
+                    <button style="
+                        background-color: #FF4B4B;
+                        color: white;
+                        padding: 0.5rem 1rem;
+                        border: none;
+                        border-radius: 0.25rem;
+                        cursor: pointer;
+                        font-size: 16px;
+                        font-weight: 500;
+                    ">
+                        🔄 Renew Subscription
+                    </button>
+                </a>
+                """, unsafe_allow_html=True)
+
+            st.stop()
+            return False
+
+        # User has active subscription!
+        st.sidebar.success(f"✅ Subscribed: {user_email}")
         return True
 
     except Exception as e:
-        # If st-paywall fails, show error
+        # If subscription check fails, show error
         st.error(f"⚠️ Subscription check error: {e}")
         st.info("""
         **Troubleshooting:**
-        1. Make sure your Streamlit Cloud secrets are configured correctly
+        1. Make sure Stripe environment variables are set in Streamlit Cloud
         2. Check that Stripe API keys are valid
-        3. Verify that `st-paywall` is installed (check requirements.txt)
+        3. Verify that `stripe` package is installed (check requirements.txt)
         """)
         st.stop()
         return False
