@@ -1,7 +1,7 @@
 # app/auth.py
 """
-Authentication wrapper for st-paywall that handles both local and cloud environments.
-st-paywall works WITH Streamlit's native authentication system.
+Authentication wrapper with custom Stripe integration.
+Works with Streamlit's native authentication system.
 """
 import streamlit as st
 import os
@@ -9,6 +9,8 @@ from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
+
+# Force deployment refresh - v2
 
 
 def check_authentication():
