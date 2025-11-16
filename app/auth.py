@@ -202,6 +202,11 @@ def check_authentication():
 
         # User has active subscription!
         st.sidebar.success(f"✅ Subscribed: {user_email}")
+
+        # Add logout button below email
+        if st.sidebar.button("🚪 Logout", type="secondary", use_container_width=True):
+            st.logout()
+
         return True
 
     except Exception as e:
