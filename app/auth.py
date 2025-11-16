@@ -123,14 +123,6 @@ def check_authentication():
             except (KeyError, FileNotFoundError):
                 stripe_link = os.getenv('STRIPE_LINK')
 
-        # DEBUG: Show configuration
-        st.sidebar.write("🔍 **Stripe Config:**")
-        st.sidebar.write(f"Testing mode: {testing_mode}")
-        st.sidebar.write(f"Has API key: {stripe_api_key is not None}")
-        st.sidebar.write(f"Has link: {stripe_link is not None}")
-        if stripe_api_key:
-            st.sidebar.write(f"API key starts with: {stripe_api_key[:15]}...")
-
         if not stripe_api_key:
             st.error("⚠️ Stripe API key not configured")
             st.info("""
