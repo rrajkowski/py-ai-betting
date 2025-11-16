@@ -122,6 +122,7 @@ def check_authentication():
 
         # DEBUG: Check what secrets are available
         st.sidebar.write("🔍 **Debug Info:**")
+        st.sidebar.write(f"All secrets keys: {list(st.secrets.keys())}")
         st.sidebar.write(
             f"testing_mode: {st.secrets.get('testing_mode', 'NOT FOUND')}")
         st.sidebar.write(
@@ -130,6 +131,17 @@ def check_authentication():
             f"Has stripe_api_key: {'stripe_api_key' in st.secrets}")
         st.sidebar.write(
             f"Has stripe_api_key_test: {'stripe_api_key_test' in st.secrets}")
+
+        # Check environment variables
+        st.sidebar.write("🔍 **Environment Variables:**")
+        st.sidebar.write(
+            f"TESTING_MODE: {os.getenv('TESTING_MODE', 'NOT FOUND')}")
+        st.sidebar.write(
+            f"testing_mode: {os.getenv('testing_mode', 'NOT FOUND')}")
+        st.sidebar.write(
+            f"STRIPE_API_KEY: {os.getenv('STRIPE_API_KEY', 'NOT FOUND')[:20] if os.getenv('STRIPE_API_KEY') else 'NOT FOUND'}...")
+        st.sidebar.write(
+            f"stripe_api_key: {os.getenv('stripe_api_key', 'NOT FOUND')[:20] if os.getenv('stripe_api_key') else 'NOT FOUND'}...")
 
         # This checks if the logged-in user has an active Stripe subscription
         add_auth(required=True)
