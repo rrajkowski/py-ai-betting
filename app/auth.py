@@ -49,7 +49,10 @@ def check_authentication():
     _inject_env_to_secrets()
 
     # Check if we're running locally using IS_LOCAL flag in secrets
-    is_localhost = st.secrets.get('IS_LOCAL', False)
+    try:
+        is_localhost = st.secrets["IS_LOCAL"]
+    except (KeyError, FileNotFoundError):
+        is_localhost = False
 
     # LOCALHOST: Skip authentication for development
     if is_localhost:
@@ -121,16 +124,31 @@ def check_authentication():
         import stripe
 
         # Get configuration from st.secrets (Streamlit Cloud) or environment variables (fallback)
-        testing_mode_str = st.secrets.get('TESTING_MODE', os.getenv('TESTING_MODE', 'false'))
+        try:
+            testing_mode_str = st.secrets["TESTING_MODE"]
+        except (KeyError, FileNotFoundError):
+            testing_mode_str = os.getenv('TESTING_MODE', 'false')
         testing_mode = str(testing_mode_str).lower() == 'true'
 
         # Get Stripe API key based on mode
         if testing_mode:
-            stripe_api_key = st.secrets.get('STRIPE_API_KEY_TEST', os.getenv('STRIPE_API_KEY_TEST'))
-            stripe_link = st.secrets.get('STRIPE_LINK_TEST', os.getenv('STRIPE_LINK_TEST'))
+            try:
+                stripe_api_key = st.secrets["STRIPE_API_KEY_TEST"]
+            except (KeyError, FileNotFoundError):
+                stripe_api_key = os.getenv('STRIPE_API_KEY_TEST')
+            try:
+                stripe_link = st.secrets["STRIPE_LINK_TEST"]
+            except (KeyError, FileNotFoundError):
+                stripe_link = os.getenv('STRIPE_LINK_TEST')
         else:
-            stripe_api_key = st.secrets.get('STRIPE_API_KEY', os.getenv('STRIPE_API_KEY'))
-            stripe_link = st.secrets.get('STRIPE_LINK', os.getenv('STRIPE_LINK'))
+            try:
+                stripe_api_key = st.secrets["STRIPE_API_KEY"]
+            except (KeyError, FileNotFoundError):
+                stripe_api_key = os.getenv('STRIPE_API_KEY')
+            try:
+                stripe_link = st.secrets["STRIPE_LINK"]
+            except (KeyError, FileNotFoundError):
+                stripe_link = os.getenv('STRIPE_LINK')
 
         # DEBUG: Show configuration
         st.sidebar.write("🔍 **Stripe Config:**")
