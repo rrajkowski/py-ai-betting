@@ -11,42 +11,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-def _inject_env_to_secrets():
-    """
-    Inject environment variables into st.secrets if they don't exist.
-    This allows st-paywall to read from environment variables.
-    """
-    env_mappings = {
-        "testing_mode": os.getenv("TESTING_MODE", os.getenv("testing_mode")),
-        "payment_provider": os.getenv("PAYMENT_PROVIDER", os.getenv("payment_provider")),
-        "stripe_api_key": os.getenv("STRIPE_API_KEY", os.getenv("stripe_api_key")),
-        "stripe_api_key_test": os.getenv("STRIPE_API_KEY_TEST", os.getenv("stripe_api_key_test")),
-        "stripe_link": os.getenv("STRIPE_LINK", os.getenv("stripe_link")),
-        "stripe_link_test": os.getenv("STRIPE_LINK_TEST", os.getenv("stripe_link_test")),
-    }
-
-    for key, value in env_mappings.items():
-        if value is not None and key not in st.secrets:
-            # Handle boolean conversion for testing_mode
-            if key == "testing_mode":
-                if isinstance(value, str):
-                    value = value.lower() in ("true", "1", "yes")
-            # Inject into secrets
-            st.secrets[key] = value
-
-
 def check_authentication():
     """
-    Check if user is authenticated and subscribed using st-paywall.
-
-    st-paywall requires Streamlit's native authentication to be enabled.
-    It adds a subscription layer on top of the native auth.
+    Check if user is authenticated and subscribed using custom Stripe integration.
 
     Returns:
         bool: True if user is authenticated and subscribed, False otherwise
     """
-    # Inject environment variables into st.secrets for st-paywall
-    _inject_env_to_secrets()
 
     # Check if we're running locally using IS_LOCAL flag in secrets
     try:
