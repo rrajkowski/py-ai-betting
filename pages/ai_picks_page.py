@@ -42,7 +42,15 @@ init_ai_picks()
 init_prompt_context_db()  # NEW: Initialize the new prompt context table
 
 # Only show Maintenance menu for admin users
-if is_admin():
+# Debug: Check admin status
+admin_status = is_admin()
+st.sidebar.write(f"🔍 Debug - Admin status: {admin_status}")
+if hasattr(st, 'user'):
+    st.sidebar.write(f"🔍 Debug - Logged in: {st.user.is_logged_in}")
+    if st.user.is_logged_in:
+        st.sidebar.write(f"🔍 Debug - Email: {st.user.email}")
+
+if admin_status:
     st.sidebar.markdown("### ⚙️ Maintenance")
     if st.sidebar.button("🔁 Update Pick Results"):
         update_ai_pick_results()
