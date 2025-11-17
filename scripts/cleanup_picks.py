@@ -99,30 +99,29 @@ def delete_conflicting_picks(conn):
 
 def delete_stuck_pending_picks(conn):
     """
-    Deletes pending picks with a 'commence_time' in the past.
-    This now correctly targets games that have already started.
+    Deletes pending picks with a 'commence_time' more than 7 days in the past.
+    This targets truly stuck picks while allowing time for scores to be updated.
     """
-    print("\n🔍 Scanning for stuck pending picks (commence_time in the past)...")
+    print("\n🔍 Scanning for stuck pending picks (>7 days old)...")
     cur = conn.cursor()
 
-    # --- MODERNIZED DATE HANDLING ---
-    # Use timezone-aware datetime.now(timezone.utc) instead of deprecated utcnow().
-    # The strftime format is kept to match the '...Z' suffix from the odds API,
-    # ensuring correct string comparison in SQLite.
-    now_utc_str = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+    # Calculate cutoff time (7 days ago)
+    from datetime import timedelta
+    cutoff_time = datetime.now(timezone.utc) - timedelta(days=7)
+    cutoff_str = cutoff_time.strftime('%Y-%m-%dT%H:%M:%SZ')
 
     query = f"""
         DELETE FROM {TABLE_NAME}
         WHERE
             (result IS NULL OR LOWER(result) = 'pending') AND
-            (commence_time IS NOT NULL AND commence_time < '{now_utc_str}')
+            (commence_time IS NOT NULL AND commence_time < '{cutoff_str}')
     """
     cur.execute(query)
     deleted_count = cur.rowcount
     conn.commit()
 
     if deleted_count > 0:
-        print(f"✅ Deleted {deleted_count} stuck pending picks.")
+        print(f"✅ Deleted {deleted_count} stuck pending picks (>7 days old).")
     else:
         print("No stuck pending picks found.")
 
@@ -158,7 +157,17 @@ def delete_rows_without_date(conn):
 
 
 def main():
-    """Runs all cleanup tasks for pending picks."""
+    """
+    Runs cleanup tasks for pending picks only.
+
+    This will NOT delete completed games (Win/Loss/Push).
+    Only removes:
+    - Low confidence pending picks (< 2 stars)
+    - Duplicate pending picks (same market/pick)
+    - Conflicting pending picks (same game/market, opposite sides)
+    - Stuck pending picks (>7 days old with no result)
+    - Picks with missing dates
+    """
     if not os.path.exists(DB_PATH):
         print(f"❌ Error: Database file not found at '{DB_PATH}'")
         return
@@ -167,6 +176,7 @@ def main():
     try:
         conn = sqlite3.connect(DB_PATH)
         print(f"Connected to database: {DB_PATH}\n")
+        print("🧹 Cleanup will ONLY affect PENDING picks, not completed games.\n")
 
         delete_low_confidence_picks(conn)
         delete_duplicate_picks(conn)
@@ -174,7 +184,8 @@ def main():
         delete_stuck_pending_picks(conn)
         delete_rows_without_date(conn)
 
-        print("\n🧹 Database cleanup complete (pending picks only)!")
+        print("\n✅ Database cleanup complete!")
+        print("📊 All completed games (Win/Loss/Push) remain intact.")
 
     except Exception as e:
         print(f"\n❌ An error occurred: {e}")
