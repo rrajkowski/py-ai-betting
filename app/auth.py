@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
-# Force deployment refresh - v2
+# Force deployment refresh - v3
 
 
 def check_authentication():
