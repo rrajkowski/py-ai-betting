@@ -222,6 +222,30 @@ def check_authentication():
         return False
 
 
+def is_admin():
+    """
+    Check if the current logged-in user is an admin.
+
+    Returns:
+        bool: True if user is admin, False otherwise
+    """
+    try:
+        # Check if user is logged in
+        if not st.user.is_logged_in:
+            return False
+
+        # List of admin emails
+        ADMIN_EMAILS = [
+            "ruben.rajkowski@gmail.com"
+        ]
+
+        user_email = st.user.email
+        return user_email in ADMIN_EMAILS
+    except AttributeError:
+        # st.user not available
+        return False
+
+
 def add_auth_to_page():
     """
     Add authentication to a page. Call this at the top of each page that requires auth.
