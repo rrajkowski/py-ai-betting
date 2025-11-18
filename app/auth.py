@@ -455,67 +455,91 @@ def check_authentication():
         # Get subscription details
         from datetime import datetime, timezone
 
-        # Get the product ID to determine tier
-        product_id = subscription['items']['data'][0]['price']['product']
-        interval = subscription['items']['data'][0]['price']['recurring']['interval']
-        interval_count = subscription['items']['data'][0]['price']['recurring']['interval_count']
+        try:
+            # Get the product ID to determine tier
+            product_id = subscription.get('items', {}).get('data', [{}])[
+                0].get('price', {}).get('product', '')
+            interval = subscription.get('items', {}).get('data', [{}])[0].get(
+                'price', {}).get('recurring', {}).get('interval', '')
+            interval_count = subscription.get('items', {}).get('data', [{}])[0].get(
+                'price', {}).get('recurring', {}).get('interval_count', 1)
 
-        # Map product IDs to tier names
-        PRODUCT_TIERS = {
-            'prod_TQLcQmFlr3W7T5': ('📅 Monthly', '$10/month'),
-            'prod_TQLkZpTCY1p6pc': ('📆 Quarterly', '$25/3 months'),
-            'prod_TRmeyctxe4nDsL': ('📅 Yearly', '$100/year'),
-        }
+            # Map product IDs to tier names
+            PRODUCT_TIERS = {
+                'prod_TQLcQmFlr3W7T5': ('📅 Monthly', '$10/month'),
+                'prod_TQLkZpTCY1p6pc': ('📆 Quarterly', '$25/3 months'),
+                'prod_TRmeyctxe4nDsL': ('📅 Yearly', '$100/year'),
+            }
 
-        # Determine tier name based on product ID (fallback to interval)
-        if product_id in PRODUCT_TIERS:
-            tier_name, tier_cost = PRODUCT_TIERS[product_id]
-        elif interval == 'month' and interval_count == 1:
-            tier_name = "📅 Monthly"
-            tier_cost = "$10/month"
-        elif interval == 'month' and interval_count == 3:
-            tier_name = "📆 Quarterly"
-            tier_cost = "$25/3 months"
-        elif interval == 'year':
-            tier_name = "📅 Yearly"
-            tier_cost = "$100/year"
-        else:
-            tier_name = "💎 Premium"
-            tier_cost = ""
+            # Determine tier name based on product ID (fallback to interval)
+            if product_id in PRODUCT_TIERS:
+                tier_name, tier_cost = PRODUCT_TIERS[product_id]
+            elif interval == 'month' and interval_count == 1:
+                tier_name = "📅 Monthly"
+                tier_cost = "$10/month"
+            elif interval == 'month' and interval_count == 3:
+                tier_name = "📆 Quarterly"
+                tier_cost = "$25/3 months"
+            elif interval == 'year':
+                tier_name = "📅 Yearly"
+                tier_cost = "$100/year"
+            else:
+                tier_name = "💎 Premium"
+                tier_cost = ""
 
-        # Calculate remaining time
-        current_period_end = subscription['current_period_end']
-        end_date = datetime.fromtimestamp(current_period_end, tz=timezone.utc)
-        now = datetime.now(timezone.utc)
-        remaining = end_date - now
+            # Calculate remaining time - use .get() with fallback
+            current_period_end = subscription.get('current_period_end')
 
-        days_remaining = remaining.days
-        months_remaining = days_remaining // 30
-        days_in_month = days_remaining % 30
+            if current_period_end:
+                end_date = datetime.fromtimestamp(
+                    current_period_end, tz=timezone.utc)
+                now = datetime.now(timezone.utc)
+                remaining = end_date - now
 
-        # Format duration display
-        if days_remaining > 30:
-            duration_text = f"{months_remaining} month{'s' if months_remaining != 1 else ''}, {days_in_month} day{'s' if days_in_month != 1 else ''}"
-        else:
-            duration_text = f"{days_remaining} day{'s' if days_remaining != 1 else ''}"
+                days_remaining = remaining.days
+                months_remaining = days_remaining // 30
+                days_in_month = days_remaining % 30
 
-        # Format expiration date
-        expiration_date = end_date.strftime("%b %d, %Y")
+                # Format duration display
+                if days_remaining > 30:
+                    duration_text = f"{months_remaining} month{'s' if months_remaining != 1 else ''}, {days_in_month} day{'s' if days_in_month != 1 else ''}"
+                else:
+                    duration_text = f"{days_remaining} day{'s' if days_remaining != 1 else ''}"
 
-        # Check if subscription will auto-renew
-        cancel_at_period_end = subscription.get('cancel_at_period_end', False)
+                # Format expiration date
+                expiration_date = end_date.strftime("%b %d, %Y")
+            else:
+                # Fallback if no period end date
+                duration_text = "Active"
+                expiration_date = "N/A"
 
-        # Display subscription info in sidebar
-        st.sidebar.success("✅ **Active Subscription**")
-        st.sidebar.markdown(f"**Plan:** {tier_name}")
-        st.sidebar.markdown(f"**Price:** {tier_cost}")
+            # Check if subscription will auto-renew
+            cancel_at_period_end = subscription.get(
+                'cancel_at_period_end', False)
 
-        if cancel_at_period_end:
-            st.sidebar.warning(f"⚠️ **Cancels:** {expiration_date}")
-            st.sidebar.caption(f"({duration_text} remaining)")
-        else:
-            st.sidebar.info(f"🔄 **Renews:** {expiration_date}")
-            st.sidebar.caption(f"({duration_text} remaining)")
+            # Display subscription info in sidebar
+            st.sidebar.success("✅ **Active Subscription**")
+            st.sidebar.markdown(f"**Plan:** {tier_name}")
+            if tier_cost:
+                st.sidebar.markdown(f"**Price:** {tier_cost}")
+
+            if current_period_end:
+                if cancel_at_period_end:
+                    st.sidebar.warning(f"⚠️ **Cancels:** {expiration_date}")
+                    st.sidebar.caption(f"({duration_text} remaining)")
+                else:
+                    st.sidebar.info(f"🔄 **Renews:** {expiration_date}")
+                    st.sidebar.caption(f"({duration_text} remaining)")
+            else:
+                st.sidebar.info("🔄 **Status:** Active")
+
+        except Exception as e:
+            # If we can't parse subscription details, just show basic info
+            st.sidebar.success("✅ **Active Subscription**")
+            st.sidebar.caption(f"Debug: {str(e)}")
+            # Log the subscription object for debugging
+            st.sidebar.caption(
+                f"Subscription keys: {list(subscription.keys())}")
 
         # Create Stripe Customer Portal session for managing subscription
         try:
