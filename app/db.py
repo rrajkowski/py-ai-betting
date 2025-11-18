@@ -117,7 +117,7 @@ def list_bets(limit=50):
     return rows
 
 # -------------------------
-# AI Picks Table (Refactored)
+# AI Picks Table
 # -------------------------
 
 

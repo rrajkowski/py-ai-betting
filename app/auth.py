@@ -92,7 +92,16 @@ def check_authentication():
         st.stop()
         return False
 
-    # User is logged in, now check subscription with custom Stripe integration
+    # User is logged in - show logout button in sidebar
+    st.sidebar.markdown("---")
+    st.sidebar.markdown(f"👤 **Logged in as:**  \n{st.user.email}")
+
+    if st.sidebar.button("🚪 Logout", type="secondary", use_container_width=True):
+        st.logout()
+
+    st.sidebar.markdown("---")
+
+    # Now check subscription with custom Stripe integration
     try:
         import stripe
 
@@ -441,11 +450,7 @@ def check_authentication():
             return False
 
         # User has active subscription!
-        st.sidebar.success(f"✅ Subscribed: {user_email}")
-
-        # Add logout button below email
-        if st.sidebar.button("🚪 Logout", type="secondary", use_container_width=True):
-            st.logout()
+        st.sidebar.success(f"✅ Subscribed")
 
         return True
 

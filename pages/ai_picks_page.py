@@ -46,7 +46,7 @@ if is_admin():
     st.sidebar.markdown("### ⚙️ Maintenance")
     if st.sidebar.button("🔁 Update Pick Results"):
         update_ai_pick_results()
-        st.success("AI Picks updated from live scores!")
+        st.success("RAGE Sports Picks updated from live scores!")
 
     if st.sidebar.button("🧹 Clean Up Picks"):
         with st.spinner("Cleaning up database..."):
@@ -547,7 +547,7 @@ if st.session_state.generated_picks:
                         st.markdown(f"**Pick #{i+1}**\n- {str(pick)}")
 
 # --- AI Picks History Table ---
-st.header("📜 AI Picks History")
+st.header("📜 RAGE Sports Picks History")
 ai_picks_history = list_ai_picks()
 
 if ai_picks_history:
