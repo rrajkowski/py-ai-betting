@@ -464,7 +464,7 @@ def check_authentication():
         PRODUCT_TIERS = {
             'prod_TQLcQmFlr3W7T5': ('📅 Monthly', '$10/month'),
             'prod_TQLkZpTCY1p6pc': ('📆 Quarterly', '$25/3 months'),
-            'prod_TQLlhZQXR9Y8Zv': ('📅 Yearly', '$100/year'),
+            'prod_TRmeyctxe4nDsL': ('📅 Yearly', '$100/year'),
         }
 
         # Determine tier name based on product ID (fallback to interval)
