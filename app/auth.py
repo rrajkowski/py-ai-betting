@@ -450,7 +450,106 @@ def check_authentication():
             return False
 
         # User has active subscription!
-        st.sidebar.success(f"✅ Subscribed")
+        subscription = subscriptions.data[0]
+
+        # Get subscription details
+        from datetime import datetime, timezone
+
+        # Get the product ID to determine tier
+        product_id = subscription['items']['data'][0]['price']['product']
+        interval = subscription['items']['data'][0]['price']['recurring']['interval']
+        interval_count = subscription['items']['data'][0]['price']['recurring']['interval_count']
+
+        # Map product IDs to tier names
+        PRODUCT_TIERS = {
+            'prod_TQLcQmFlr3W7T5': ('📅 Monthly', '$10/month'),
+            'prod_TQLkZpTCY1p6pc': ('📆 Quarterly', '$25/3 months'),
+            'prod_TQLlhZQXR9Y8Zv': ('📅 Yearly', '$100/year'),
+        }
+
+        # Determine tier name based on product ID (fallback to interval)
+        if product_id in PRODUCT_TIERS:
+            tier_name, tier_cost = PRODUCT_TIERS[product_id]
+        elif interval == 'month' and interval_count == 1:
+            tier_name = "📅 Monthly"
+            tier_cost = "$10/month"
+        elif interval == 'month' and interval_count == 3:
+            tier_name = "📆 Quarterly"
+            tier_cost = "$25/3 months"
+        elif interval == 'year':
+            tier_name = "📅 Yearly"
+            tier_cost = "$100/year"
+        else:
+            tier_name = "💎 Premium"
+            tier_cost = ""
+
+        # Calculate remaining time
+        current_period_end = subscription['current_period_end']
+        end_date = datetime.fromtimestamp(current_period_end, tz=timezone.utc)
+        now = datetime.now(timezone.utc)
+        remaining = end_date - now
+
+        days_remaining = remaining.days
+        months_remaining = days_remaining // 30
+        days_in_month = days_remaining % 30
+
+        # Format duration display
+        if days_remaining > 30:
+            duration_text = f"{months_remaining} month{'s' if months_remaining != 1 else ''}, {days_in_month} day{'s' if days_in_month != 1 else ''}"
+        else:
+            duration_text = f"{days_remaining} day{'s' if days_remaining != 1 else ''}"
+
+        # Format expiration date
+        expiration_date = end_date.strftime("%b %d, %Y")
+
+        # Check if subscription will auto-renew
+        cancel_at_period_end = subscription.get('cancel_at_period_end', False)
+
+        # Display subscription info in sidebar
+        st.sidebar.success("✅ **Active Subscription**")
+        st.sidebar.markdown(f"**Plan:** {tier_name}")
+        st.sidebar.markdown(f"**Price:** {tier_cost}")
+
+        if cancel_at_period_end:
+            st.sidebar.warning(f"⚠️ **Cancels:** {expiration_date}")
+            st.sidebar.caption(f"({duration_text} remaining)")
+        else:
+            st.sidebar.info(f"🔄 **Renews:** {expiration_date}")
+            st.sidebar.caption(f"({duration_text} remaining)")
+
+        # Create Stripe Customer Portal session for managing subscription
+        try:
+            # Get the return URL (current page)
+            return_url = "https://rage-sports-picks.streamlit.app/"
+
+            # Create a customer portal session
+            portal_session = stripe.billing_portal.Session.create(
+                customer=customer["id"],
+                return_url=return_url,
+            )
+
+            # Add manage subscription button with dynamic portal link
+            st.sidebar.markdown("---")
+            st.sidebar.markdown(f"""
+            <a href="{portal_session.url}" target="_blank" style="
+                display: block;
+                text-align: center;
+                padding: 10px;
+                background-color: #f0f2f6;
+                border-radius: 4px;
+                text-decoration: none;
+                color: #262730;
+                font-size: 14px;
+                font-weight: 500;
+            ">
+                ⚙️ Manage Subscription
+            </a>
+            """, unsafe_allow_html=True)
+            st.sidebar.caption("Cancel or update your plan")
+        except Exception as e:
+            # Fallback if portal session creation fails
+            st.sidebar.markdown("---")
+            st.sidebar.caption("⚙️ Contact support to manage subscription")
 
         return True
 
