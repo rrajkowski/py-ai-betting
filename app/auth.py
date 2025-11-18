@@ -109,19 +109,37 @@ def check_authentication():
                 stripe_api_key = st.secrets["STRIPE_API_KEY_TEST"]
             except (KeyError, FileNotFoundError):
                 stripe_api_key = os.getenv('STRIPE_API_KEY_TEST')
+            # Get all 3 pricing tier links
             try:
-                stripe_link = st.secrets["STRIPE_LINK_TEST"]
+                stripe_1_month_link = st.secrets["STRIPE_1_MONTH_LINK_TEST"]
             except (KeyError, FileNotFoundError):
-                stripe_link = os.getenv('STRIPE_LINK_TEST')
+                stripe_1_month_link = os.getenv('STRIPE_1_MONTH_LINK_TEST')
+            try:
+                stripe_3_month_link = st.secrets["STRIPE_3_MONTH_LINK_TEST"]
+            except (KeyError, FileNotFoundError):
+                stripe_3_month_link = os.getenv('STRIPE_3_MONTH_LINK_TEST')
+            try:
+                stripe_1_year_link = st.secrets["STRIPE_1_YEAR_LINK_TEST"]
+            except (KeyError, FileNotFoundError):
+                stripe_1_year_link = os.getenv('STRIPE_1_YEAR_LINK_TEST')
         else:
             try:
                 stripe_api_key = st.secrets["STRIPE_API_KEY"]
             except (KeyError, FileNotFoundError):
                 stripe_api_key = os.getenv('STRIPE_API_KEY')
+            # Get all 3 pricing tier links
             try:
-                stripe_link = st.secrets["STRIPE_LINK"]
+                stripe_1_month_link = st.secrets["STRIPE_1_MONTH_LINK"]
             except (KeyError, FileNotFoundError):
-                stripe_link = os.getenv('STRIPE_LINK')
+                stripe_1_month_link = os.getenv('STRIPE_1_MONTH_LINK')
+            try:
+                stripe_3_month_link = st.secrets["STRIPE_3_MONTH_LINK"]
+            except (KeyError, FileNotFoundError):
+                stripe_3_month_link = os.getenv('STRIPE_3_MONTH_LINK')
+            try:
+                stripe_1_year_link = st.secrets["STRIPE_1_YEAR_LINK"]
+            except (KeyError, FileNotFoundError):
+                stripe_1_year_link = os.getenv('STRIPE_1_YEAR_LINK')
 
         if not stripe_api_key:
             st.error("⚠️ Stripe API key not configured")
@@ -130,9 +148,13 @@ def check_authentication():
 
             Add these environment variables to Streamlit Cloud:
             - `STRIPE_API_KEY` (for production)
-            - `STRIPE_LINK` (for production)
+            - `STRIPE_1_MONTH_LINK` (for production)
+            - `STRIPE_3_MONTH_LINK` (for production)
+            - `STRIPE_1_YEAR_LINK` (for production)
             - `STRIPE_API_KEY_TEST` (for testing)
-            - `STRIPE_LINK_TEST` (for testing)
+            - `STRIPE_1_MONTH_LINK_TEST` (for testing)
+            - `STRIPE_3_MONTH_LINK_TEST` (for testing)
+            - `STRIPE_1_YEAR_LINK_TEST` (for testing)
             - `TESTING_MODE` (true/false)
 
             Go to: https://share.streamlit.io/ → Settings → Secrets
@@ -148,25 +170,134 @@ def check_authentication():
 
         if not customers.data:
             # No customer found - show subscribe button
-            st.warning(f"� Welcome! Please subscribe to access the app.")
+            st.warning(
+                "👋 Welcome! Please choose a subscription plan to access the app.")
 
-            if stripe_link:
-                st.markdown(f"""
-                <a href="{stripe_link}?prefilled_email={user_email}" target="_blank">
-                    <button style="
-                        background-color: #FF4B4B;
-                        color: white;
-                        padding: 0.5rem 1rem;
-                        border: none;
-                        border-radius: 0.25rem;
-                        cursor: pointer;
-                        font-size: 16px;
-                        font-weight: 500;
-                    ">
-                        🚀 Subscribe Now
-                    </button>
-                </a>
+            st.markdown("### 💎 Choose Your Plan")
+
+            # Create 3 columns for pricing tiers
+            col1, col2, col3 = st.columns(3)
+
+            with col1:
+                st.markdown("""
+                <div style="
+                    border: 2px solid #ddd;
+                    border-radius: 10px;
+                    padding: 20px;
+                    text-align: center;
+                    background-color: #f9f9f9;
+                ">
+                    <h3>📅 Monthly</h3>
+                    <h2 style="color: #FF4B4B;">$10</h2>
+                    <p style="color: #666;">per month</p>
+                    <p style="font-size: 14px; color: #888;">Perfect for trying out</p>
+                </div>
                 """, unsafe_allow_html=True)
+
+                if stripe_1_month_link:
+                    st.markdown(f"""
+                    <a href="{stripe_1_month_link}?prefilled_email={user_email}" target="_blank">
+                        <button style="
+                            background-color: #FF4B4B;
+                            color: white;
+                            padding: 0.5rem 1rem;
+                            border: none;
+                            border-radius: 0.25rem;
+                            cursor: pointer;
+                            font-size: 16px;
+                            font-weight: 500;
+                            width: 100%;
+                            margin-top: 10px;
+                        ">
+                            Subscribe Monthly
+                        </button>
+                    </a>
+                    """, unsafe_allow_html=True)
+
+            with col2:
+                st.markdown("""
+                <div style="
+                    border: 3px solid #4CAF50;
+                    border-radius: 10px;
+                    padding: 20px;
+                    text-align: center;
+                    background-color: #f0f8f0;
+                    position: relative;
+                ">
+                    <div style="
+                        position: absolute;
+                        top: -12px;
+                        left: 50%;
+                        transform: translateX(-50%);
+                        background-color: #4CAF50;
+                        color: white;
+                        padding: 4px 12px;
+                        border-radius: 12px;
+                        font-size: 12px;
+                        font-weight: bold;
+                    ">BEST VALUE</div>
+                    <h3>📆 Quarterly</h3>
+                    <h2 style="color: #4CAF50;">$25</h2>
+                    <p style="color: #666;">every 3 months</p>
+                    <p style="font-size: 14px; color: #888;">Save 17% vs monthly</p>
+                </div>
+                """, unsafe_allow_html=True)
+
+                if stripe_3_month_link:
+                    st.markdown(f"""
+                    <a href="{stripe_3_month_link}?prefilled_email={user_email}" target="_blank">
+                        <button style="
+                            background-color: #4CAF50;
+                            color: white;
+                            padding: 0.5rem 1rem;
+                            border: none;
+                            border-radius: 0.25rem;
+                            cursor: pointer;
+                            font-size: 16px;
+                            font-weight: 500;
+                            width: 100%;
+                            margin-top: 10px;
+                        ">
+                            Subscribe Quarterly
+                        </button>
+                    </a>
+                    """, unsafe_allow_html=True)
+
+            with col3:
+                st.markdown("""
+                <div style="
+                    border: 2px solid #ddd;
+                    border-radius: 10px;
+                    padding: 20px;
+                    text-align: center;
+                    background-color: #f9f9f9;
+                ">
+                    <h3>📅 Yearly</h3>
+                    <h2 style="color: #FF4B4B;">$100</h2>
+                    <p style="color: #666;">per year</p>
+                    <p style="font-size: 14px; color: #888;">Save 17% vs monthly</p>
+                </div>
+                """, unsafe_allow_html=True)
+
+                if stripe_1_year_link:
+                    st.markdown(f"""
+                    <a href="{stripe_1_year_link}?prefilled_email={user_email}" target="_blank">
+                        <button style="
+                            background-color: #FF4B4B;
+                            color: white;
+                            padding: 0.5rem 1rem;
+                            border: none;
+                            border-radius: 0.25rem;
+                            cursor: pointer;
+                            font-size: 16px;
+                            font-weight: 500;
+                            width: 100%;
+                            margin-top: 10px;
+                        ">
+                            Subscribe Yearly
+                        </button>
+                    </a>
+                    """, unsafe_allow_html=True)
 
             st.stop()
             return False
@@ -177,25 +308,134 @@ def check_authentication():
 
         if len(subscriptions.data) == 0:
             # No active subscription
-            st.warning(f"👋 Welcome back! Your subscription has expired.")
+            st.warning(
+                "👋 Welcome back! Your subscription has expired. Please renew to continue.")
 
-            if stripe_link:
-                st.markdown(f"""
-                <a href="{stripe_link}?prefilled_email={user_email}" target="_blank">
-                    <button style="
-                        background-color: #FF4B4B;
-                        color: white;
-                        padding: 0.5rem 1rem;
-                        border: none;
-                        border-radius: 0.25rem;
-                        cursor: pointer;
-                        font-size: 16px;
-                        font-weight: 500;
-                    ">
-                        🔄 Renew Subscription
-                    </button>
-                </a>
+            st.markdown("### 💎 Choose Your Plan")
+
+            # Create 3 columns for pricing tiers
+            col1, col2, col3 = st.columns(3)
+
+            with col1:
+                st.markdown("""
+                <div style="
+                    border: 2px solid #ddd;
+                    border-radius: 10px;
+                    padding: 20px;
+                    text-align: center;
+                    background-color: #f9f9f9;
+                ">
+                    <h3>📅 Monthly</h3>
+                    <h2 style="color: #FF4B4B;">$10</h2>
+                    <p style="color: #666;">per month</p>
+                    <p style="font-size: 14px; color: #888;">Perfect for trying out</p>
+                </div>
                 """, unsafe_allow_html=True)
+
+                if stripe_1_month_link:
+                    st.markdown(f"""
+                    <a href="{stripe_1_month_link}?prefilled_email={user_email}" target="_blank">
+                        <button style="
+                            background-color: #FF4B4B;
+                            color: white;
+                            padding: 0.5rem 1rem;
+                            border: none;
+                            border-radius: 0.25rem;
+                            cursor: pointer;
+                            font-size: 16px;
+                            font-weight: 500;
+                            width: 100%;
+                            margin-top: 10px;
+                        ">
+                            Renew Monthly
+                        </button>
+                    </a>
+                    """, unsafe_allow_html=True)
+
+            with col2:
+                st.markdown("""
+                <div style="
+                    border: 3px solid #4CAF50;
+                    border-radius: 10px;
+                    padding: 20px;
+                    text-align: center;
+                    background-color: #f0f8f0;
+                    position: relative;
+                ">
+                    <div style="
+                        position: absolute;
+                        top: -12px;
+                        left: 50%;
+                        transform: translateX(-50%);
+                        background-color: #4CAF50;
+                        color: white;
+                        padding: 4px 12px;
+                        border-radius: 12px;
+                        font-size: 12px;
+                        font-weight: bold;
+                    ">BEST VALUE</div>
+                    <h3>📆 Quarterly</h3>
+                    <h2 style="color: #4CAF50;">$25</h2>
+                    <p style="color: #666;">every 3 months</p>
+                    <p style="font-size: 14px; color: #888;">Save 17% vs monthly</p>
+                </div>
+                """, unsafe_allow_html=True)
+
+                if stripe_3_month_link:
+                    st.markdown(f"""
+                    <a href="{stripe_3_month_link}?prefilled_email={user_email}" target="_blank">
+                        <button style="
+                            background-color: #4CAF50;
+                            color: white;
+                            padding: 0.5rem 1rem;
+                            border: none;
+                            border-radius: 0.25rem;
+                            cursor: pointer;
+                            font-size: 16px;
+                            font-weight: 500;
+                            width: 100%;
+                            margin-top: 10px;
+                        ">
+                            Renew Quarterly
+                        </button>
+                    </a>
+                    """, unsafe_allow_html=True)
+
+            with col3:
+                st.markdown("""
+                <div style="
+                    border: 2px solid #ddd;
+                    border-radius: 10px;
+                    padding: 20px;
+                    text-align: center;
+                    background-color: #f9f9f9;
+                ">
+                    <h3>📅 Yearly</h3>
+                    <h2 style="color: #FF4B4B;">$100</h2>
+                    <p style="color: #666;">per year</p>
+                    <p style="font-size: 14px; color: #888;">Save 17% vs monthly</p>
+                </div>
+                """, unsafe_allow_html=True)
+
+                if stripe_1_year_link:
+                    st.markdown(f"""
+                    <a href="{stripe_1_year_link}?prefilled_email={user_email}" target="_blank">
+                        <button style="
+                            background-color: #FF4B4B;
+                            color: white;
+                            padding: 0.5rem 1rem;
+                            border: none;
+                            border-radius: 0.25rem;
+                            cursor: pointer;
+                            font-size: 16px;
+                            font-weight: 500;
+                            width: 100%;
+                            margin-top: 10px;
+                        ">
+                            Renew Yearly
+                        </button>
+                    </a>
+                    """, unsafe_allow_html=True)
 
             st.stop()
             return False
