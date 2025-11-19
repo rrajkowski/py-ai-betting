@@ -101,6 +101,18 @@ def check_authentication():
 
     st.sidebar.markdown("---")
 
+    # Check if we're running locally - skip Stripe check for localhost
+    try:
+        is_localhost = st.secrets["IS_LOCAL"]
+    except (KeyError, FileNotFoundError):
+        is_localhost = False
+
+    # LOCALHOST: Skip Stripe subscription check for development
+    if is_localhost:
+        st.sidebar.success("✅ **Development Mode**")
+        st.sidebar.caption("Stripe subscription check disabled")
+        return True
+
     # Now check subscription with custom Stripe integration
     try:
         import stripe
