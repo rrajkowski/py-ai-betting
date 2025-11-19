@@ -7,6 +7,30 @@ from app.utils.sport_config import SportConfig
 from app.utils.team_mapper import normalize_team_name
 
 
+def create_game_id(team_a: str, team_b: str, sport: str, target_date: str) -> str:
+    """
+    Create a consistent game_id by normalizing team names.
+
+    Args:
+        team_a: First team name (raw from scraper)
+        team_b: Second team name (raw from scraper)
+        sport: Sport name (e.g., 'NBA', 'NFL')
+        target_date: Date string (YYYY-MM-DD)
+
+    Returns:
+        Consistent game_id (e.g., 'NBA-CharlotteHornets-vs-IndianaPacers-2025-11-19')
+    """
+    # Normalize team names to canonical form
+    norm_a = normalize_team_name(team_a, sport)
+    norm_b = normalize_team_name(team_b, sport)
+
+    # Remove spaces for game_id
+    clean_a = norm_a.replace(' ', '')
+    clean_b = norm_b.replace(' ', '')
+
+    return f"{sport}-{clean_a}-vs-{clean_b}-{target_date}"
+
+
 def scrape_oddsshark_consensus(target_date: str, sport: str):
     """
     Scrapes OddsShark's computer picks page with seasonal awareness and smart filtering.
@@ -111,7 +135,8 @@ def scrape_oddsshark_consensus(target_date: str, sport: str):
 
                 team_a, team_b = teams
                 game_title = f"{team_a} @ {team_b}"
-                game_id = f"{sport_name_upper}-{team_a.replace(' ', '')}-vs-{team_b.replace(' ', '')}-{target_date}"
+                game_id = create_game_id(
+                    team_a, team_b, sport_name_upper, target_date)
 
                 # --- helper
                 def parse_odds(text):
@@ -330,7 +355,8 @@ def scrape_oddstrader_picks(target_date: str, sport: str):
                 if not away_team or not home_team:
                     continue
 
-                game_id = f"{sport_name_upper}-{away_team.replace(' ', '')}-vs-{home_team.replace(' ', '')}-{target_date}"
+                game_id = create_game_id(
+                    away_team, home_team, sport_name_upper, target_date)
 
                 # Extract all bet options for this game
                 bet_wrappers = game_container.select("div.wrapper-irK6Y")
@@ -530,7 +556,8 @@ def scrape_cbs_expert_picks(target_date: str, sport: str):
                 away_team = teams_list[0]
                 home_team = teams_list[1]
 
-                game_id = f"{sport_name_upper}-{away_team.replace(' ', '')}-vs-{home_team.replace(' ', '')}-{target_date}"
+                game_id = create_game_id(
+                    away_team, home_team, sport_name_upper, target_date)
 
                 # Count expert consensus for each pick
                 # CBS shows multiple expert picks per game - count how many picked each side
