@@ -501,47 +501,63 @@ def scrape_cbs_expert_picks(target_date: str, sport: str):
         resp.raise_for_status()
         soup = BeautifulSoup(resp.text, "html.parser")
 
-        # Find all game info sections (left column with team names)
-        game_info_sections = soup.select("td.game-info-td")
+        # Find all expert picks columns (one per game)
+        expert_picks_cols = soup.select("div.expert-picks-col")
         print(
-            f"🔍 CBS Sports: Found {len(game_info_sections)} game info sections")
+            f"🔍 CBS Sports: Found {len(expert_picks_cols)} expert pick columns")
 
         scraped_count = 0
 
-        # Process each game row
-        for game_section in game_info_sections:
+        # Process each expert picks column
+        for expert_picks_col in expert_picks_cols:
             try:
-                # Find the parent row
-                game_row = game_section.find_parent("tr")
-                if not game_row:
+                # Find the parent container to get game info
+                # The preview link is typically 2 levels up from expert-picks-col
+                parent_container = expert_picks_col.find_parent(
+                    "div")  # picks-td
+                if parent_container:
+                    parent_container = parent_container.find_parent(
+                        "div")  # row container
+
+                if not parent_container:
                     continue
 
-                # Extract team names from game info section
-                team_links = game_section.select("a.TeamName")
-                if len(team_links) < 2:
+                # Look for preview link to extract team abbreviations
+                # Format: /nba/gametracker/preview/NBA_20251119_TOR@PHI/
+                preview_link = parent_container.find(
+                    "a", href=lambda h: h and "gametracker/preview" in h)
+                if not preview_link:
                     continue
 
-                away_team_text = team_links[0].get_text(strip=True)
-                home_team_text = team_links[1].get_text(strip=True)
+                href = preview_link.get("href", "")
+                # Extract game ID from URL: NBA_20251119_TOR@PHI
+                import re
+                game_match = re.search(
+                    r'NBA_\d{8}_([A-Z]{2,3})@([A-Z]{2,3})', href)
+                if not game_match:
+                    continue
+
+                away_abbrev = game_match.group(1)
+                home_abbrev = game_match.group(2)
+
+                # Map abbreviations to full team names
+                away_team_name = nba_abbrev_map.get(away_abbrev)
+                home_team_name = nba_abbrev_map.get(home_abbrev)
+
+                if not away_team_name or not home_team_name:
+                    print(
+                        f"⚠️ CBS Sports: Unknown team abbreviations: {away_abbrev}, {home_abbrev}")
+                    continue
 
                 # Normalize team names
                 away_team = normalize_team_name(
-                    away_team_text, sport_name_upper)
+                    away_team_name, sport_name_upper)
                 home_team = normalize_team_name(
-                    home_team_text, sport_name_upper)
+                    home_team_name, sport_name_upper)
 
                 # Create game_id
                 game_id = create_game_id(
                     away_team, home_team, sport_name_upper, target_date)
-
-                # Find the expert picks column in the same row
-                picks_td = game_row.select_one("td.picks-td")
-                if not picks_td:
-                    continue
-
-                expert_picks_col = picks_td.select_one("div.expert-picks-col")
-                if not expert_picks_col:
-                    continue
 
                 # Extract spread pick
                 spread_div = expert_picks_col.select_one("div.expert-spread")
