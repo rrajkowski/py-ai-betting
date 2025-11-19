@@ -66,9 +66,14 @@ def fetch_kalshi_consensus(sport_key: str, target_date: str):
         return
 
     # 2. Get sport configuration
-    ticker = SportConfig.get_kalshi_ticker(sport_key)
-    sport_name_upper = SportConfig.get_sport_name(
-        sport_key)  # Get proper sport name
+    config = SportConfig.KALSHI_CONFIG.get(sport_key)
+    if not config:
+        print(
+            f"📡 Kalshi API: Skipping {sport_key} - no Kalshi config")
+        return
+
+    ticker = config.get("ticker")
+    sport_name_upper = SportConfig.get_sport_name(sport_key)
 
     if not ticker:
         print(
@@ -88,28 +93,38 @@ def fetch_kalshi_consensus(sport_key: str, target_date: str):
     client = KalshiClient()
     now_utc = datetime.now(timezone.utc)
 
-    # 4. Fetch markets with status filter
-    markets_params = {
-        "series_ticker": ticker,
-        "status": "open",
-        # Fetch extra to account for filtering
-        "limit": min(dynamic_limit * 3, 200)
-    }
+    # 4. Fetch markets from multiple series (for NBA: moneyline, spread, total)
+    all_markets = []
+    series_tickers = [ticker]
 
-    markets_response = client.request("GET", "/markets", params=markets_params)
-    if not markets_response:
-        return
+    # Add additional tickers if available (e.g., NBA has spread and total)
+    if "ticker_spread" in config:
+        series_tickers.append(config["ticker_spread"])
+    if "ticker_total" in config:
+        series_tickers.append(config["ticker_total"])
 
-    data = markets_response.json()
-    markets = data.get("markets", [])
-    market_count_raw = len(markets)
+    for series_ticker in series_tickers:
+        markets_params = {
+            "series_ticker": series_ticker,
+            "status": "open",
+            "limit": min(dynamic_limit * 3, 200)
+        }
+
+        markets_response = client.request(
+            "GET", "/markets", params=markets_params)
+        if markets_response:
+            data = markets_response.json()
+            markets = data.get("markets", [])
+            all_markets.extend(markets)
+
+    market_count_raw = len(all_markets)
 
     # 5. Filter for games in the next 24 hours
     # This catches games that will be played "today" or early tomorrow
     max_future_time = now_utc + timedelta(hours=24)
 
     filtered_markets = []
-    for m in markets:
+    for m in all_markets:
         close_time_str = m.get("close_time")
         if not close_time_str:
             continue
@@ -123,28 +138,29 @@ def fetch_kalshi_consensus(sport_key: str, target_date: str):
         except (ValueError, AttributeError):
             continue
 
-    # 6. Sort by close time (soonest first) and apply dynamic limit
+    # 6. Sort by close time (soonest first)
     filtered_markets.sort(key=lambda m: m.get("close_time", ""))
-    markets = filtered_markets[:dynamic_limit]
 
     print(
         f"📡 Kalshi API: Found {market_count_raw} raw markets, "
-        f"{len(filtered_markets)} closing in next 24h, "
-        f"using top {len(markets)} for {sport_key.upper()}"
+        f"{len(filtered_markets)} closing in next 24h "
+        f"for {sport_key.upper()}"
     )
 
-    if not markets:
+    if not filtered_markets:
         print("⚠️ No upcoming markets found after filtering")
         return
 
     # 7. Calculate popularity scores
-    max_v24h = max((m.get("volume_24h", 0) or 0) for m in markets) or 1
-    max_oi = max((m.get("open_interest", 0) or 0) for m in markets) or 1
+    max_v24h = max((m.get("volume_24h", 0) or 0)
+                   for m in filtered_markets) or 1
+    max_oi = max((m.get("open_interest", 0) or 0)
+                 for m in filtered_markets) or 1
 
     stored_count = 0
 
     # 8. Process and store markets
-    for m in markets:
+    for m in filtered_markets:
         market_id = m.get("ticker")
         last_price = m.get("last_price")
 

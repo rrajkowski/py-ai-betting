@@ -83,7 +83,10 @@ class SportConfig:
             }
         },
         "basketball_nba": {
-            "ticker": "KXMVENBASINGLEGAME",  # Kalshi's NBA single game markets
+            # Kalshi has 3 separate series for NBA: moneyline, spread, total
+            "ticker": "KXNBAGAME",  # Moneyline markets (which team wins)
+            "ticker_spread": "KXNBASPREAD",  # Spread markets
+            "ticker_total": "KXNBATOTAL",  # Total markets
             "base_limit": 12,
             "schedule": {
                 "tuesday": 10,
