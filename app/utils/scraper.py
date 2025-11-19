@@ -451,7 +451,7 @@ def scrape_oddstrader_picks(target_date: str, sport: str):
 def scrape_cbs_expert_picks(target_date: str, sport: str):
     """
     Scrapes CBS Sports expert picks (spread and total only).
-    Focuses on consensus when 5+ experts agree.
+    Uses the new 2025 HTML structure with team abbreviations.
 
     Args:
         target_date: Target date for grouping (YYYY-MM-DD)
@@ -478,6 +478,19 @@ def scrape_cbs_expert_picks(target_date: str, sport: str):
     url = f"https://www.cbssports.com/{sport_path}"
     sport_name_upper = SportConfig.get_sport_name(sport)
 
+    # Map team abbreviations to full names for normalization
+    # CBS uses 3-letter abbreviations (TOR, IND, CLE, etc.)
+    nba_abbrev_map = {
+        "ATL": "Atlanta", "BOS": "Boston", "BKN": "Brooklyn", "CHA": "Charlotte",
+        "CHI": "Chicago", "CLE": "Cleveland", "DAL": "Dallas", "DEN": "Denver",
+        "DET": "Detroit", "GS": "Golden State", "HOU": "Houston", "IND": "Indiana",
+        "LAC": "LA Clippers", "LAL": "LA Lakers", "MEM": "Memphis", "MIA": "Miami",
+        "MIL": "Milwaukee", "MIN": "Minnesota", "NO": "New Orleans", "NY": "New York",
+        "OKC": "Oklahoma City", "ORL": "Orlando", "PHI": "Philadelphia", "PHX": "Phoenix",
+        "POR": "Portland", "SAC": "Sacramento", "SA": "San Antonio", "TOR": "Toronto",
+        "UTA": "Utah", "WAS": "Washington"
+    }
+
     print(
         f"📡 CBS Sports: Fetching {sport_name_upper} expert picks from {url}...")
 
@@ -488,157 +501,129 @@ def scrape_cbs_expert_picks(target_date: str, sport: str):
         resp.raise_for_status()
         soup = BeautifulSoup(resp.text, "html.parser")
 
-        # Find game rows - CBS uses table structure
-        game_rows = soup.select("tr.TableBase-bodyTr")
-        print(f"🔍 CBS Sports: Found {len(game_rows)} game rows")
+        # Find all game info sections (left column with team names)
+        game_info_sections = soup.select("td.game-info-td")
+        print(
+            f"🔍 CBS Sports: Found {len(game_info_sections)} game info sections")
 
         scraped_count = 0
 
-        # Group buttons by game using gameId from data-config
-        import json
-        games_dict = {}  # gameId -> list of bet buttons
-
-        for row in game_rows:
-            bet_buttons = row.select("button.BetButton")
-            for button in bet_buttons:
-                data_config = button.get("data-config")
-                if not data_config:
-                    continue
-
-                try:
-                    config = json.loads(data_config)
-                    game_id_cbs = config.get("gameId")
-                    if game_id_cbs:
-                        if game_id_cbs not in games_dict:
-                            games_dict[game_id_cbs] = []
-                        games_dict[game_id_cbs].append((button, config))
-                except:
-                    continue
-
-        print(f"🎮 CBS Sports: Found {len(games_dict)} unique games")
-
-        # Process each game
-        for game_id_cbs, buttons_configs in games_dict.items():
+        # Process each game row
+        for game_section in game_info_sections:
             try:
-                # Extract all picks for this game
-                game_bets = []
-                teams_found = set()
-
-                for button, config in buttons_configs:
-                    button_text = button.select_one("div.BetButton-text")
-                    if not button_text:
-                        continue
-
-                    pick_text = button_text.get_text(
-                        strip=True)  # e.g., "ATL +6.5"
-                    market_name = config.get(
-                        "marketName", "").lower()  # "Spread" or "Total"
-
-                    game_bets.append({
-                        "pick": pick_text,
-                        "market": market_name,
-                        "line": config.get("line", "")
-                    })
-
-                    # Extract team abbreviation
-                    pick_parts = pick_text.split()
-                    if len(pick_parts) >= 1:
-                        team_abbr = pick_parts[0]
-                        normalized = normalize_team_name(team_abbr, sport)
-                        if normalized:
-                            teams_found.add(normalized)
-
-                if not game_bets or len(teams_found) < 2:
+                # Find the parent row
+                game_row = game_section.find_parent("tr")
+                if not game_row:
                     continue
 
-                # Sort teams alphabetically for consistency
-                teams_list = sorted(list(teams_found))
-                away_team = teams_list[0]
-                home_team = teams_list[1]
+                # Extract team names from game info section
+                team_links = game_section.select("a.TeamName")
+                if len(team_links) < 2:
+                    continue
 
+                away_team_text = team_links[0].get_text(strip=True)
+                home_team_text = team_links[1].get_text(strip=True)
+
+                # Normalize team names
+                away_team = normalize_team_name(
+                    away_team_text, sport_name_upper)
+                home_team = normalize_team_name(
+                    home_team_text, sport_name_upper)
+
+                # Create game_id
                 game_id = create_game_id(
                     away_team, home_team, sport_name_upper, target_date)
 
-                # Count expert consensus for each pick
-                # CBS shows multiple expert picks per game - count how many picked each side
-                spread_picks = [
-                    b for b in game_bets if b["market"] == "spread"]
-                total_picks = [
-                    b for b in game_bets if "total" in b["market"].lower()]
+                # Find the expert picks column in the same row
+                picks_td = game_row.select_one("td.picks-td")
+                if not picks_td:
+                    continue
 
-                # For spread: count picks for each team
-                spread_consensus = {}
-                for pick in spread_picks:
-                    spread_consensus[pick["pick"]] = spread_consensus.get(
-                        pick["pick"], 0) + 1
+                expert_picks_col = picks_td.select_one("div.expert-picks-col")
+                if not expert_picks_col:
+                    continue
 
-                # For total: count over/under picks
-                total_consensus = {}
-                for pick in total_picks:
-                    total_consensus[pick["pick"]] = total_consensus.get(
-                        pick["pick"], 0) + 1
+                # Extract spread pick
+                spread_div = expert_picks_col.select_one("div.expert-spread")
+                spread_pick = None
+                if spread_div:
+                    # Get text content and parse
+                    spread_text = spread_div.get_text(strip=True)
+                    # Format: "TOR-2.5" or "IND+1.5"
+                    # Extract team abbreviation and line
+                    import re
+                    spread_match = re.search(
+                        r'([A-Z]{2,3})\s*([-+][\d.]+)', spread_text)
+                    if spread_match:
+                        team_abbrev = spread_match.group(1)
+                        line = spread_match.group(2)
 
-                # Store picks where 5+ experts agree
-                for pick_text, count in spread_consensus.items():
-                    if count >= 5:
-                        # Determine which team
-                        team_pick = away_team if away_team[:3].upper(
-                        ) in pick_text.upper() else home_team
+                        # Map abbreviation to full team name
+                        team_name = nba_abbrev_map.get(team_abbrev)
+                        if team_name:
+                            # Normalize to match our game_id format
+                            team_normalized = normalize_team_name(
+                                team_name, sport_name_upper)
+                            spread_pick = {
+                                "market": "spread",
+                                "team": team_normalized,
+                                "line": line
+                            }
 
-                        data = {
-                            "market": "spread",
-                            "line": pick_text,
-                            "expert_count": count,
-                            "confidence": "high"
-                        }
-
-                        insert_context(
-                            category="expert_consensus",
-                            context_type="cbs_expert_pick",
-                            game_id=game_id,
-                            match_date=target_date,
-                            sport=sport_name_upper,
-                            team_pick=team_pick,
-                            data=data,
-                            source="cbs_sports"
-                        )
-                        scraped_count += 1
-
-                for pick_text, count in total_consensus.items():
-                    if count >= 5:
-                        team_pick = f"{away_team} vs {home_team}"
-
-                        data = {
+                # Extract total pick
+                total_div = expert_picks_col.select_one("div.expert-ou")
+                total_pick = None
+                if total_div:
+                    # Get text content and parse
+                    total_text = total_div.get_text(strip=True)
+                    # Format: "U233.5" or "O232.5"
+                    total_match = re.search(r'([OU])([\d.]+)', total_text)
+                    if total_match:
+                        direction = "over" if total_match.group(
+                            1) == "O" else "under"
+                        line = total_match.group(2)
+                        total_pick = {
                             "market": "total",
-                            "line": pick_text,
-                            "expert_count": count,
-                            "confidence": "high"
+                            "direction": direction,
+                            "line": line
                         }
 
-                        insert_context(
-                            category="expert_consensus",
-                            context_type="cbs_expert_pick",
-                            game_id=game_id,
-                            match_date=target_date,
-                            sport=sport_name_upper,
-                            team_pick=team_pick,
-                            data=data,
-                            source="cbs_sports"
-                        )
-                        scraped_count += 1
+                # Store picks in database
+                if spread_pick:
+                    insert_context(
+                        category="expert_consensus",
+                        context_type="cbs_expert_pick",
+                        game_id=game_id,
+                        match_date=target_date,
+                        sport=sport_name_upper,
+                        team_pick=spread_pick["team"],
+                        data=spread_pick,
+                        source="cbs_sports"
+                    )
+                    scraped_count += 1
 
-            except Exception:
+                if total_pick:
+                    insert_context(
+                        category="expert_consensus",
+                        context_type="cbs_expert_pick",
+                        game_id=game_id,
+                        match_date=target_date,
+                        sport=sport_name_upper,
+                        team_pick=None,  # Total picks don't have a team
+                        data=total_pick,
+                        source="cbs_sports"
+                    )
+                    scraped_count += 1
+
+            except Exception as e:
+                print(f"⚠️ CBS Sports: Error processing game: {e}")
                 continue
 
         print(
             f"✅ CBS Sports: Stored {scraped_count} consensus picks for {sport_name_upper}")
 
-    except requests.exceptions.Timeout:
-        print(f"❌ CBS Sports timeout for {sport_name_upper}")
-    except requests.exceptions.HTTPError as e:
-        print(f"❌ CBS Sports HTTP error: {e.response.status_code}")
     except Exception as e:
-        print(f"❌ CBS Sports error for {sport_name_upper}: {e}")
+        print(f"❌ CBS Sports: Failed to scrape {sport_name_upper}: {e}")
 
 
 def run_scrapers(target_date: str, sport: str):

@@ -104,8 +104,10 @@ def fetch_kalshi_consensus(sport_key: str, target_date: str):
     markets = data.get("markets", [])
     market_count_raw = len(markets)
 
-    # 5. Filter for upcoming games only (close time in next 3 days)
-    max_future_date = now_utc + timedelta(days=3)
+    # 5. Filter for games today only (close time before midnight tonight)
+    # Calculate end of today in UTC
+    end_of_today = now_utc.replace(
+        hour=23, minute=59, second=59, microsecond=999999)
 
     filtered_markets = []
     for m in markets:
@@ -116,8 +118,8 @@ def fetch_kalshi_consensus(sport_key: str, target_date: str):
         try:
             close_time = datetime.fromisoformat(
                 close_time_str.replace("Z", "+00:00"))
-            # Only include markets closing between now and 3 days from now
-            if now_utc < close_time <= max_future_date:
+            # Only include markets closing between now and end of today
+            if now_utc < close_time <= end_of_today:
                 filtered_markets.append(m)
         except (ValueError, AttributeError):
             continue
@@ -128,7 +130,7 @@ def fetch_kalshi_consensus(sport_key: str, target_date: str):
 
     print(
         f"📡 Kalshi API: Found {market_count_raw} raw markets, "
-        f"{len(filtered_markets)} upcoming (next 3 days), "
+        f"{len(filtered_markets)} closing today, "
         f"using top {len(markets)} for {sport_key.upper()}"
     )
 
