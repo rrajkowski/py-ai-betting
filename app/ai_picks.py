@@ -321,9 +321,13 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
        - 3 stars: 1 high-confidence source OR multiple medium sources
        - Only include picks with **3, 4, or 5 stars**
 
-    4. **VALIDATION RULES**:
+    4. **VALIDATION RULES** (CRITICAL - NO EXCEPTIONS):
        - Only select games where `commence_time` is in the future (not started)
-       - All picks must be for DIFFERENT GAMES
+       - **NO CONFLICTING PICKS**: Do NOT pick both sides of the same market for the same game
+         * Example: Do NOT pick both "Over 43.5" AND "Under 43.5" for the same game
+         * Example: Do NOT pick both "Team A -3.5" AND "Team B +3.5" for the same game
+         * Example: Do NOT pick both "Team A ML" AND "Team B ML" for the same game
+       - **ONE PICK PER GAME MAXIMUM**: Each game should have at most ONE pick
        - Exclude odds outside the range (+150 to -150)
        - Each pick MUST contain: "game", "sport", "pick", "market", "line", "odds_american", "confidence", "reasoning", "commence_time", "sources_agreeing"
 
@@ -370,7 +374,32 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
         st.error("All models failed to generate picks.")
         return []
 
-    unique_picks, seen = [], set()
+    # Get existing picks from database to avoid duplicates
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT game, market, pick, line FROM ai_picks
+        WHERE result = 'Pending'
+        AND datetime(commence_time) > datetime('now')
+    """)
+    existing_picks = set()
+    existing_games = set()
+    for row in cur.fetchall():
+        game = row[0].strip() if row[0] else ""
+        market = row[1].strip() if row[1] else ""
+        pick = row[2].strip() if row[2] else ""
+        line = row[3]
+
+        # Track full pick signature
+        existing_picks.add((game, market, pick, line))
+        # Track games that already have picks
+        existing_games.add(game)
+    conn.close()
+
+    unique_picks, seen_games = [], set()
+    skipped_duplicates = 0
+    skipped_conflicts = 0
+
     for pick in parsed:
         pick.setdefault("sport", sport)
         dt = _safe_parse_datetime(
@@ -387,11 +416,36 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
         except (ValueError, TypeError):
             continue
 
-        gm_key = (pick.get('game', '').strip(), pick.get('market', '').strip())
-        if gm_key in seen:
+        game = pick.get('game', '').strip()
+        market = pick.get('market', '').strip()
+        pick_value = pick.get('pick', '').strip()
+        line = pick.get('line')
+
+        # Check if this exact pick already exists in database
+        pick_signature = (game, market, pick_value, line)
+        if pick_signature in existing_picks:
+            skipped_duplicates += 1
             continue
-        seen.add(gm_key)
+
+        # Check if this game already has a pick in database
+        if game in existing_games:
+            skipped_conflicts += 1
+            continue
+
+        # Check if we've already added a pick for this game in current batch
+        if game in seen_games:
+            skipped_conflicts += 1
+            continue
+
+        seen_games.add(game)
         unique_picks.append(pick)
+
+    if skipped_duplicates > 0:
+        st.info(
+            f"⏭️ Skipped {skipped_duplicates} duplicate pick(s) already in database")
+    if skipped_conflicts > 0:
+        st.info(
+            f"⏭️ Skipped {skipped_conflicts} conflicting pick(s) for games with existing picks")
 
     if unique_picks:
         insert_ai_picks(unique_picks)
