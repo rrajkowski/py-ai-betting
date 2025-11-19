@@ -6,7 +6,7 @@ Also provides team ranking data from CSV files.
 
 import csv
 import os
-from typing import Optional, Dict, Tuple
+from typing import Optional, Dict
 
 # NFL Team Mappings
 NFL_TEAMS = {

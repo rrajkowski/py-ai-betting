@@ -61,7 +61,7 @@ def build_merged_context(target_date: str, sport: str):
                 if match_dt < now_utc or match_dt > max_future_date:
                     skipped_count += 1
                     continue
-            except Exception as e:
+            except Exception:
                 print(
                     f"⚠️ Context Builder: Invalid date format for {game_id}: {match_date_str}")
                 continue

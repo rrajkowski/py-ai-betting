@@ -87,7 +87,7 @@ for i, m in enumerate(markets[:10], 1):
 
             if not passes_filter:
                 if close_time <= now_utc:
-                    print(f"   Reason: Already closed")
+                    print("   Reason: Already closed")
                 elif close_time > max_future_date:
                     print(
                         f"   Reason: Closes too far in future (>{hours_until:.1f} hours)")
@@ -96,6 +96,6 @@ for i, m in enumerate(markets[:10], 1):
             print(f"   Error parsing close_time: {e}")
     else:
         print(f"\n{i}. {ticker}")
-        print(f"   No close_time available")
+        print("   No close_time available")
 
 print("\n" + "=" * 80)

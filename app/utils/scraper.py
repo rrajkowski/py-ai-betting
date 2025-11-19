@@ -322,7 +322,7 @@ def scrape_oddstrader_picks(target_date: str, sport: str):
         session = HTMLSession()
         resp = session.get(url, timeout=30)
 
-        print(f"🔄 OddsTrader: Rendering JavaScript (this may take 10-20 seconds)...")
+        print("🔄 OddsTrader: Rendering JavaScript (this may take 10-20 seconds)...")
         resp.html.render(timeout=20, sleep=2)  # Wait for JavaScript to load
 
         soup = BeautifulSoup(resp.html.html, "html.parser")

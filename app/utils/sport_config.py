@@ -4,7 +4,7 @@ Centralized configuration for sport seasons, schedules, and API limits.
 Optimizes API calls based on actual game schedules and seasonal availability.
 """
 from datetime import datetime, timezone
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional
 
 
 class SportConfig:
@@ -83,7 +83,7 @@ class SportConfig:
             }
         },
         "basketball_nba": {
-            "ticker": "KXNBAGAME",
+            "ticker": "KXMVENBASINGLEGAME",  # Kalshi's NBA single game markets
             "base_limit": 12,
             "schedule": {
                 "tuesday": 10,
