@@ -99,15 +99,16 @@ def delete_conflicting_picks(conn):
 
 def delete_stuck_pending_picks(conn):
     """
-    Deletes pending picks with a 'commence_time' more than 7 days in the past.
-    This targets truly stuck picks while allowing time for scores to be updated.
+    Deletes pending picks with a 'commence_time' more than 1 day in the past.
+    This removes expired games that are still marked as pending.
+    Completed games (Win/Loss/Push) are preserved for historical performance.
     """
-    print("\n🔍 Scanning for stuck pending picks (>7 days old)...")
+    print("\n🔍 Scanning for expired pending picks (>1 day old)...")
     cur = conn.cursor()
 
-    # Calculate cutoff time (7 days ago)
+    # Calculate cutoff time (1 day ago)
     from datetime import timedelta
-    cutoff_time = datetime.now(timezone.utc) - timedelta(days=7)
+    cutoff_time = datetime.now(timezone.utc) - timedelta(days=1)
     cutoff_str = cutoff_time.strftime('%Y-%m-%dT%H:%M:%SZ')
 
     query = f"""
@@ -121,9 +122,9 @@ def delete_stuck_pending_picks(conn):
     conn.commit()
 
     if deleted_count > 0:
-        print(f"✅ Deleted {deleted_count} stuck pending picks (>7 days old).")
+        print(f"✅ Deleted {deleted_count} expired pending picks (>1 day old).")
     else:
-        print("No stuck pending picks found.")
+        print("No expired pending picks found.")
 
 
 def delete_rows_without_date(conn):
@@ -165,7 +166,7 @@ def main():
     - Low confidence pending picks (< 2 stars)
     - Duplicate pending picks (same market/pick)
     - Conflicting pending picks (same game/market, opposite sides)
-    - Stuck pending picks (>7 days old with no result)
+    - Expired pending picks (>1 day old with no result)
     - Picks with missing dates
     """
     if not os.path.exists(DB_PATH):
