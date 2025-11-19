@@ -523,6 +523,25 @@ def check_authentication():
             if tier_cost:
                 st.sidebar.markdown(f"**Price:** {tier_cost}")
 
+            # Create Stripe Customer Portal session for managing subscription
+            try:
+                # Get the return URL (current page)
+                return_url = "https://rage-sports-picks.streamlit.app/"
+
+                # Create a customer portal session
+                portal_session = stripe.billing_portal.Session.create(
+                    customer=customer["id"],
+                    return_url=return_url,
+                )
+
+                # Add manage subscription link (aligned with other text)
+                st.sidebar.markdown(
+                    f"[⚙️ Manage Subscription]({portal_session.url})")
+            except Exception:
+                # Fallback if portal session creation fails
+                pass
+
+            # Show renewal/cancellation info if available
             if current_period_end:
                 if cancel_at_period_end:
                     st.sidebar.warning(f"⚠️ **Cancels:** {expiration_date}")
@@ -530,8 +549,6 @@ def check_authentication():
                 else:
                     st.sidebar.info(f"🔄 **Renews:** {expiration_date}")
                     st.sidebar.caption(f"({duration_text} remaining)")
-            else:
-                st.sidebar.info("🔄 **Status:** Active")
 
         except Exception as e:
             # If we can't parse subscription details, just show basic info
@@ -540,40 +557,6 @@ def check_authentication():
             # Log the subscription object for debugging
             st.sidebar.caption(
                 f"Subscription keys: {list(subscription.keys())}")
-
-        # Create Stripe Customer Portal session for managing subscription
-        try:
-            # Get the return URL (current page)
-            return_url = "https://rage-sports-picks.streamlit.app/"
-
-            # Create a customer portal session
-            portal_session = stripe.billing_portal.Session.create(
-                customer=customer["id"],
-                return_url=return_url,
-            )
-
-            # Add manage subscription button with dynamic portal link
-            st.sidebar.markdown("---")
-            st.sidebar.markdown(f"""
-            <a href="{portal_session.url}" target="_blank" style="
-                display: block;
-                text-align: center;
-                padding: 10px;
-                background-color: #f0f2f6;
-                border-radius: 4px;
-                text-decoration: none;
-                color: #262730;
-                font-size: 14px;
-                font-weight: 500;
-            ">
-                ⚙️ Manage Subscription
-            </a>
-            """, unsafe_allow_html=True)
-            st.sidebar.caption("Cancel or update your plan")
-        except Exception as e:
-            # Fallback if portal session creation fails
-            st.sidebar.markdown("---")
-            st.sidebar.caption("⚙️ Contact support to manage subscription")
 
         return True
 
