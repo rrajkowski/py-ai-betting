@@ -333,7 +333,14 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
        - "confidence" must be 3, 4, or 5 (integer)
        - "sources_agreeing" must list ONLY sources that ACTUALLY appear in the context data for this specific game and pick
        - **DO NOT invent or hallucinate sources** - only list sources if they explicitly recommend this exact pick in the context
-       - "reasoning" must explain: (a) which sources agree (with proof from context), (b) why consensus is strong, (c) how Kalshi sentiment supports it, (d) for NCAAB/NCAAF: mention team rankings and matchup quality
+       - "reasoning" must be CONCISE (2-3 sentences max) and explain: (a) which sources agree, (b) why consensus is strong, (c) Kalshi sentiment if available, (d) for NCAAB/NCAAF: team rankings
+       - **MASK SOURCE NAMES**: Use generic labels instead of specific names:
+         * Replace "OddsShark" or "oddsshark" with "Consensus Source 1"
+         * Replace "OddsTrader" or "oddstrader" with "Consensus Source 2"
+         * Replace "CBS Sports" or "cbs_sports" with "Consensus Source 3"
+         * Replace "DraftKings" with "Sportsbook"
+         * Keep "Kalshi" as is (public prediction market)
+       - **DO NOT include** extraction dates, timestamps, or technical details in reasoning
 
     6. Return a maximum of 3 picks, prioritizing highest consensus first.
 
