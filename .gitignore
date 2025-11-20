@@ -64,6 +64,16 @@ local_settings.py
 db.sqlite3
 db.sqlite3-journal
 
+# Application databases (production data should not be in git)
+bets.db
+bets.db-journal
+bets.db-wal
+bets.db-shm
+*.db-backup
+
+# Database backups directory
+backups/
+
 # Flask stuff:
 instance/
 .webassets-cache
