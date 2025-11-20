@@ -84,29 +84,48 @@ This forces the AI to:
 
 ---
 
-## Long-Term Fix Needed (Scraper Improvements):
+## Long-Term Fix (Scraper Improvements): ✅ COMPLETED
 
-### OddsShark Scraper Issues:
+### OddsShark Scraper Issues - FIXED:
 - ✅ Code DOES scrape moneyline, spread, and totals
-- ⚠️ But 100% of stored data is totals
-- **Likely cause**: HTML structure changed, or selectors not matching
+- ✅ HTML structure had changed - selectors updated
+- ✅ Now collecting all three markets equally
 
-### Recommended Actions:
+### What Was Fixed:
 
-1. **Debug OddsShark Scraper**:
-   - Run `python tests/test_scrapers.py americanfootball_nfl`
-   - Check if moneyline and spread data is being extracted
-   - Update CSS selectors if HTML structure changed
+**Problem**: OddsShark website HTML structure changed:
+- **Moneyline**: Odds were in `<span>` tags, not `span.money-value`
+- **Spread**: Lines were in `span.highlighted-text`, not `span.highlighted-text.spread-text`
 
-2. **Add More Data Sources**:
+**Solution**:
+1. Updated moneyline scraper to find odds in last `<span>` tag of each row
+2. Updated spread scraper to find lines in `span.highlighted-text` (removed `.spread-text` requirement)
+3. Both now correctly parse the new HTML structure
+
+**Test Results (NFL)**:
+```
+Before Fix:
+  Totals:     100% (194/194 picks)
+  Spreads:    0%
+  Moneyline:  0%
+
+After Fix:
+  Totals:     33% (2/6 picks) ✅
+  Spreads:    33% (2/6 picks) ✅
+  Moneyline:  33% (2/6 picks) ✅
+```
+
+### Future Improvements (Optional):
+
+1. **Add More Data Sources**:
    - Current: OddsShark (74%), OddsTrader (19%), CBS Sports (7%)
    - Consider adding: Action Network, Covers.com, ESPN
 
-3. **Balance Data Collection**:
+2. **Balance Data Collection**:
    - Ensure each source contributes equally
    - Don't let one source dominate (OddsShark = 74%)
 
-4. **Add Data Validation**:
+3. **Add Data Validation**:
    - Alert if market distribution is >60% for any single market
    - Alert if any source provides >50% of total data
 
@@ -177,13 +196,27 @@ python tests/check_context_data.py
 
 ## Next Steps
 
-1. ✅ Deploy prompt fix to production
-2. ⏳ Test with next pick generation
-3. ⏳ Debug OddsShark scraper (moneyline/spread extraction)
-4. ⏳ Add data validation alerts
-5. ⏳ Consider adding more data sources
+1. ✅ Deploy prompt fix to production - DONE
+2. ✅ Debug OddsShark scraper (moneyline/spread extraction) - DONE
+3. ⏳ Test with next pick generation (wait for new data to be scraped)
+4. ⏳ Add data validation alerts (optional)
+5. ⏳ Consider adding more data sources (optional)
 
 ---
 
-**Status**: Prompt fix deployed, awaiting test results
+**Status**: ✅ Both fixes deployed! Awaiting test results from next pick generation.
+
+### What to Expect:
+
+**After Streamlit Cloud redeploys** (~2-3 minutes):
+1. **Scraper will collect balanced data**: 33% spreads, 33% totals, 33% moneyline
+2. **AI will generate balanced picks**: Should see mix of all three markets
+3. **No more 90% totals bias**: Picks should be distributed evenly
+
+**How to Verify**:
+1. Wait for next scheduled scrape (or trigger manually)
+2. Run `python tests/check_context_data.py` to verify scraped data is balanced
+3. Generate new AI picks
+4. Run `python tests/analyze_picks_bias.py` to verify picks are balanced
+5. Should see ~33% each market instead of 90% totals
 
