@@ -114,7 +114,7 @@ else:
 
         pick_label = st.selectbox("Select Outcome", list(outcomes.keys()))
 
-        if st.button("💰 Place Bet"):
+        if st.button("💰 Place Mock Bet"):
             picked_outcome = outcomes[pick_label]
 
             # Determine team and opponent based on market type
