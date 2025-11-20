@@ -298,6 +298,17 @@ def _call_claude_model(model_name, prompt):
     )
 
     raw = response.content[0].text
+
+    # Claude sometimes wraps JSON in markdown code blocks - strip them
+    if raw.strip().startswith("```"):
+        # Remove ```json or ``` from start and ``` from end
+        lines = raw.strip().split('\n')
+        if lines[0].startswith("```"):
+            lines = lines[1:]  # Remove first line (```json or ```)
+        if lines and lines[-1].strip() == "```":
+            lines = lines[:-1]  # Remove last line (```)
+        raw = '\n'.join(lines)
+
     try:
         return json.loads(raw).get("picks", [])
     except Exception:
