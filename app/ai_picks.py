@@ -342,12 +342,12 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
        - Expert consensus from multiple sources (OddsShark, OddsTrader, CBS Sports)
        - Team rankings (NCAAB/NCAAF): AP Poll, Coaches Poll, CBS Rankings
 
-    2. **MARKET DIVERSITY REQUIREMENT** (CRITICAL):
-       - **MUST include picks from ALL THREE markets**: spreads, totals, h2h/moneyline
-       - Target distribution: ~33% spreads, ~33% totals, ~33% h2h
-       - If context data is heavily weighted toward one market, actively seek picks from underrepresented markets
-       - **DO NOT generate only totals picks** - this is a common bias to avoid
-       - Prioritize spread and h2h picks if totals are overrepresented in context
+    2. **MARKET DIVERSITY GUIDELINE** (IMPORTANT):
+       - **Prioritize consensus and confidence first** - don't sacrifice quality for diversity
+       - However, avoid extreme concentration in one market (e.g., all 3 picks being totals)
+       - If you have multiple high-confidence picks in the same market, consider including at least one pick from a different market
+       - Ideal range: No single market should be >70% of picks (e.g., avoid 3/3 totals, but 2/3 totals is acceptable if consensus is strong)
+       - **DO NOT force a 33/33/33 split** - let consensus drive the selection
 
     3. **CONSENSUS WEIGHTING** (CRITICAL):
        - **ONLY use sources that are EXPLICITLY present in the context data**
@@ -396,10 +396,13 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
 
     7. **PICK SELECTION STRATEGY**:
        - Return a maximum of 3 picks
-       - Prioritize highest consensus first
-       - **ENSURE MARKET DIVERSITY**: If all 3 picks are from the same market, replace the lowest confidence pick with a pick from a different market
-       - Example good output: 1 spread, 1 total, 1 h2h
-       - Example bad output: 3 totals (too concentrated)
+       - **Prioritize highest consensus and confidence first**
+       - If all 3 picks are from the same market AND there's a reasonable alternative from a different market (3+ stars), consider replacing the lowest confidence pick
+       - Don't force diversity if consensus is clearly concentrated in one market
+       - Example acceptable outputs:
+         * 2 totals, 1 spread (if totals have stronger consensus)
+         * 1 spread, 1 total, 1 h2h (balanced)
+         * 3 totals (only if all are 5-star and no other markets have 4+ star picks)
 
     Context: {json.dumps(context, indent=2)}
     """
