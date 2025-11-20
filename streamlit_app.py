@@ -61,7 +61,7 @@ st.page_link("pages/ai_picks_page.py", label="🤖 Go to AI Daily Picks")
 # -----------------------------
 # Make a Bet Section
 # -----------------------------
-st.header("🏈 Make a Bet")
+st.header("Bet Simulator")
 
 # --- Sport and Game Selection ---
 sports_map = {
