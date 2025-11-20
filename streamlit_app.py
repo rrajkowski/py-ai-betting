@@ -20,7 +20,7 @@ init_db()
 init_ai_picks()
 init_prompt_context_db()  # NEW: Initialize the prompt_context table
 
-st.title("⚡ AI Sports Betting Dashboard")
+st.title("RAGE Sports Picks Dashboard")
 
 # -----------------------------
 # Public Home Page - No Auth Required
