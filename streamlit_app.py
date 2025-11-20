@@ -5,7 +5,6 @@ import streamlit as st
 from app.db import init_db, insert_bet, list_bets, init_ai_picks
 from app.utils.db import init_prompt_context_db  # NEW: Import for new table setup
 from app.ai_picks import fetch_odds
-from app.auth import add_auth_to_page
 
 # -----------------------------
 # Page Configuration (MUST be first Streamlit command)
@@ -16,19 +15,41 @@ st.set_page_config(
     layout="wide"
 )
 
-# -----------------------------
-# Authentication & Paywall
-# -----------------------------
-# This checks authentication and subscription status
-# Works in both local (dev mode) and cloud (with st-paywall) environments
-add_auth_to_page()
-
 # --- DBs init ---
 init_db()
 init_ai_picks()
 init_prompt_context_db()  # NEW: Initialize the prompt_context table
 
 st.title("⚡ AI Sports Betting Dashboard")
+
+# -----------------------------
+# Public Home Page - No Auth Required
+# -----------------------------
+# Check if user is logged in (but don't require it for home page)
+try:
+    is_logged_in = st.user.is_logged_in
+except AttributeError:
+    is_logged_in = False
+
+# Show login/subscribe button in sidebar if not logged in
+if not is_logged_in:
+    st.sidebar.info("🔐 **Not logged in**")
+    st.sidebar.markdown("Subscribe to access AI picks and premium features!")
+
+    # Add subscribe button that triggers login
+    if st.sidebar.button("🚀 Subscribe Now", type="primary", use_container_width=True):
+        st.login()
+
+    st.sidebar.markdown("---")
+else:
+    # User is logged in - show user info and logout button
+    st.sidebar.markdown("---")
+    st.sidebar.markdown(f"👤 **Logged in as:**  \n{st.user.email}")
+
+    if st.sidebar.button("🚪 Logout", type="secondary", use_container_width=True):
+        st.logout()
+
+    st.sidebar.markdown("---")
 
 # -----------------------------
 # AI Daily Picks Section
