@@ -14,6 +14,7 @@ from dotenv import load_dotenv
 load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 
 # --- Configure Gemini ---
 if GEMINI_API_KEY:
@@ -273,6 +274,35 @@ def _call_gemini_model(model_name, prompt):
         parsed = resp_json.get("picks", [])
     return parsed
 
+
+def _call_claude_model(model_name, prompt):
+    """Call Anthropic Claude model."""
+    if not ANTHROPIC_API_KEY:
+        raise ValueError("ANTHROPIC_API_KEY not set.")
+
+    try:
+        from anthropic import Anthropic
+    except ImportError:
+        raise ValueError(
+            "anthropic package not installed. Run: pip install anthropic")
+
+    client = Anthropic(api_key=ANTHROPIC_API_KEY)
+
+    # Claude requires explicit JSON formatting instruction
+    json_prompt = f"{prompt}\n\nIMPORTANT: Return ONLY valid JSON in this exact format: {{\"picks\": [...]}}"
+
+    response = client.messages.create(
+        model=model_name,
+        max_tokens=4096,
+        messages=[{"role": "user", "content": json_prompt}]
+    )
+
+    raw = response.content[0].text
+    try:
+        return json.loads(raw).get("picks", [])
+    except Exception:
+        return []
+
 # -------------------------
 # Generate AI Picks
 # -------------------------
@@ -351,23 +381,44 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
     Context: {json.dumps(context, indent=2)}
     """
 
+    # Model priority order: Best reasoning → Fast fallback → Emergency fallback
     models = [
+        # Tier 1: Best reasoning and analysis (Primary)
+        {'provider': 'anthropic', 'name': 'claude-sonnet-4-5-20250929'},
         {'provider': 'google', 'name': 'gemini-2.5-pro'},
+        {'provider': 'openai', 'name': 'gpt-5'},
+
+        # Tier 2: Fast and cost-effective (Fallback)
+        {'provider': 'anthropic', 'name': 'claude-haiku-4-5-20251001'},
+        {'provider': 'google', 'name': 'gemini-2.5-flash'},
         {'provider': 'openai', 'name': 'gpt-5-mini'},
+
+        # Tier 3: Ultra-fast emergency fallback
         {'provider': 'openai', 'name': 'gpt-5-nano'},
+        {'provider': 'google', 'name': 'gemini-2.5-flash-lite'},
     ]
 
     parsed = []
     for m in models:
         try:
-            parsed = _call_gemini_model(
-                m['name'], prompt) if m['provider'] == 'google' else _call_openai_model(m['name'], prompt)
+            # Call appropriate model based on provider
+            if m['provider'] == 'google':
+                parsed = _call_gemini_model(m['name'], prompt)
+            elif m['provider'] == 'openai':
+                parsed = _call_openai_model(m['name'], prompt)
+            elif m['provider'] == 'anthropic':
+                parsed = _call_claude_model(m['name'], prompt)
+            else:
+                st.warning(f"Unknown provider: {m['provider']}")
+                continue
+
             if parsed:
                 st.success(
-                    f"Generated {len(parsed)} picks using {m['provider']}:{m['name']}")
+                    f"✅ Generated {len(parsed)} picks using {m['provider']}:{m['name']}")
                 break
         except Exception as e:
-            st.warning(f"{m['name']} failed: {e}")
+            st.warning(
+                f"⚠️ {m['provider']}:{m['name']} failed: {str(e)[:100]}")
             continue
 
     if not parsed:
