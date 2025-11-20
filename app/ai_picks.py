@@ -342,7 +342,14 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
        - Expert consensus from multiple sources (OddsShark, OddsTrader, CBS Sports)
        - Team rankings (NCAAB/NCAAF): AP Poll, Coaches Poll, CBS Rankings
 
-    2. **CONSENSUS WEIGHTING** (CRITICAL):
+    2. **MARKET DIVERSITY REQUIREMENT** (CRITICAL):
+       - **MUST include picks from ALL THREE markets**: spreads, totals, h2h/moneyline
+       - Target distribution: ~33% spreads, ~33% totals, ~33% h2h
+       - If context data is heavily weighted toward one market, actively seek picks from underrepresented markets
+       - **DO NOT generate only totals picks** - this is a common bias to avoid
+       - Prioritize spread and h2h picks if totals are overrepresented in context
+
+    3. **CONSENSUS WEIGHTING** (CRITICAL):
        - **ONLY use sources that are EXPLICITLY present in the context data**
        - Available sources: "oddsshark", "oddstrader", "cbs_sports", "kalshi"
        - If 2+ sources agree on the SAME bet (same team, same market, similar line): **BOOST confidence by +1 star**
@@ -356,13 +363,13 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
          * Ranked team favored by 10+ points over unranked = High confidence in favorite
          * Unranked team getting points vs Top 10 = Potential upset value
 
-    3. **CONFIDENCE RATING SYSTEM**:
+    4. **CONFIDENCE RATING SYSTEM**:
        - 5 stars: 3+ sources agree OR 2 sources + strong Kalshi sentiment
        - 4 stars: 2 sources agree OR 1 high-confidence source + Kalshi boost
        - 3 stars: 1 high-confidence source OR multiple medium sources
        - Only include picks with **3, 4, or 5 stars**
 
-    4. **VALIDATION RULES** (CRITICAL - NO EXCEPTIONS):
+    5. **VALIDATION RULES** (CRITICAL - NO EXCEPTIONS):
        - Only select games where `commence_time` is in the future (not started)
        - **NO CONFLICTING PICKS**: Do NOT pick both sides of the same market for the same game
          * Example: Do NOT pick both "Over 43.5" AND "Under 43.5" for the same game
@@ -372,7 +379,7 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
        - Exclude odds outside the range (+150 to -150)
        - Each pick MUST contain: "game", "sport", "pick", "market", "line", "odds_american", "confidence", "reasoning", "commence_time", "sources_agreeing"
 
-    5. **OUTPUT FORMAT**:
+    6. **OUTPUT FORMAT**:
        - "odds_american" must be numeric (e.g., -110, 150)
        - "commence_time" must be copied exactly from source in ISO format
        - "confidence" must be 3, 4, or 5 (integer)
@@ -380,14 +387,19 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
        - **DO NOT invent or hallucinate sources** - only list sources if they explicitly recommend this exact pick in the context
        - "reasoning" must be CONCISE (2-3 sentences max) and explain: (a) which sources agree, (b) why consensus is strong, (c) Kalshi sentiment if available, (d) for NCAAB/NCAAF: team rankings
        - **MASK SOURCE NAMES**: Use generic labels instead of specific names:
-         * Replace "OddsShark" or "oddsshark" with "Consensus Source 1"
-         * Replace "OddsTrader" or "oddstrader" with "Consensus Source 2"
-         * Replace "CBS Sports" or "cbs_sports" with "Consensus Source 3"
+         * Replace "OddsShark" or "oddsshark" with "Consensus 1"
+         * Replace "OddsTrader" or "oddstrader" with "Consensus 2"
+         * Replace "CBS Sports" or "cbs_sports" with "Consensus 3"
          * Replace "DraftKings" with "Sportsbook"
-         * Keep "Kalshi" as is (public prediction market)
+         * Keep "Kalshi" as is (public prediction)
        - **DO NOT include** extraction dates, timestamps, or technical details in reasoning
 
-    6. Return a maximum of 3 picks, prioritizing highest consensus first.
+    7. **PICK SELECTION STRATEGY**:
+       - Return a maximum of 3 picks
+       - Prioritize highest consensus first
+       - **ENSURE MARKET DIVERSITY**: If all 3 picks are from the same market, replace the lowest confidence pick with a pick from a different market
+       - Example good output: 1 spread, 1 total, 1 h2h
+       - Example bad output: 3 totals (too concentrated)
 
     Context: {json.dumps(context, indent=2)}
     """
