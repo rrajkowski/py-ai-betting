@@ -153,6 +153,7 @@ def scrape_oddsshark_consensus(target_date: str, sport: str):
                     ".predicted-score")
                 if predicted_score_section:
                     # Look for team shortnames and money values
+                    # New structure: <div><span.team-shortname>BUF</span><span>23.9</span><span>-275</span></div>
                     for row in predicted_score_section.select("div"):
                         team_code = None
                         money_value = None
@@ -162,10 +163,10 @@ def scrape_oddsshark_consensus(target_date: str, sport: str):
                         if short_tag:
                             team_code = short_tag.text.strip()
 
-                        # Find money value
-                        money_tag = row.select_one("span.money-value")
-                        if money_tag:
-                            money_value = money_tag.text.strip()
+                            # Money value is in the last <span> tag (not .money-value)
+                            all_spans = row.select("span")
+                            if len(all_spans) >= 3:  # team, score, odds
+                                money_value = all_spans[-1].text.strip()
 
                         if team_code and money_value:
                             val = parse_odds(money_value)
@@ -177,21 +178,19 @@ def scrape_oddsshark_consensus(target_date: str, sport: str):
                 spread_picks = []
                 spread_section = container.select_one(".spread-pick")
                 if spread_section:
+                    # New structure: <div><span.highlighted-text>-5.5</span><span>-110</span></div>
                     for row in spread_section.select("div"):
+                        # Look for highlighted-text (not .spread-text)
                         spread_line_tag = row.select_one(
-                            "span.highlighted-text.spread-text")
+                            "span.highlighted-text")
                         if spread_line_tag:
                             line = spread_line_tag.text.strip()
 
-                            # Look for odds in various possible locations
-                            odds_tag = (
-                                row.select_one("span.spread-cell") or
-                                row.select_one(".best-spread-container span:last-child") or
-                                row.select_one("span:last-child")
-                            )
-
-                            if odds_tag:
-                                val = parse_odds(odds_tag.text)
+                            # Odds are in the next span tag
+                            all_spans = row.select("span")
+                            if len(all_spans) >= 2:  # line, odds
+                                odds_text = all_spans[-1].text.strip()
+                                val = parse_odds(odds_text)
                                 if val is not None:
                                     spread_picks.append(
                                         {"market": "spread", "line": line, "odds_american": val})
