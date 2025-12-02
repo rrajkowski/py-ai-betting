@@ -64,8 +64,10 @@ local_settings.py
 db.sqlite3
 db.sqlite3-journal
 
-# Application databases (production data should not be in git)
-bets.db
+# Application databases
+# NOTE: bets.db is tracked in git for Streamlit Cloud persistence
+# Local changes to bets.db should NOT be committed (use git restore bets.db)
+# bets.db  # Commented out - keeping in git for production persistence
 bets.db-journal
 bets.db-wal
 bets.db-shm
