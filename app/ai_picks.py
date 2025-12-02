@@ -362,20 +362,65 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
        - Available sources: "oddsshark", "oddstrader", "cbs_sports", "kalshi"
        - If 2+ sources agree on the SAME bet (same team, same market, similar line): **BOOST confidence by +1 star**
        - If 3+ sources agree: **BOOST confidence by +2 stars**
-       - OddsTrader 4-star picks = High confidence baseline
+
+       **SOURCE CONFIDENCE BASELINES**:
+       - **OddsTrader** (check `star_rating` field in data):
+         * 4-star picks = High confidence baseline (can be 3 stars alone)
+         * 3-star picks = Medium confidence baseline (needs another source for 3 stars)
+         * Use the `star_rating` field from OddsTrader data to determine baseline
        - CBS Sports 5+ expert consensus = High confidence baseline
-       - Kalshi high volume (>1000) + high open interest (>5000) = Medium confidence boost
-       - **RANKING BOOST (NCAAB/NCAAF only)**:
-         * Top 10 vs Top 10 matchup = +1 confidence boost (high-quality game)
-         * Top 25 vs Top 25 matchup = +0.5 confidence boost
-         * Ranked team favored by 10+ points over unranked = High confidence in favorite
-         * Unranked team getting points vs Top 10 = Potential upset value
+       - OddsShark computer pick = Medium confidence baseline
+
+       **KALSHI AS PRIMARY SIGNAL** (NEW - HIGH PRIORITY):
+       - **Kalshi Strong Signal** = (implied_prob > 0.65 OR implied_prob < 0.35) AND volume_24h > 500 AND open_interest > 2000
+       - When Kalshi Strong Signal is present, **count it as a full source** (not just a boost)
+       - Kalshi Strong Signal alone = 2.5 weighted sources (not enough for 3 stars, but close)
+       - Kalshi Strong Signal + 1 other source = 3.5 weighted sources → **4 stars**
+       - Kalshi Strong Signal + 2 other sources = 4.5 weighted sources → **5 stars**
+       - Kalshi Medium Signal (volume_24h > 200, open_interest > 1000) = 0.5 boost (old behavior)
+
+       **RANKING BOOST (NCAAB/NCAAF only)**:
+       - Top 10 vs Top 10 matchup = +1 confidence boost (high-quality game)
+       - Top 25 vs Top 25 matchup = +0.5 confidence boost
+       - Ranked team favored by 10+ points over unranked = High confidence in favorite
+       - Unranked team getting points vs Top 10 = Potential upset value
+
+       **LINE VALUE ANALYSIS** (NEW - DETECT MARKET MISPRICING):
+       - Compare consensus picks to DraftKings market lines to identify value
+       - **Spread Value**: If consensus line is 2+ points better than DraftKings → +1 star boost
+         * Example: Consensus says "Team A -3.5", DraftKings offers "Team A -1.5" → VALUE (getting extra 2 points)
+         * Example: Consensus says "Team B +7.5", DraftKings offers "Team B +9.5" → VALUE (getting extra 2 points)
+       - **Total Value**: If consensus line is 3+ points different from DraftKings → +1 star boost
+         * Example: Consensus says "Over 220", DraftKings offers "Over 217" → VALUE (easier to hit over)
+         * Example: Consensus says "Under 225", DraftKings offers "Under 228" → VALUE (easier to hit under)
+       - **Moneyline Value**: If consensus pick has odds of +120 or better (underdog value) → +0.5 star boost
+         * Rationale: Underdogs with consensus support offer better risk/reward
+       - **IMPORTANT**: Only apply value boost if there's already at least 1 source supporting the pick
 
     4. **CONFIDENCE RATING SYSTEM** (CRITICAL - STRICT MINIMUM):
-       - 5 stars: 3+ sources agree OR 2 sources + strong Kalshi sentiment
-       - 4 stars: 2 sources agree OR 1 high-confidence source + Kalshi boost
-       - 3 stars: 1 high-confidence source OR multiple medium sources
-       - **ABSOLUTE REQUIREMENT**: Only include picks with **3, 4, or 5 stars**
+
+       **5 STARS** (Highest Confidence):
+       - 3+ sources agree (strong consensus)
+       - 2 sources + Kalshi Strong Signal
+       - 2 sources + line value (2+ points for spreads, 3+ for totals)
+       - OddsTrader 4-star + 2 other sources
+
+       **4 STARS** (High Confidence):
+       - 2 sources agree (any agreement)
+       - 1 source + Kalshi Strong Signal
+       - 1 source + Kalshi Strong Signal + line value
+       - OddsTrader 4-star + 1 other source
+       - OddsTrader 4-star + line value
+       - OddsTrader 3-star + 2 other sources
+
+       **3 STARS** (Medium Confidence - Minimum Threshold):
+       - OddsTrader 4-star pick alone
+       - 1 high-confidence source (CBS 5+ experts, OddsShark computer pick)
+       - 1 high-confidence source + line value
+       - OddsTrader 3-star + 1 other source
+       - 2 medium sources agree
+
+       **ABSOLUTE REQUIREMENT**: Only include picks with **3, 4, or 5 stars**
        - **DO NOT GENERATE 1 or 2 star picks** - they will be rejected
        - If no picks meet the 3+ star threshold, return an empty picks array
 
