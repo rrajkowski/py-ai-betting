@@ -371,11 +371,13 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
          * Ranked team favored by 10+ points over unranked = High confidence in favorite
          * Unranked team getting points vs Top 10 = Potential upset value
 
-    4. **CONFIDENCE RATING SYSTEM**:
+    4. **CONFIDENCE RATING SYSTEM** (CRITICAL - STRICT MINIMUM):
        - 5 stars: 3+ sources agree OR 2 sources + strong Kalshi sentiment
        - 4 stars: 2 sources agree OR 1 high-confidence source + Kalshi boost
        - 3 stars: 1 high-confidence source OR multiple medium sources
-       - Only include picks with **3, 4, or 5 stars**
+       - **ABSOLUTE REQUIREMENT**: Only include picks with **3, 4, or 5 stars**
+       - **DO NOT GENERATE 1 or 2 star picks** - they will be rejected
+       - If no picks meet the 3+ star threshold, return an empty picks array
 
     5. **VALIDATION RULES** (CRITICAL - NO EXCEPTIONS):
        - Only select games where `commence_time` is in the future (not started)
@@ -390,7 +392,7 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
     6. **OUTPUT FORMAT**:
        - "odds_american" must be numeric (e.g., -110, 150)
        - "commence_time" must be copied exactly from source in ISO format
-       - "confidence" must be 3, 4, or 5 (integer)
+       - "confidence" must be 3, 4, or 5 (integer) - **NEVER 1 or 2**
        - "sources_agreeing" must list ONLY sources that ACTUALLY appear in the context data for this specific game and pick
        - **DO NOT invent or hallucinate sources** - only list sources if they explicitly recommend this exact pick in the context
        - "reasoning" must be CONCISE (2-3 sentences max) and explain: (a) which sources agree, (b) why consensus is strong, (c) Kalshi sentiment if available, (d) for NCAAB/NCAAF: team rankings
@@ -411,6 +413,12 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
          * 2 totals, 1 spread (if totals have stronger consensus)
          * 1 spread, 1 total, 1 h2h (balanced)
          * 3 totals (only if all are 5-star and no other markets have 4+ star picks)
+
+    8. **FINAL VALIDATION BEFORE RETURNING**:
+       - Review each pick's confidence rating
+       - **REMOVE any picks with confidence < 3**
+       - If this leaves you with 0 picks, return {{"picks": []}}
+       - Better to return no picks than low-confidence picks
 
     Context: {json.dumps(context, indent=2)}
     """
