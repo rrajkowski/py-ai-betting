@@ -296,6 +296,7 @@ def scrape_oddstrader_picks(target_date: str, sport: str):
         "americanfootball_ncaaf": "ncaa-college-football",
         "basketball_nba": "nba",
         "basketball_ncaab": "ncaa-college-basketball",
+        "icehockey_nhl": "nhl",
     }
 
     sport_path = sport_url_map.get(sport)
@@ -466,6 +467,7 @@ def scrape_cbs_expert_picks(target_date: str, sport: str):
         "americanfootball_nfl": "nfl/picks/experts/",
         "americanfootball_ncaaf": "college-football/picks/experts/",
         "basketball_nba": "nba/expert-picks/",
+        "icehockey_nhl": "nhl/expert-picks/",
         # NCAAB doesn't have expert picks page yet on CBS
     }
 

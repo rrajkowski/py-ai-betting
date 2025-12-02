@@ -41,6 +41,12 @@ class SportConfig:
             "end": (11, 5),       # November 5 (includes World Series)
             "name": "MLB",
             "emoji": "⚾"
+        },
+        "icehockey_nhl": {
+            "start": (10, 1),     # October 1
+            "end": (6, 15),       # June 15 (includes Stanley Cup Finals)
+            "name": "NHL",
+            "emoji": "🏒"
         }
     }
 
@@ -105,6 +111,20 @@ class SportConfig:
             "schedule": {
                 "default": 15     # Games almost every day
             }
+        },
+        "icehockey_nhl": {
+            "ticker": "KXNHLGAME",
+            "base_limit": 12,
+            "schedule": {
+                "tuesday": 10,    # Big game day
+                "wednesday": 10,  # Big game day
+                "thursday": 10,   # Big game day
+                "friday": 8,      # Moderate games
+                "saturday": 12,   # Peak game day
+                "sunday": 8,      # Moderate games
+                "monday": 6,      # Fewer games
+                "default": 8
+            }
         }
     }
 
@@ -116,7 +136,8 @@ class SportConfig:
         # Last ~2 weeks of games (increased from 8)
         "basketball_ncaab": 10,
         "basketball_nba": 12,            # Last ~2 weeks of games
-        "baseball_mlb": 10               # Last ~2 weeks of games
+        "baseball_mlb": 10,              # Last ~2 weeks of games
+        "icehockey_nhl": 12              # Last ~2 weeks of games
     }
 
     # Days to look back for historical scores
@@ -125,7 +146,8 @@ class SportConfig:
         "americanfootball_ncaaf": 100,   # ~14 weeks
         "basketball_ncaab": 30,          # ~1 month
         "basketball_nba": 30,            # ~1 month
-        "baseball_mlb": 30               # ~1 month
+        "baseball_mlb": 30,              # ~1 month
+        "icehockey_nhl": 30              # ~1 month
     }
 
     @classmethod

@@ -200,6 +200,102 @@ NBA_TEAMS = {
     "washington": "Washington Wizards", "wizards": "Washington Wizards", "was": "Washington Wizards", "wsh": "Washington Wizards",
 }
 
+# NHL Team Mappings
+NHL_TEAMS = {
+    # Anaheim Ducks
+    "anaheim": "Anaheim Ducks", "ducks": "Anaheim Ducks", "ana": "Anaheim Ducks",
+
+    # Boston Bruins
+    "boston": "Boston Bruins", "bruins": "Boston Bruins", "bos": "Boston Bruins",
+
+    # Buffalo Sabres
+    "buffalo": "Buffalo Sabres", "sabres": "Buffalo Sabres", "buf": "Buffalo Sabres",
+
+    # Calgary Flames
+    "calgary": "Calgary Flames", "flames": "Calgary Flames", "cgy": "Calgary Flames", "cal": "Calgary Flames",
+
+    # Carolina Hurricanes
+    "carolina": "Carolina Hurricanes", "hurricanes": "Carolina Hurricanes", "car": "Carolina Hurricanes", "canes": "Carolina Hurricanes",
+
+    # Chicago Blackhawks
+    "chicago": "Chicago Blackhawks", "blackhawks": "Chicago Blackhawks", "chi": "Chicago Blackhawks",
+
+    # Colorado Avalanche
+    "colorado": "Colorado Avalanche", "avalanche": "Colorado Avalanche", "col": "Colorado Avalanche", "avs": "Colorado Avalanche",
+
+    # Columbus Blue Jackets
+    "columbus": "Columbus Blue Jackets", "blue jackets": "Columbus Blue Jackets", "cbj": "Columbus Blue Jackets",
+
+    # Dallas Stars
+    "dallas": "Dallas Stars", "stars": "Dallas Stars", "dal": "Dallas Stars",
+
+    # Detroit Red Wings
+    "detroit": "Detroit Red Wings", "red wings": "Detroit Red Wings", "det": "Detroit Red Wings",
+
+    # Edmonton Oilers
+    "edmonton": "Edmonton Oilers", "oilers": "Edmonton Oilers", "edm": "Edmonton Oilers",
+
+    # Florida Panthers
+    "florida": "Florida Panthers", "panthers": "Florida Panthers", "fla": "Florida Panthers",
+
+    # Los Angeles Kings
+    "los angeles": "Los Angeles Kings", "la kings": "Los Angeles Kings", "kings": "Los Angeles Kings", "lak": "Los Angeles Kings",
+
+    # Minnesota Wild
+    "minnesota": "Minnesota Wild", "wild": "Minnesota Wild", "min": "Minnesota Wild",
+
+    # Montreal Canadiens
+    "montreal": "Montreal Canadiens", "canadiens": "Montreal Canadiens", "mtl": "Montreal Canadiens", "habs": "Montreal Canadiens",
+
+    # Nashville Predators
+    "nashville": "Nashville Predators", "predators": "Nashville Predators", "nsh": "Nashville Predators", "preds": "Nashville Predators",
+
+    # New Jersey Devils
+    "new jersey": "New Jersey Devils", "devils": "New Jersey Devils", "njd": "New Jersey Devils", "nj": "New Jersey Devils",
+
+    # New York Islanders
+    "new york islanders": "New York Islanders", "islanders": "New York Islanders", "nyi": "New York Islanders", "isles": "New York Islanders",
+
+    # New York Rangers
+    "new york rangers": "New York Rangers", "rangers": "New York Rangers", "nyr": "New York Rangers",
+
+    # Ottawa Senators
+    "ottawa": "Ottawa Senators", "senators": "Ottawa Senators", "ott": "Ottawa Senators", "sens": "Ottawa Senators",
+
+    # Philadelphia Flyers
+    "philadelphia": "Philadelphia Flyers", "flyers": "Philadelphia Flyers", "phi": "Philadelphia Flyers",
+
+    # Pittsburgh Penguins
+    "pittsburgh": "Pittsburgh Penguins", "penguins": "Pittsburgh Penguins", "pit": "Pittsburgh Penguins", "pens": "Pittsburgh Penguins",
+
+    # San Jose Sharks
+    "san jose": "San Jose Sharks", "sharks": "San Jose Sharks", "sjs": "San Jose Sharks", "sj": "San Jose Sharks",
+
+    # Seattle Kraken
+    "seattle": "Seattle Kraken", "kraken": "Seattle Kraken", "sea": "Seattle Kraken",
+
+    # St. Louis Blues
+    "st louis": "St. Louis Blues", "st. louis": "St. Louis Blues", "blues": "St. Louis Blues", "stl": "St. Louis Blues",
+
+    # Tampa Bay Lightning
+    "tampa bay": "Tampa Bay Lightning", "tampa": "Tampa Bay Lightning", "lightning": "Tampa Bay Lightning", "tbl": "Tampa Bay Lightning", "tb": "Tampa Bay Lightning",
+
+    # Toronto Maple Leafs
+    "toronto": "Toronto Maple Leafs", "maple leafs": "Toronto Maple Leafs", "tor": "Toronto Maple Leafs", "leafs": "Toronto Maple Leafs",
+
+    # Vancouver Canucks
+    "vancouver": "Vancouver Canucks", "canucks": "Vancouver Canucks", "van": "Vancouver Canucks",
+
+    # Vegas Golden Knights
+    "vegas": "Vegas Golden Knights", "golden knights": "Vegas Golden Knights", "vgk": "Vegas Golden Knights", "vegas golden knights": "Vegas Golden Knights",
+
+    # Washington Capitals
+    "washington": "Washington Capitals", "capitals": "Washington Capitals", "wsh": "Washington Capitals", "caps": "Washington Capitals",
+
+    # Winnipeg Jets
+    "winnipeg": "Winnipeg Jets", "jets": "Winnipeg Jets", "wpg": "Winnipeg Jets",
+}
+
 
 def normalize_team_name(team_input: str, sport: str = None) -> str:
     """
@@ -236,11 +332,21 @@ def normalize_team_name(team_input: str, sport: str = None) -> str:
             if value.lower() == clean_input:
                 return value
 
-    # If no sport specified, try both
+    elif sport in ["NHL", "icehockey_nhl"]:
+        if clean_input in NHL_TEAMS:
+            return NHL_TEAMS[clean_input]
+        # Try full name match
+        for key, value in NHL_TEAMS.items():
+            if value.lower() == clean_input:
+                return value
+
+    # If no sport specified, try all
     if clean_input in NFL_TEAMS:
         return NFL_TEAMS[clean_input]
     if clean_input in NBA_TEAMS:
         return NBA_TEAMS[clean_input]
+    if clean_input in NHL_TEAMS:
+        return NHL_TEAMS[clean_input]
 
     # Return original if no match
     return team_input

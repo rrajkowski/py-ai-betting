@@ -70,6 +70,7 @@ sports_map = {
     # "Major League Baseball (MLB)": "baseball_mlb",  # Season over
     "College Basketball (NCAAB)": "basketball_ncaab",
     "National Basketball Association (NBA)": "basketball_nba",
+    "NHL (Ice Hockey)": "icehockey_nhl",
 }
 sport_label = st.selectbox("Select Sport", list(sports_map.keys()))
 sport_key = sports_map[sport_label]

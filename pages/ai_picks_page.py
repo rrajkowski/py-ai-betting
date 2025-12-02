@@ -27,7 +27,8 @@ from app.ai_picks import (
     fetch_historical_ncaaf,
     # fetch_historical_mlb,  # Season over
     fetch_historical_ncaab,
-    fetch_historical_nba
+    fetch_historical_nba,
+    fetch_historical_nhl
 )
 
 # -----------------------------
@@ -380,11 +381,12 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-metric_cols = st.columns(4)
+metric_cols = st.columns(5)
 display_performance_metrics("NFL", metric_cols[0])
 display_performance_metrics("NCAAF", metric_cols[1])
 display_performance_metrics("NCAAB", metric_cols[2])
 display_performance_metrics("NBA", metric_cols[3])
+display_performance_metrics("NHL", metric_cols[4])
 
 # -----------------------------
 # Main AI Pick Generation Logic
@@ -477,7 +479,8 @@ def run_ai_picks(sport_key, sport_name):
         history_team = raw_odds[0]['home_team']
         history_map = {"americanfootball_ncaaf": fetch_historical_ncaaf, "americanfootball_nfl": fetch_historical_nfl,
                        # "baseball_mlb": fetch_historical_mlb,  # Season over
-                       "basketball_ncaab": fetch_historical_ncaab, "basketball_nba": fetch_historical_nba}
+                       "basketball_ncaab": fetch_historical_ncaab, "basketball_nba": fetch_historical_nba,
+                       "icehockey_nhl": fetch_historical_nhl}
         history = history_map.get(sport_key, lambda x: [])(history_team)
 
         odds_df = pd.DataFrame(normalized_odds)
@@ -491,7 +494,7 @@ def run_ai_picks(sport_key, sport_name):
 
 # --- UI Controls (Buttons) ---
 st.header("Generate New Picks")
-col1, col2, col3, col4 = st.columns(4)
+col1, col2, col3, col4, col5 = st.columns(5)
 with col1:
     if st.button("🏈 Generate NFL Picks", width='stretch'):
         st.session_state.generated_picks = None
@@ -508,6 +511,10 @@ with col4:
     if st.button("🏀 Generate NBA Picks", width='stretch'):
         st.session_state.generated_picks = None
         run_ai_picks("basketball_nba", "NBA")
+with col5:
+    if st.button("🏒 Generate NHL Picks", width='stretch'):
+        st.session_state.generated_picks = None
+        run_ai_picks("icehockey_nhl", "NHL")
 
 
 # --- Display Newly Generated Picks (with Error Handling) ---

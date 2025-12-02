@@ -229,6 +229,14 @@ def fetch_historical_nba(team_name, limit=None):
     return _fetch_and_cache_historical_scores("basketball_nba", "NBA", team_name, limit, days)
 
 
+def fetch_historical_nhl(team_name, limit=None):
+    """Fetch NHL historical games with optimized limit."""
+    if limit is None:
+        limit = SportConfig.get_historical_limit("icehockey_nhl")
+    days = SportConfig.get_historical_days("icehockey_nhl")
+    return _fetch_and_cache_historical_scores("icehockey_nhl", "NHL", team_name, limit, days)
+
+
 def fetch_historical_other(team_name, limit=10):
     return []
 
@@ -410,7 +418,7 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
     # Model priority order: Best reasoning → Fast fallback → Emergency fallback
     models = [
         # Tier 1: Best reasoning and analysis (Primary)
-        {'provider': 'anthropic', 'name': 'claude-sonnet-4-5-20250929'},
+        {'provider': 'anthropic', 'name': 'claude-sonnet-4-5'},
         {'provider': 'google', 'name': 'gemini-2.5-pro'},
         {'provider': 'openai', 'name': 'gpt-5'},
 
