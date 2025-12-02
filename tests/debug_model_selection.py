@@ -37,15 +37,15 @@ if not ANTHROPIC_API_KEY:
 try:
     from anthropic import Anthropic
     print("✅ anthropic package imported successfully")
-    
+
     client = Anthropic(api_key=ANTHROPIC_API_KEY)
     print("✅ Anthropic client created successfully")
-    
+
     # Test with a simple prompt
     print("\n🧪 Testing Claude Sonnet 4.5 with simple prompt...")
-    
+
     response = client.messages.create(
-        model="claude-sonnet-4-5-20250929",
+        model="claude-sonnet-4-5",
         max_tokens=100,
         messages=[
             {
@@ -54,19 +54,19 @@ try:
             }
         ],
     )
-    
+
     response_text = response.content[0].text
     print(f"✅ Claude Response: {response_text}")
-    
+
     # Test with JSON prompt (like in ai_picks.py)
     print("\n🧪 Testing Claude with JSON prompt...")
-    
+
     json_prompt = """Return a JSON object with this format: {"picks": [{"game": "Test Game", "confidence": 5}]}
 
 IMPORTANT: Return ONLY valid JSON in this exact format: {"picks": [...]}"""
-    
+
     response2 = client.messages.create(
-        model="claude-sonnet-4-5-20250929",
+        model="claude-sonnet-4-5",
         max_tokens=200,
         messages=[
             {
@@ -75,10 +75,10 @@ IMPORTANT: Return ONLY valid JSON in this exact format: {"picks": [...]}"""
             }
         ],
     )
-    
+
     response_text2 = response2.content[0].text
     print(f"✅ Claude JSON Response: {response_text2[:200]}")
-    
+
     # Try to parse JSON
     import json
     try:
@@ -87,16 +87,16 @@ IMPORTANT: Return ONLY valid JSON in this exact format: {"picks": [...]}"""
     except Exception as e:
         print(f"⚠️ JSON parsing failed: {e}")
         print(f"   Raw response: {response_text2}")
-    
+
     print("\n" + "=" * 80)
     print("✅ Claude model is working correctly!")
     print("=" * 80)
-    
+
 except ImportError as e:
     print(f"❌ Failed to import anthropic: {e}")
     print("   Run: pip install anthropic")
     sys.exit(1)
-    
+
 except Exception as e:
     print(f"❌ Claude test failed: {e}")
     print(f"   Error type: {type(e).__name__}")
@@ -111,18 +111,18 @@ try:
     # Import the function from app/ai_picks.py
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
     from app.ai_picks import _call_claude_model
-    
+
     print("✅ _call_claude_model imported successfully")
-    
+
     # Test the function
     test_prompt = """Return a JSON object: {"picks": [{"game": "Test", "confidence": 5}]}
 
 IMPORTANT: Return ONLY valid JSON."""
-    
+
     print("\n🧪 Testing _call_claude_model function...")
-    result = _call_claude_model("claude-sonnet-4-5-20250929", test_prompt)
+    result = _call_claude_model("claude-sonnet-4-5", test_prompt)
     print(f"✅ Function returned: {result}")
-    
+
 except Exception as e:
     print(f"❌ Function test failed: {e}")
     print(f"   Error type: {type(e).__name__}")
@@ -131,4 +131,3 @@ except Exception as e:
 print("\n" + "=" * 80)
 print("DEBUG COMPLETE")
 print("=" * 80)
-
