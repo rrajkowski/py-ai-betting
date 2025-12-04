@@ -174,6 +174,8 @@ def refresh_bet_results():
             sport_key = 'basketball_ncaab'
         elif sport == 'NBA':
             sport_key = 'basketball_nba'
+        elif sport == 'NHL':
+            sport_key = 'icehockey_nhl'
         else:
             continue
 

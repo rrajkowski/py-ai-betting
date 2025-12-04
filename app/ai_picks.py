@@ -598,12 +598,100 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
 # -------------------------
 
 
+def _check_pick_result(pick_dict, home_score, away_score):
+    """
+    Determines if a single pick (H2H, Spread, or Total) won, lost, or pushed.
+    Returns 'Win', 'Loss', 'Push', or 'Pending'.
+
+    Args:
+        pick_dict: Dictionary with keys: 'pick', 'market', 'line'
+        home_score: Integer home team score
+        away_score: Integer away team score
+    """
+    if home_score is None or away_score is None:
+        return 'Pending'
+
+    market = pick_dict.get('market', '').lower()
+
+    # Handle h2h (moneyline)
+    if market == 'h2h':
+        game = pick_dict.get('game', '')
+        if ' @ ' not in game:
+            return 'Pending'
+
+        away_team, home_team = game.split(' @ ')
+
+        if home_score > away_score:
+            winner = home_team
+        elif away_score > home_score:
+            winner = away_team
+        else:
+            return 'Push'
+
+        return 'Win' if pick_dict['pick'] == winner else 'Loss'
+
+    # Handle spreads
+    elif market == 'spreads':
+        line = pick_dict.get('line')
+        if line is None:
+            return 'Pending'
+
+        game = pick_dict.get('game', '')
+        if ' @ ' not in game:
+            return 'Pending'
+
+        away_team, home_team = game.split(' @ ')
+
+        # Determine if pick is for home or away team
+        if pick_dict['pick'] == home_team:
+            adjusted_score = home_score + line
+            opponent_score = away_score
+        elif pick_dict['pick'] == away_team:
+            adjusted_score = away_score + line
+            opponent_score = home_score
+        else:
+            return 'Pending'
+
+        if adjusted_score > opponent_score:
+            return 'Win'
+        elif adjusted_score < opponent_score:
+            return 'Loss'
+        else:
+            return 'Push'
+
+    # Handle totals (over/under)
+    elif market == 'totals':
+        line = pick_dict.get('line')
+        if line is None:
+            return 'Pending'
+
+        total_score = home_score + away_score
+        pick = pick_dict.get('pick', '').lower()
+
+        if pick == 'over':
+            if total_score > line:
+                return 'Win'
+            elif total_score < line:
+                return 'Loss'
+            else:
+                return 'Push'
+        elif pick == 'under':
+            if total_score < line:
+                return 'Win'
+            elif total_score > line:
+                return 'Loss'
+            else:
+                return 'Push'
+
+    return 'Pending'
+
+
 def update_ai_pick_results():
     conn = get_db()
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
     cur.execute(
-        "SELECT id, game, pick, sport, commence_time FROM ai_picks WHERE LOWER(result)='pending'")
+        "SELECT id, game, pick, market, line, sport, commence_time FROM ai_picks WHERE LOWER(result)='pending'")
     pending = cur.fetchall()
     if not pending:
         print("No pending picks to update.")
@@ -621,9 +709,23 @@ def update_ai_pick_results():
         if datetime.now(timezone.utc) < dt:
             continue
 
-        sport = row["sport"].lower().replace(" ", "_")
+        # Map sport name to API key
+        sport = row["sport"]
+        if sport == "NFL":
+            sport_key = "americanfootball_nfl"
+        elif sport == "NCAAF":
+            sport_key = "americanfootball_ncaaf"
+        elif sport == "NCAAB":
+            sport_key = "basketball_ncaab"
+        elif sport == "NBA":
+            sport_key = "basketball_nba"
+        elif sport == "NHL":
+            sport_key = "icehockey_nhl"
+        else:
+            continue
+
         try:
-            scores = fetch_scores(sport=sport, days_from=2)
+            scores = fetch_scores(sport=sport_key, days_from=2)
         except Exception:
             continue
 
@@ -638,16 +740,21 @@ def update_ai_pick_results():
                            for s in g["scores"] if s["name"] == away), None)
                 if hs is None or as_ is None:
                     continue
-                result = "Push"
-                if int(hs) == int(as_):
-                    result = "Push"
-                elif (row["pick"] == home and int(hs) > int(as_)) or (row["pick"] == away and int(as_) > int(hs)):
-                    result = "Win"
-                else:
-                    result = "Loss"
-                cur.execute("UPDATE ai_picks SET result=? WHERE id=?",
-                            (result, row["id"]))
-                updated += 1
+
+                # Convert to dict for helper function
+                pick_dict = {
+                    'game': row['game'],
+                    'pick': row['pick'],
+                    'market': row['market'],
+                    'line': row['line']
+                }
+
+                result = _check_pick_result(pick_dict, int(hs), int(as_))
+
+                if result != 'Pending':
+                    cur.execute("UPDATE ai_picks SET result=? WHERE id=?",
+                                (result, row["id"]))
+                    updated += 1
                 break
 
     conn.commit()
