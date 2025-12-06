@@ -460,8 +460,39 @@ def run_ai_picks(sport_key, sport_name):
             st.warning("No upcoming games with odds were found.")
             return
 
-        normalized_odds = []
+        # Filter games to only include those with acceptable odds ranges
+        # This prevents AI from seeing games with extreme mismatches (e.g., -3500 vs +1280)
+        filtered_games = []
         for row in raw_odds:
+            bookmaker = next((b for b in row.get("bookmakers", [])
+                             if b["key"] == "draftkings"), None)
+            if not bookmaker:
+                continue
+
+            # Check if game has at least one market with acceptable odds on both sides
+            has_acceptable_market = False
+            for market in bookmaker.get("markets", []):
+                if market["key"] == "h2h":  # Check moneyline odds
+                    outcomes = market.get("outcomes", [])
+                    if len(outcomes) == 2:
+                        odds1 = outcomes[0].get("price", 0)
+                        odds2 = outcomes[1].get("price", 0)
+                        # Check if both sides are within -150 to +150 range
+                        if -150 <= odds1 <= 150 and -150 <= odds2 <= 150:
+                            has_acceptable_market = True
+                            break
+
+            if has_acceptable_market:
+                filtered_games.append(row)
+
+        if not filtered_games:
+            st.warning(
+                f"No {sport_name} games found with odds in acceptable range (-150 to +150). All games have extreme mismatches.")
+            return
+
+        # Normalize odds from filtered games
+        normalized_odds = []
+        for row in filtered_games:
             bookmaker = next((b for b in row.get("bookmakers", [])
                              if b["key"] == "draftkings"), None)
             if not bookmaker:
@@ -474,9 +505,13 @@ def run_ai_picks(sport_key, sport_name):
                     bet.update({"market": market["key"], "pick": outcome.get(
                         "name"), "odds_american": outcome.get("price"), "line": outcome.get("point")})
                     normalized_odds.append(bet)
+
         if not normalized_odds:
-            st.warning("No odds found from DraftKings.")
+            st.warning("No odds found from DraftKings after filtering.")
             return
+
+        st.info(
+            f"📊 Found {len(filtered_games)} {sport_name} games with competitive odds (filtered from {len(raw_odds)} total games)")
 
         history_team = raw_odds[0]['home_team']
         history_map = {"americanfootball_ncaaf": fetch_historical_ncaaf, "americanfootball_nfl": fetch_historical_nfl,
