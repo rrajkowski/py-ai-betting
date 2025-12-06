@@ -426,12 +426,23 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
 
     5. **VALIDATION RULES** (CRITICAL - NO EXCEPTIONS):
        - Only select games where `commence_time` is in the future (not started)
+
+       - **ODDS RANGE REQUIREMENT** (ABSOLUTE - NO EXCEPTIONS):
+         * ❌ **REJECT ALL PICKS with odds outside +150 to -150 range**
+         * ❌ **DO NOT recommend picks with odds like -200, -300, -425, +200, etc.**
+         * ✅ **ONLY accept odds between +150 and -150** (e.g., -110, -135, +120, +145)
+         * **WHY**: Heavy favorites (-200+) and long underdogs (+200+) have poor risk/reward
+         * **ENFORCEMENT**: If a pick has odds outside this range, SKIP IT entirely
+         * Examples of INVALID odds: -175, -200, -425, +160, +200, +300
+         * Examples of VALID odds: -150, -135, -110, +100, +120, +150
+
        - **NO CONFLICTING PICKS**: Do NOT pick both sides of the same market for the same game
          * Example: Do NOT pick both "Over 43.5" AND "Under 43.5" for the same game
          * Example: Do NOT pick both "Team A -3.5" AND "Team B +3.5" for the same game
          * Example: Do NOT pick both "Team A ML" AND "Team B ML" for the same game
+
        - **ONE PICK PER GAME MAXIMUM**: Each game should have at most ONE pick
-       - Exclude odds outside the range (+150 to -150)
+
        - Each pick MUST contain: "game", "sport", "pick", "market", "line", "odds_american", "confidence", "reasoning", "commence_time", "sources_agreeing"
 
     6. **OUTPUT FORMAT**:
@@ -459,11 +470,16 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
          * 1 spread, 1 total, 1 h2h (balanced)
          * 3 totals (only if all are 5-star and no other markets have 4+ star picks)
 
-    8. **FINAL VALIDATION BEFORE RETURNING**:
+    8. **FINAL VALIDATION BEFORE RETURNING** (MANDATORY CHECKLIST):
        - Review each pick's confidence rating
        - **REMOVE any picks with confidence < 3**
+       - **REMOVE any picks with odds outside +150 to -150 range**
+         * Check EVERY pick: Is -150 ≤ odds ≤ +150?
+         * If NO, DELETE that pick immediately
+         * Examples to DELETE: -175, -200, -425, +160, +200, +300
+       - **REMOVE any conflicting picks** (both sides of same game/market)
        - If this leaves you with 0 picks, return {{"picks": []}}
-       - Better to return no picks than low-confidence picks
+       - Better to return no picks than picks that violate the rules
 
     Context: {json.dumps(context, indent=2)}
     """
