@@ -460,58 +460,55 @@ def run_ai_picks(sport_key, sport_name):
             st.warning("No upcoming games with odds were found.")
             return
 
-        # Filter games to only include those with acceptable odds ranges
-        # This prevents AI from seeing games with extreme mismatches (e.g., -3500 vs +1280)
-        filtered_games = []
+        # Normalize odds and filter by MARKET (not by game)
+        # Include spreads/totals (always ~-110) but filter out extreme h2h odds
+        normalized_odds = []
+        total_markets = 0
+        filtered_markets = 0
+
         for row in raw_odds:
             bookmaker = next((b for b in row.get("bookmakers", [])
                              if b["key"] == "draftkings"), None)
             if not bookmaker:
                 continue
 
-            # Check if game has at least one market with acceptable odds on both sides
-            has_acceptable_market = False
+            details = {"game": f"{row['away_team']} @ {row['home_team']}",
+                       "sport": sport_name, "commence_time": row.get('commence_time')}
+
             for market in bookmaker.get("markets", []):
-                if market["key"] == "h2h":  # Check moneyline odds
-                    outcomes = market.get("outcomes", [])
+                market_key = market["key"]
+                outcomes = market.get("outcomes", [])
+
+                # Count total markets
+                total_markets += len(outcomes)
+
+                # For h2h (moneyline), filter out extreme odds
+                if market_key == "h2h":
+                    # Only include if BOTH sides have acceptable odds
                     if len(outcomes) == 2:
                         odds1 = outcomes[0].get("price", 0)
                         odds2 = outcomes[1].get("price", 0)
-                        # Check if both sides are within -150 to +150 range
-                        if -150 <= odds1 <= 150 and -150 <= odds2 <= 150:
-                            has_acceptable_market = True
-                            break
 
-            if has_acceptable_market:
-                filtered_games.append(row)
+                        # Skip if either side is outside -150 to +150 range
+                        if odds1 < -150 or odds1 > 150 or odds2 < -150 or odds2 > 150:
+                            continue  # Skip this h2h market
 
-        if not filtered_games:
-            st.warning(
-                f"No {sport_name} games found with odds in acceptable range (-150 to +150). All games have extreme mismatches.")
-            return
-
-        # Normalize odds from filtered games
-        normalized_odds = []
-        for row in filtered_games:
-            bookmaker = next((b for b in row.get("bookmakers", [])
-                             if b["key"] == "draftkings"), None)
-            if not bookmaker:
-                continue
-            details = {"game": f"{row['away_team']} @ {row['home_team']}",
-                       "sport": sport_name, "commence_time": row.get('commence_time')}
-            for market in bookmaker.get("markets", []):
-                for outcome in market.get("outcomes", []):
+                # Include all spreads and totals (they're almost always ~-110)
+                # Include h2h only if it passed the filter above
+                for outcome in outcomes:
                     bet = details.copy()
-                    bet.update({"market": market["key"], "pick": outcome.get(
+                    bet.update({"market": market_key, "pick": outcome.get(
                         "name"), "odds_american": outcome.get("price"), "line": outcome.get("point")})
                     normalized_odds.append(bet)
+                    filtered_markets += 1
 
         if not normalized_odds:
-            st.warning("No odds found from DraftKings after filtering.")
+            st.warning(
+                f"No {sport_name} markets found with acceptable odds. All h2h markets have extreme mismatches and no spreads/totals available.")
             return
 
         st.info(
-            f"📊 Found {len(filtered_games)} {sport_name} games with competitive odds (filtered from {len(raw_odds)} total games)")
+            f"📊 Found {filtered_markets} competitive {sport_name} markets from {len(raw_odds)} games (filtered from {total_markets} total markets)")
 
         history_team = raw_odds[0]['home_team']
         history_map = {"americanfootball_ncaaf": fetch_historical_ncaaf, "americanfootball_nfl": fetch_historical_nfl,
