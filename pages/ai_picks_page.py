@@ -454,53 +454,106 @@ def run_ai_picks(sport_key, sport_name):
 
     with st.spinner(f"Step 3: AI is analyzing {sport_name} games..."):
         from app.ai_picks import fetch_odds
+        from datetime import datetime, timezone, timedelta
+
         raw_odds = fetch_odds(sport_key)
 
         if not raw_odds:
             st.warning("No upcoming games with odds were found.")
             return
 
-        # Normalize odds and filter by MARKET (not by game)
-        # Include spreads/totals (always ~-110) but filter out extreme h2h odds
+        # Time-based filtering with progressive expansion
+        # Start with 12 hours, expand to 24h, then sport-specific limits
+        now_utc = datetime.now(timezone.utc)
+
+        # Sport-specific time windows (in hours)
+        time_windows = {
+            "basketball_nba": [12, 24],      # NBA: Try 12h first, then 24h
+            "basketball_ncaab": [12, 24],    # NCAAB: Try 12h first, then 24h
+            # NFL: 1 day, 2 days, 3 days (Thu/Sun/Mon)
+            "americanfootball_nfl": [24, 48, 72],
+            "americanfootball_ncaaf": [24, 48],    # NCAAF: 1 day, 2 days
+            "icehockey_nhl": [12, 24],       # NHL: Try 12h first, then 24h
+        }
+
+        windows = time_windows.get(sport_key, [12, 24])  # Default: 12h, 24h
+        min_markets_threshold = 15  # Minimum markets needed before stopping expansion
+
         normalized_odds = []
         total_markets = 0
         filtered_markets = 0
+        time_window_used = 0
+        games_in_window = 0
 
-        for row in raw_odds:
-            bookmaker = next((b for b in row.get("bookmakers", [])
-                             if b["key"] == "draftkings"), None)
-            if not bookmaker:
-                continue
+        # Try each time window until we have enough markets
+        for i, hours in enumerate(windows):
+            max_time = now_utc + timedelta(hours=hours)
+            temp_normalized_odds = []
+            temp_total_markets = 0
+            temp_filtered_markets = 0
+            temp_games_in_window = 0
 
-            details = {"game": f"{row['away_team']} @ {row['home_team']}",
-                       "sport": sport_name, "commence_time": row.get('commence_time')}
+            for row in raw_odds:
+                # Parse game time
+                game_time_str = row.get('commence_time', '')
+                try:
+                    game_time = datetime.fromisoformat(
+                        game_time_str.replace('Z', '+00:00'))
+                except:
+                    continue
 
-            for market in bookmaker.get("markets", []):
-                market_key = market["key"]
-                outcomes = market.get("outcomes", [])
+                # Skip games outside time window
+                if game_time > max_time:
+                    continue
 
-                # Count total markets
-                total_markets += len(outcomes)
+                temp_games_in_window += 1
 
-                # For h2h (moneyline), filter out extreme odds
-                if market_key == "h2h":
-                    # Only include if BOTH sides have acceptable odds
-                    if len(outcomes) == 2:
-                        odds1 = outcomes[0].get("price", 0)
-                        odds2 = outcomes[1].get("price", 0)
+                bookmaker = next((b for b in row.get("bookmakers", [])
+                                 if b["key"] == "draftkings"), None)
+                if not bookmaker:
+                    continue
 
-                        # Skip if either side is outside -150 to +150 range
-                        if odds1 < -150 or odds1 > 150 or odds2 < -150 or odds2 > 150:
-                            continue  # Skip this h2h market
+                details = {"game": f"{row['away_team']} @ {row['home_team']}",
+                           "sport": sport_name, "commence_time": row.get('commence_time')}
 
-                # Include all spreads and totals (they're almost always ~-110)
-                # Include h2h only if it passed the filter above
-                for outcome in outcomes:
-                    bet = details.copy()
-                    bet.update({"market": market_key, "pick": outcome.get(
-                        "name"), "odds_american": outcome.get("price"), "line": outcome.get("point")})
-                    normalized_odds.append(bet)
-                    filtered_markets += 1
+                for market in bookmaker.get("markets", []):
+                    market_key = market["key"]
+                    outcomes = market.get("outcomes", [])
+
+                    # Count total markets
+                    temp_total_markets += len(outcomes)
+
+                    # For h2h (moneyline), filter out extreme odds
+                    if market_key == "h2h":
+                        # Only include if BOTH sides have acceptable odds
+                        if len(outcomes) == 2:
+                            odds1 = outcomes[0].get("price", 0)
+                            odds2 = outcomes[1].get("price", 0)
+
+                            # Skip if either side is outside -150 to +150 range
+                            if odds1 < -150 or odds1 > 150 or odds2 < -150 or odds2 > 150:
+                                continue  # Skip this h2h market
+
+                    # Include all spreads and totals (they're almost always ~-110)
+                    # Include h2h only if it passed the filter above
+                    for outcome in outcomes:
+                        bet = details.copy()
+                        bet.update({"market": market_key, "pick": outcome.get(
+                            "name"), "odds_american": outcome.get("price"), "line": outcome.get("point")})
+                        temp_normalized_odds.append(bet)
+                        temp_filtered_markets += 1
+
+            # Update results
+            normalized_odds = temp_normalized_odds
+            total_markets = temp_total_markets
+            filtered_markets = temp_filtered_markets
+            games_in_window = temp_games_in_window
+            time_window_used = hours
+
+            # Stop if we have enough markets OR this is the last window
+            is_last_window = (i == len(windows) - 1)
+            if filtered_markets >= min_markets_threshold or is_last_window:
+                break
 
         if not normalized_odds:
             st.warning(
@@ -508,7 +561,7 @@ def run_ai_picks(sport_key, sport_name):
             return
 
         st.info(
-            f"📊 Found {filtered_markets} competitive {sport_name} markets from {len(raw_odds)} games (filtered from {total_markets} total markets)")
+            f"📊 Found {filtered_markets} competitive {sport_name} markets from {games_in_window} games in next {time_window_used}h (filtered from {total_markets} total markets)")
 
         history_team = raw_odds[0]['home_team']
         history_map = {"americanfootball_ncaaf": fetch_historical_ncaaf, "americanfootball_nfl": fetch_historical_nfl,
