@@ -454,7 +454,6 @@ def run_ai_picks(sport_key, sport_name):
 
     with st.spinner(f"Step 3: AI is analyzing {sport_name} games..."):
         from app.ai_picks import fetch_odds
-        from datetime import datetime, timezone, timedelta
 
         raw_odds = fetch_odds(sport_key)
 
