@@ -173,48 +173,43 @@ def scrape_oddsshark_consensus(target_date: str, sport: str):
                                 ml_picks.append(
                                     {"team": team_code, "market": "moneyline", "odds_american": val})
 
-                # 4️⃣ Spread - Updated for 2025 structure
+                # 4️⃣ Spread - Updated for Dec 2025 structure
                 spread_picks = []
                 spread_section = container.select_one(".spread-pick")
                 if spread_section:
-                    # New structure: <div><span.highlighted-text>-5.5</span><span>-110</span></div>
-                    for row in spread_section.select("div"):
-                        # Look for highlighted-text (not .spread-text)
-                        spread_line_tag = row.select_one(
-                            "span.highlighted-text")
-                        if spread_line_tag:
-                            line = spread_line_tag.text.strip()
+                    # Look for the highlighted pick (computer's recommendation)
+                    # Structure: <div class="highlighted-pick"><span class="highlighted-text">-3</span></div>
+                    highlighted_pick = spread_section.select_one(
+                        ".highlighted-pick")
+                    if highlighted_pick:
+                        line_text = highlighted_pick.get_text(strip=True)
+                        # Extract just the spread number (e.g., "-3" from "-3")
+                        # Assume odds are -110 (standard) since OddsShark doesn't show odds for computer picks
+                        if line_text:
+                            spread_picks.append({
+                                "market": "spread",
+                                "line": line_text,
+                                "odds_american": -110  # Standard spread odds
+                            })
 
-                            # Odds are in the next span tag
-                            all_spans = row.select("span")
-                            if len(all_spans) >= 2:  # line, odds
-                                odds_text = all_spans[-1].text.strip()
-                                val = parse_odds(odds_text)
-                                if val is not None:
-                                    spread_picks.append(
-                                        {"market": "spread", "line": line, "odds_american": val})
-
-                # 5️⃣ Total - Updated for 2025 structure
+                # 5️⃣ Total - Updated for Dec 2025 structure
                 total_picks = []
                 total_section = container.select_one(".total-pick")
                 if total_section:
-                    for row in total_section.select("div"):
-                        total_line_tag = row.select_one(
-                            "span.highlighted-text")
-                        if total_line_tag:
-                            line = total_line_tag.text.strip()
-
-                            # Look for odds in various possible locations
-                            odds_tag = (
-                                row.select_one(".best-total-container span:last-child") or
-                                row.select_one("span:last-child")
-                            )
-
-                            if odds_tag:
-                                val = parse_odds(odds_tag.text)
-                                if val is not None:
-                                    total_picks.append(
-                                        {"market": "total", "line": line, "odds_american": val})
+                    # Look for the highlighted pick (computer's recommendation)
+                    # Structure: <div class="highlighted-pick"><span class="highlighted-text">O 42.5</span></div>
+                    highlighted_pick = total_section.select_one(
+                        ".highlighted-pick")
+                    if highlighted_pick:
+                        line_text = highlighted_pick.get_text(strip=True)
+                        # Extract the total (e.g., "O 42.5" or "U 42.5")
+                        # Assume odds are -110 (standard) since OddsShark doesn't show odds for computer picks
+                        if line_text:
+                            total_picks.append({
+                                "market": "total",
+                                "line": line_text,
+                                "odds_american": -110  # Standard total odds
+                            })
 
                 all_picks = ml_picks + spread_picks + total_picks
                 if not all_picks:
