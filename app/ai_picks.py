@@ -441,7 +441,10 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
          * Example: Do NOT pick both "Team A -3.5" AND "Team B +3.5" for the same game
          * Example: Do NOT pick both "Team A ML" AND "Team B ML" for the same game
 
-       - **ONE PICK PER GAME MAXIMUM**: Each game should have at most ONE pick
+       - **MULTIPLE PICKS PER GAME ALLOWED**: You CAN pick multiple markets for the same game
+         * Example: Pittsburgh -3 (spread) + Over 42.5 (total) for same game is ALLOWED
+         * Example: Miami +3 (spread) + Miami ML (h2h) for same game is ALLOWED
+         * Only restriction: Don't pick BOTH sides of the SAME market
 
        - Each pick MUST contain: "game", "sport", "pick", "market", "line", "odds_american", "confidence", "reasoning", "commence_time", "sources_agreeing"
 
@@ -528,7 +531,7 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
         st.error("All models failed to generate picks.")
         return []
 
-    # Get existing picks from database to avoid duplicates
+    # Get existing picks from database to avoid duplicates and conflicts
     conn = get_db()
     cur = conn.cursor()
     cur.execute("""
@@ -537,22 +540,61 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
         AND datetime(commence_time) > datetime('now')
     """)
     existing_picks = set()
-    existing_games = set()
+    existing_game_markets = {}  # Track picks by game+market
     for row in cur.fetchall():
         game = row[0].strip() if row[0] else ""
         market = row[1].strip() if row[1] else ""
         pick = row[2].strip() if row[2] else ""
         line = row[3]
 
-        # Track full pick signature
+        # Track full pick signature for exact duplicates
         existing_picks.add((game, market, pick, line))
-        # Track games that already have picks
-        existing_games.add(game)
+
+        # Track picks by game+market for conflict detection
+        key = (game, market)
+        if key not in existing_game_markets:
+            existing_game_markets[key] = []
+        existing_game_markets[key].append((pick, line))
     conn.close()
 
-    unique_picks, seen_games = [], set()
+    unique_picks = []
+    seen_game_markets = {}  # Track picks in current batch by game+market
     skipped_duplicates = 0
     skipped_conflicts = 0
+
+    def is_conflicting_pick(game, market, pick_value, line, existing_picks_list):
+        """Check if a pick conflicts with existing picks for the same game+market."""
+        market_lower = market.lower()
+        pick_lower = pick_value.lower()
+
+        for existing_pick, existing_line in existing_picks_list:
+            existing_pick_lower = existing_pick.lower()
+
+            # Spread: Can't pick both teams (opposite signs)
+            if market_lower == 'spreads':
+                # If lines have opposite signs, it's a conflict
+                try:
+                    new_line_val = float(str(line).replace('+', ''))
+                    existing_line_val = float(
+                        str(existing_line).replace('+', ''))
+                    if (new_line_val > 0 and existing_line_val < 0) or (new_line_val < 0 and existing_line_val > 0):
+                        return True
+                except (ValueError, TypeError):
+                    pass
+
+            # Totals: Can't pick both Over AND Under
+            elif market_lower == 'totals':
+                if (pick_lower == 'over' and existing_pick_lower == 'under') or \
+                   (pick_lower == 'under' and existing_pick_lower == 'over'):
+                    return True
+
+            # H2H/Moneyline: Can't pick both teams
+            elif market_lower == 'h2h':
+                # If picks are different teams, it's a conflict
+                if pick_lower != existing_pick_lower:
+                    return True
+
+        return False
 
     for pick in parsed:
         pick.setdefault("sport", sport)
@@ -581,17 +623,24 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
             skipped_duplicates += 1
             continue
 
-        # Check if this game already has a pick in database
-        if game in existing_games:
-            skipped_conflicts += 1
-            continue
+        # Check for conflicts with existing picks in database (same game+market)
+        game_market_key = (game, market)
+        if game_market_key in existing_game_markets:
+            if is_conflicting_pick(game, market, pick_value, line, existing_game_markets[game_market_key]):
+                skipped_conflicts += 1
+                continue
 
-        # Check if we've already added a pick for this game in current batch
-        if game in seen_games:
-            skipped_conflicts += 1
-            continue
+        # Check for conflicts with picks already added in current batch
+        if game_market_key in seen_game_markets:
+            if is_conflicting_pick(game, market, pick_value, line, seen_game_markets[game_market_key]):
+                skipped_conflicts += 1
+                continue
 
-        seen_games.add(game)
+        # Add to current batch tracking
+        if game_market_key not in seen_game_markets:
+            seen_game_markets[game_market_key] = []
+        seen_game_markets[game_market_key].append((pick_value, line))
+
         unique_picks.append(pick)
 
     if skipped_duplicates > 0:
