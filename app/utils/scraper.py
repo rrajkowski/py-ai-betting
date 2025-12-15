@@ -1,6 +1,5 @@
 import requests
 from bs4 import BeautifulSoup
-from requests_html import HTMLSession
 from datetime import datetime, timezone, timedelta
 from app.utils.db import insert_context
 from app.utils.sport_config import SportConfig
@@ -279,12 +278,22 @@ def scrape_oddsshark_consensus(target_date: str, sport: str):
 def scrape_oddstrader_picks(target_date: str, sport: str):
     """
     Scrapes OddsTrader expert picks (3-4 star ratings) for ML, Spread, and Totals.
-    Uses requests-html to render JavaScript content.
+
+    NOTE: OddsTrader is a fully JavaScript-rendered React app that requires
+    pyppeteer/playwright to scrape. These tools don't work on Streamlit Cloud
+    due to threading/signal limitations. This scraper is DISABLED for now.
+
+    Alternative: Use OddsShark and CBS Sports for consensus data.
 
     Args:
         target_date: Target date for grouping (YYYY-MM-DD)
         sport: Sport key (e.g., 'americanfootball_nfl')
     """
+    print(f"⚠️ OddsTrader: Scraper disabled (requires JavaScript rendering not available on Streamlit Cloud)")
+    print(f"   Using OddsShark and CBS Sports for consensus data instead")
+    return
+
+    # DISABLED CODE BELOW - Kept for reference
     # 1. Check if sport is in season
     if not SportConfig.is_in_season(sport):
         print(f"📡 OddsTrader: Skipping {sport.upper()} - out of season")
@@ -310,46 +319,12 @@ def scrape_oddstrader_picks(target_date: str, sport: str):
     print(f"📡 OddsTrader: Fetching {sport_name_upper} picks from {url}...")
 
     try:
-        # Try JavaScript rendering first, fall back to static HTML if it fails
-        import asyncio
-        import threading
-
-        is_main_thread = threading.current_thread() is threading.main_thread()
-        soup = None
-
-        # Attempt 1: Try JavaScript rendering (works locally, may fail on Streamlit Cloud)
-        if is_main_thread:
-            try:
-                try:
-                    asyncio.get_event_loop()
-                except RuntimeError:
-                    asyncio.set_event_loop(asyncio.new_event_loop())
-
-                session = HTMLSession()
-                resp = session.get(url, timeout=30)
-
-                print(
-                    "🔄 OddsTrader: Rendering JavaScript (this may take 10-20 seconds)...")
-                resp.html.render(timeout=20, sleep=2)
-                soup = BeautifulSoup(resp.html.html, "html.parser")
-                print("✅ OddsTrader: JavaScript rendering successful")
-            except Exception as js_error:
-                print(
-                    f"⚠️ OddsTrader: JavaScript rendering failed ({js_error})")
-                print("   Falling back to static HTML scraping...")
-                soup = None
-        else:
-            print("⚠️ OddsTrader: Not in main thread - skipping JavaScript rendering")
-            print("   Falling back to static HTML scraping...")
-
-        # Attempt 2: Fall back to static HTML (no JavaScript)
-        if soup is None:
-            resp = requests.get(url, headers={
-                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-            }, timeout=15)
-            resp.raise_for_status()
-            soup = BeautifulSoup(resp.text, "html.parser")
-            print("✅ OddsTrader: Using static HTML (may have limited data)")
+        # Use pure BeautifulSoup (no JavaScript rendering - works on Streamlit Cloud)
+        resp = requests.get(url, headers={
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        }, timeout=15)
+        resp.raise_for_status()
+        soup = BeautifulSoup(resp.text, "html.parser")
 
         # Find all bet containers with star ratings
         # Based on your HTML: div.wrapper-irK6Y contains individual bets
@@ -460,16 +435,6 @@ def scrape_oddstrader_picks(target_date: str, sport: str):
 
     except Exception as e:
         print(f"❌ OddsTrader: Error scraping {sport_name_upper}: {e}")
-    finally:
-        # Close the session to free resources
-        # Suppress pyppeteer cleanup warnings (harmless)
-        try:
-            import warnings
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                session.close()
-        except Exception:
-            pass
 
 
 def scrape_cbs_expert_picks(target_date: str, sport: str):
