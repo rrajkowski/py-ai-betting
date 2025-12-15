@@ -310,22 +310,46 @@ def scrape_oddstrader_picks(target_date: str, sport: str):
     print(f"📡 OddsTrader: Fetching {sport_name_upper} picks from {url}...")
 
     try:
-        # Check if we're in an environment with an event loop (Streamlit issue)
+        # Try JavaScript rendering first, fall back to static HTML if it fails
         import asyncio
-        try:
-            asyncio.get_event_loop()
-        except RuntimeError:
-            # No event loop - create one for this thread
-            asyncio.set_event_loop(asyncio.new_event_loop())
+        import threading
 
-        # Use HTMLSession to render JavaScript
-        session = HTMLSession()
-        resp = session.get(url, timeout=30)
+        is_main_thread = threading.current_thread() is threading.main_thread()
+        soup = None
 
-        print("🔄 OddsTrader: Rendering JavaScript (this may take 10-20 seconds)...")
-        resp.html.render(timeout=20, sleep=2)  # Wait for JavaScript to load
+        # Attempt 1: Try JavaScript rendering (works locally, may fail on Streamlit Cloud)
+        if is_main_thread:
+            try:
+                try:
+                    asyncio.get_event_loop()
+                except RuntimeError:
+                    asyncio.set_event_loop(asyncio.new_event_loop())
 
-        soup = BeautifulSoup(resp.html.html, "html.parser")
+                session = HTMLSession()
+                resp = session.get(url, timeout=30)
+
+                print(
+                    "🔄 OddsTrader: Rendering JavaScript (this may take 10-20 seconds)...")
+                resp.html.render(timeout=20, sleep=2)
+                soup = BeautifulSoup(resp.html.html, "html.parser")
+                print("✅ OddsTrader: JavaScript rendering successful")
+            except Exception as js_error:
+                print(
+                    f"⚠️ OddsTrader: JavaScript rendering failed ({js_error})")
+                print("   Falling back to static HTML scraping...")
+                soup = None
+        else:
+            print("⚠️ OddsTrader: Not in main thread - skipping JavaScript rendering")
+            print("   Falling back to static HTML scraping...")
+
+        # Attempt 2: Fall back to static HTML (no JavaScript)
+        if soup is None:
+            resp = requests.get(url, headers={
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+            }, timeout=15)
+            resp.raise_for_status()
+            soup = BeautifulSoup(resp.text, "html.parser")
+            print("✅ OddsTrader: Using static HTML (may have limited data)")
 
         # Find all bet containers with star ratings
         # Based on your HTML: div.wrapper-irK6Y contains individual bets
