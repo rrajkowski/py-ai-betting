@@ -52,8 +52,19 @@ def build_merged_context(target_date: str, sport: str):
         # Filter out games outside 3-day window
         if match_date_str:
             try:
-                match_dt = datetime.fromisoformat(
-                    match_date_str.replace("Z", "+00:00"))
+                # Handle both full ISO timestamps and date-only strings
+                # Date-only strings (e.g., "2025-12-15") should be treated as end-of-day
+                # to avoid filtering out picks from scrapers that don't have exact game times
+                if 'T' in match_date_str:
+                    # Full ISO timestamp
+                    match_dt = datetime.fromisoformat(
+                        match_date_str.replace("Z", "+00:00"))
+                else:
+                    # Date-only string - treat as end of day (23:59:59 UTC)
+                    match_dt = datetime.strptime(match_date_str, '%Y-%m-%d')
+                    match_dt = match_dt.replace(
+                        hour=23, minute=59, second=59, tzinfo=timezone.utc)
+
                 if match_dt.tzinfo is None:
                     match_dt = match_dt.replace(tzinfo=timezone.utc)
 
@@ -61,9 +72,9 @@ def build_merged_context(target_date: str, sport: str):
                 if match_dt < now_utc or match_dt > max_future_date:
                     skipped_count += 1
                     continue
-            except Exception:
+            except Exception as e:
                 print(
-                    f"⚠️ Context Builder: Invalid date format for {game_id}: {match_date_str}")
+                    f"⚠️ Context Builder: Invalid date format for {game_id}: {match_date_str} ({e})")
                 continue
 
         if game_id not in games_map:
