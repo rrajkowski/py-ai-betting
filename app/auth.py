@@ -101,6 +101,13 @@ def check_authentication():
 
     st.sidebar.markdown("---")
 
+    # ADMIN: Skip subscription check for admin users
+    ADMIN_EMAILS = ["ruben.rajkowski@gmail.com"]
+    if st.user.email in ADMIN_EMAILS:
+        st.sidebar.success("✅ **Admin Access**")
+        st.sidebar.caption("Subscription check bypassed")
+        return True
+
     # Check if we're running locally - skip Stripe check for localhost
     try:
         is_localhost = st.secrets["IS_LOCAL"]
