@@ -589,7 +589,7 @@ with col1:
         run_ai_picks("americanfootball_nfl", "NFL")
     units_color = "#22c55e" if nfl_stats['units'] >= 0 else "#ef4444"
     st.markdown(
-        f"<div style='text-align: center; font-size: 11px; color: #6b7280; margin-top: -8px;'>"
+        f"<div style='text-align: center; font-size: 12px; color: #6b7280; margin-top: -8px;'>"
         f"{nfl_stats['wins']}-{nfl_stats['losses']}-{nfl_stats['pushes']} • "
         f"<span style='color: {units_color}; font-weight: 600;'>{nfl_stats['units']:+.1f}u</span>"
         f"</div>",
@@ -602,7 +602,7 @@ with col2:
         run_ai_picks("americanfootball_ncaaf", "NCAAF")
     units_color = "#22c55e" if ncaaf_stats['units'] >= 0 else "#ef4444"
     st.markdown(
-        f"<div style='text-align: center; font-size: 11px; color: #6b7280; margin-top: -8px;'>"
+        f"<div style='text-align: center; font-size: 12px; color: #6b7280; margin-top: -8px;'>"
         f"{ncaaf_stats['wins']}-{ncaaf_stats['losses']}-{ncaaf_stats['pushes']} • "
         f"<span style='color: {units_color}; font-weight: 600;'>{ncaaf_stats['units']:+.1f}u</span>"
         f"</div>",
@@ -615,7 +615,7 @@ with col3:
         run_ai_picks("basketball_ncaab", "NCAAB")
     units_color = "#22c55e" if ncaab_stats['units'] >= 0 else "#ef4444"
     st.markdown(
-        f"<div style='text-align: center; font-size: 11px; color: #6b7280; margin-top: -8px;'>"
+        f"<div style='text-align: center; font-size: 12px; color: #6b7280; margin-top: -8px;'>"
         f"{ncaab_stats['wins']}-{ncaab_stats['losses']}-{ncaab_stats['pushes']} • "
         f"<span style='color: {units_color}; font-weight: 600;'>{ncaab_stats['units']:+.1f}u</span>"
         f"</div>",
@@ -628,7 +628,7 @@ with col4:
         run_ai_picks("basketball_nba", "NBA")
     units_color = "#22c55e" if nba_stats['units'] >= 0 else "#ef4444"
     st.markdown(
-        f"<div style='text-align: center; font-size: 11px; color: #6b7280; margin-top: -8px;'>"
+        f"<div style='text-align: center; font-size: 12px; color: #6b7280; margin-top: -8px;'>"
         f"{nba_stats['wins']}-{nba_stats['losses']}-{nba_stats['pushes']} • "
         f"<span style='color: {units_color}; font-weight: 600;'>{nba_stats['units']:+.1f}u</span>"
         f"</div>",
@@ -641,7 +641,7 @@ with col5:
         run_ai_picks("icehockey_nhl", "NHL")
     units_color = "#22c55e" if nhl_stats['units'] >= 0 else "#ef4444"
     st.markdown(
-        f"<div style='text-align: center; font-size: 11px; color: #6b7280; margin-top: -8px;'>"
+        f"<div style='text-align: center; font-size: 12px; color: #6b7280; margin-top: -8px;'>"
         f"{nhl_stats['wins']}-{nhl_stats['losses']}-{nhl_stats['pushes']} • "
         f"<span style='color: {units_color}; font-weight: 600;'>{nhl_stats['units']:+.1f}u</span>"
         f"</div>",
