@@ -365,34 +365,18 @@ def fetch_all_sports_summary():
 
 
 # --- GLOBAL PERFORMANCE METRICS DISPLAY (MOVED TO TOP) ---
-st.markdown("## 🏆 Historical Performance")
-
 summary = fetch_all_sports_summary()
 wl_summary = f"{summary['wins']}-{summary['losses']}-{summary['pushes']}"
 units_color = "#22c55e" if summary['units'] >= 0 else "#ef4444"
 
-# Clean, centered display with modern styling
+# Header with inline stats
 st.markdown(
     f"""
-    <div style='
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        gap: 48px;
-        margin: 20px 0 30px 0;
-        padding: 16px;
-        background: linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(168, 85, 247, 0.05) 100%);
-        border-radius: 12px;
-        border: 1px solid rgba(99, 102, 241, 0.1);
-    '>
-        <div style='text-align: center;'>
-            <div style='font-size: 13px; color: #6b7280; font-weight: 500; margin-bottom: 4px;'>Record</div>
-            <div style='font-size: 24px; font-weight: 700; color: var(--text-color);'>{wl_summary}</div>
-        </div>
-        <div style='width: 1px; height: 40px; background: rgba(99, 102, 241, 0.2);'></div>
-        <div style='text-align: center;'>
-            <div style='font-size: 13px; color: #6b7280; font-weight: 500; margin-bottom: 4px;'>Units</div>
-            <div style='font-size: 24px; font-weight: 700; color: {units_color};'>{summary['units']:+.2f}</div>
+    <div style='display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;'>
+        <h2 style='margin: 0; padding: 0;'>🏆 Historical Performance</h2>
+        <div style='display: flex; gap: 24px; font-size: 15px;'>
+            <div><b>W/L/P:</b> {wl_summary}</div>
+            <div><b>Units:</b> <span style='color: {units_color}; font-weight: bold;'>{summary['units']:+.2f}u</span></div>
         </div>
     </div>
     """,
