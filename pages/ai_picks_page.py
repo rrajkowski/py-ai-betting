@@ -282,45 +282,44 @@ if 'metric_sport' not in st.session_state:
     st.session_state.metric_sport = "NFL"  # Default to NFL metrics
 
 # ----------------------------------------------------
-# Function to display performance metrics
+# Function to get sport-specific performance summary
 # ----------------------------------------------------
 
 
-def display_performance_metrics(sport_name, col_container):
-    """Displays detailed and total metrics for a given sport."""
-    summary = fetch_performance_summary(sport_name)
+def get_sport_summary(sport_name):
+    """Returns W/L/P and units for a specific sport."""
+    conn = get_db()
+    cur = conn.cursor()
 
-    with col_container:
-        st.subheader(f"{sport_name} Metrics")
+    query = """
+    SELECT
+        SUM(CASE WHEN result = 'Win' THEN 1 ELSE 0 END) AS total_wins,
+        SUM(CASE WHEN result = 'Loss' THEN 1 ELSE 0 END) AS total_losses,
+        SUM(CASE WHEN result = 'Push' THEN 1 ELSE 0 END) AS total_pushes,
+        SUM(
+            CASE
+                WHEN result = 'Win' AND odds_american > 0 THEN (odds_american / 100.0)
+                WHEN result = 'Win' AND odds_american < 0 THEN (100.0 / ABS(odds_american))
+                WHEN result = 'Loss' THEN -1.0
+                ELSE 0
+            END
+        ) AS net_units
+    FROM ai_picks
+    WHERE sport = ? AND result IN ('Win', 'Loss', 'Push');
+    """
+    cur.execute(query, (sport_name,))
+    row = cur.fetchone()
+    conn.close()
 
-        if not summary:
-            st.info("No completed picks found.")
-            return
+    if not row or row[0] is None:
+        return {"wins": 0, "losses": 0, "pushes": 0, "units": 0.0}
 
-        # ---- Compact Table Header ----
-        header_cols = st.columns([1, 1, 1])
-        header_cols[0].markdown("**W/L/P**")
-        header_cols[1].markdown("**Conf**")
-        header_cols[2].markdown("**Units**")
-        st.markdown(
-            "<hr style='margin: 4px 0; border: 0.5px solid var(--text-color); opacity: 0.2;'>",
-            unsafe_allow_html=True,
-        )
-
-        # ---- Display Each Confidence Level ----
-        for row in summary:
-            stars = "⭐" * int(row["star_rating"])
-            wl_record = f"{row['total_wins']}-{row['total_losses']}"
-            units = row["net_units"]
-            color = "green" if units >= 0 else "red"
-
-            row_cols = st.columns([1, 1, 1])
-            row_cols[0].markdown(wl_record)
-            row_cols[1].markdown(stars)
-            row_cols[2].markdown(
-                f"<span style='color:{color}; font-weight:bold'>{units:+.2f}u</span>",
-                unsafe_allow_html=True,
-            )
+    return {
+        "wins": row[0] or 0,
+        "losses": row[1] or 0,
+        "pushes": row[2] or 0,
+        "units": round(row[3] or 0.0, 2),
+    }
 
 
 # Aggregate results for ALL sports
@@ -370,25 +369,35 @@ st.markdown("## 🏆 Historical Performance")
 
 summary = fetch_all_sports_summary()
 wl_summary = f"{summary['wins']}-{summary['losses']}-{summary['pushes']}"
-color = "green" if summary['units'] >= 0 else "red"
+units_color = "#22c55e" if summary['units'] >= 0 else "#ef4444"
 
-# Centered row with compact spacing
+# Clean, centered display with modern styling
 st.markdown(
     f"""
-    <div style='display: flex; justify-content: center; gap: 40px; margin-top: -20px; margin-bottom: 10px;'>
-        <div><b>W/L/P:</b> {wl_summary}</div>
-        <div><b>Units:</b> <span style='color:{color}; font-weight:bold;'>{summary['units']:+.2f}u</span></div>
+    <div style='
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 48px;
+        margin: 20px 0 30px 0;
+        padding: 16px;
+        background: linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(168, 85, 247, 0.05) 100%);
+        border-radius: 12px;
+        border: 1px solid rgba(99, 102, 241, 0.1);
+    '>
+        <div style='text-align: center;'>
+            <div style='font-size: 13px; color: #6b7280; font-weight: 500; margin-bottom: 4px;'>Record</div>
+            <div style='font-size: 24px; font-weight: 700; color: var(--text-color);'>{wl_summary}</div>
+        </div>
+        <div style='width: 1px; height: 40px; background: rgba(99, 102, 241, 0.2);'></div>
+        <div style='text-align: center;'>
+            <div style='font-size: 13px; color: #6b7280; font-weight: 500; margin-bottom: 4px;'>Units</div>
+            <div style='font-size: 24px; font-weight: 700; color: {units_color};'>{summary['units']:+.2f}</div>
+        </div>
     </div>
     """,
     unsafe_allow_html=True,
 )
-
-metric_cols = st.columns(5)
-display_performance_metrics("NFL", metric_cols[0])
-display_performance_metrics("NCAAF", metric_cols[1])
-display_performance_metrics("NCAAB", metric_cols[2])
-display_performance_metrics("NBA", metric_cols[3])
-display_performance_metrics("NHL", metric_cols[4])
 
 # -----------------------------
 # Main AI Pick Generation Logic
@@ -578,29 +587,82 @@ def run_ai_picks(sport_key, sport_name):
         placeholder.empty()
 
 
-# --- UI Controls (Buttons) ---
+# --- UI Controls (Buttons) with Sport Stats ---
 st.header("Generate New Picks")
+
+# Get stats for each sport
+nfl_stats = get_sport_summary("NFL")
+ncaaf_stats = get_sport_summary("NCAAF")
+ncaab_stats = get_sport_summary("NCAAB")
+nba_stats = get_sport_summary("NBA")
+nhl_stats = get_sport_summary("NHL")
+
 col1, col2, col3, col4, col5 = st.columns(5)
+
 with col1:
-    if st.button("🏈 Generate NFL Picks", width='stretch'):
+    if st.button("🏈 Generate NFL Picks", use_container_width=True):
         st.session_state.generated_picks = None
         run_ai_picks("americanfootball_nfl", "NFL")
+    units_color = "#22c55e" if nfl_stats['units'] >= 0 else "#ef4444"
+    st.markdown(
+        f"<div style='text-align: center; font-size: 11px; color: #6b7280; margin-top: -8px;'>"
+        f"{nfl_stats['wins']}-{nfl_stats['losses']}-{nfl_stats['pushes']} • "
+        f"<span style='color: {units_color}; font-weight: 600;'>{nfl_stats['units']:+.1f}u</span>"
+        f"</div>",
+        unsafe_allow_html=True
+    )
+
 with col2:
-    if st.button("🏈 Generate NCAAF Picks", width='stretch'):
+    if st.button("🎓 Generate NCAAF Picks", use_container_width=True):
         st.session_state.generated_picks = None
         run_ai_picks("americanfootball_ncaaf", "NCAAF")
+    units_color = "#22c55e" if ncaaf_stats['units'] >= 0 else "#ef4444"
+    st.markdown(
+        f"<div style='text-align: center; font-size: 11px; color: #6b7280; margin-top: -8px;'>"
+        f"{ncaaf_stats['wins']}-{ncaaf_stats['losses']}-{ncaaf_stats['pushes']} • "
+        f"<span style='color: {units_color}; font-weight: 600;'>{ncaaf_stats['units']:+.1f}u</span>"
+        f"</div>",
+        unsafe_allow_html=True
+    )
+
 with col3:
-    if st.button("🏀 Generate NCAAB Picks", width='stretch'):
+    if st.button("🏀 Generate NCAAB Picks", use_container_width=True):
         st.session_state.generated_picks = None
         run_ai_picks("basketball_ncaab", "NCAAB")
+    units_color = "#22c55e" if ncaab_stats['units'] >= 0 else "#ef4444"
+    st.markdown(
+        f"<div style='text-align: center; font-size: 11px; color: #6b7280; margin-top: -8px;'>"
+        f"{ncaab_stats['wins']}-{ncaab_stats['losses']}-{ncaab_stats['pushes']} • "
+        f"<span style='color: {units_color}; font-weight: 600;'>{ncaab_stats['units']:+.1f}u</span>"
+        f"</div>",
+        unsafe_allow_html=True
+    )
+
 with col4:
-    if st.button("🏀 Generate NBA Picks", width='stretch'):
+    if st.button("🏀 Generate NBA Picks", use_container_width=True):
         st.session_state.generated_picks = None
         run_ai_picks("basketball_nba", "NBA")
+    units_color = "#22c55e" if nba_stats['units'] >= 0 else "#ef4444"
+    st.markdown(
+        f"<div style='text-align: center; font-size: 11px; color: #6b7280; margin-top: -8px;'>"
+        f"{nba_stats['wins']}-{nba_stats['losses']}-{nba_stats['pushes']} • "
+        f"<span style='color: {units_color}; font-weight: 600;'>{nba_stats['units']:+.1f}u</span>"
+        f"</div>",
+        unsafe_allow_html=True
+    )
+
 with col5:
-    if st.button("🏒 Generate NHL Picks", width='stretch'):
+    if st.button("🏒 Generate NHL Picks", use_container_width=True):
         st.session_state.generated_picks = None
         run_ai_picks("icehockey_nhl", "NHL")
+    units_color = "#22c55e" if nhl_stats['units'] >= 0 else "#ef4444"
+    st.markdown(
+        f"<div style='text-align: center; font-size: 11px; color: #6b7280; margin-top: -8px;'>"
+        f"{nhl_stats['wins']}-{nhl_stats['losses']}-{nhl_stats['pushes']} • "
+        f"<span style='color: {units_color}; font-weight: 600;'>{nhl_stats['units']:+.1f}u</span>"
+        f"</div>",
+        unsafe_allow_html=True
+    )
 
 
 # --- Display Newly Generated Picks (with Error Handling) ---
