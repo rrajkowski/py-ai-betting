@@ -672,9 +672,27 @@ if st.session_state.generated_picks:
                         except (ValueError, TypeError):
                             stars = "⭐"
 
+                        # Format game time in PST/PDT
+                        game_time_str = ""
+                        if pick.get('commence_time'):
+                            try:
+                                dt_utc = datetime.fromisoformat(
+                                    str(pick['commence_time']).replace('Z', '+00:00'))
+                                if dt_utc.tzinfo is None:
+                                    dt_utc = dt_utc.replace(
+                                        tzinfo=timezone.utc)
+                                local_tz = ZoneInfo(LOCAL_TZ_NAME)
+                                dt_local = dt_utc.astimezone(local_tz)
+                                game_time_str = dt_local.strftime(
+                                    '%a, %b %d, %I:%M %p %Z')
+                            except Exception:
+                                game_time_str = str(
+                                    pick.get('commence_time', ''))
+
                         st.markdown(f"""
                         **Pick #{i+1}**
                         - 🏟️ **Game:** *{pick.get('game','?')}*
+                        - 🕐 **Time:** {game_time_str}
                         - 👉 **Pick:** **{pick.get('pick','?')}** ({pick.get('market','?')})
                         - 📏 **Line:** {pick.get('line','-')}
                         - 💵 **Odds:** {pick.get('odds_american','?')}
@@ -715,9 +733,32 @@ if ai_picks_history:
 
     df["Confidence (Stars)"] = df["confidence_numeric"].apply(score_to_stars)
 
+    # --- Convert UTC dates to PST/PDT for display ---
+    def utc_to_pst_display(utc_str):
+        """Convert UTC datetime string to PST/PDT display format."""
+        if not utc_str or pd.isna(utc_str):
+            return ""
+        try:
+            # Parse UTC datetime
+            dt_utc = datetime.fromisoformat(
+                str(utc_str).replace('Z', '+00:00'))
+            if dt_utc.tzinfo is None:
+                dt_utc = dt_utc.replace(tzinfo=timezone.utc)
+
+            # Convert to Pacific time
+            local_tz = ZoneInfo(LOCAL_TZ_NAME)
+            dt_local = dt_utc.astimezone(local_tz)
+
+            # Format: "Thu, Dec 19, 5:15 PM PST"
+            return dt_local.strftime('%a, %b %d, %I:%M %p %Z')
+        except Exception:
+            return str(utc_str)  # Fallback to original if conversion fails
+
+    df["Game Time (PT)"] = df["date"].apply(utc_to_pst_display)
+
     # --- Define and reorder display columns ---
     display_cols = [
-        "date",
+        "Game Time (PT)",
         "sport",
         "game",
         "pick",

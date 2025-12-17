@@ -4,6 +4,7 @@ import json
 import os
 import sqlite3
 from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
 from openai import OpenAI
 import google.generativeai as genai
 from .db import get_db, init_ai_picks, insert_ai_picks
@@ -20,6 +21,9 @@ ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
 
+# --- Timezone Configuration ---
+LOCAL_TZ_NAME = 'America/Los_Angeles'  # PST/PDT
+
 
 def _safe_parse_datetime(date_str: str):
     """Safely parse ISO datetime to UTC datetime, return None if invalid."""
@@ -29,6 +33,40 @@ def _safe_parse_datetime(date_str: str):
         return datetime.fromisoformat(date_str.replace("Z", "+00:00"))
     except Exception:
         return None
+
+
+def utc_to_local_display(utc_dt, format_str='%a, %b %d, %I:%M %p %Z'):
+    """
+    Convert UTC datetime to local timezone (PST/PDT) for display.
+
+    Args:
+        utc_dt: datetime object in UTC or ISO string
+        format_str: strftime format string
+
+    Returns:
+        Formatted string in local timezone
+    """
+    if not utc_dt:
+        return ""
+
+    try:
+        # Handle string input
+        if isinstance(utc_dt, str):
+            utc_dt = _safe_parse_datetime(utc_dt)
+            if not utc_dt:
+                return ""
+
+        # Ensure timezone aware
+        if utc_dt.tzinfo is None:
+            utc_dt = utc_dt.replace(tzinfo=timezone.utc)
+
+        # Convert to local timezone
+        local_tz = ZoneInfo(LOCAL_TZ_NAME)
+        local_dt = utc_dt.astimezone(local_tz)
+
+        return local_dt.strftime(format_str)
+    except Exception:
+        return str(utc_dt)
 
 # -------------------------
 # DB Migration for historical_games

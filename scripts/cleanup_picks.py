@@ -128,14 +128,19 @@ def delete_stuck_pending_picks(conn):
 
 
 def delete_rows_without_date(conn):
-    """Deletes all rows from the ai_picks table where the date is NULL."""
-    print("🧹 Starting cleanup of picks with no date...")
+    """Deletes PENDING picks from the ai_picks table where the date is NULL."""
+    print("\n🔍 Scanning for pending picks with no date...")
 
     try:
         cur = conn.cursor()
 
-        # SQL query to delete rows where the 'date' column is NULL
-        query = f"DELETE FROM {TABLE_NAME} WHERE date IS NULL"
+        # SQL query to delete rows where the 'date' column is NULL AND result is pending
+        # This preserves completed games (Win/Loss/Push) even if they have NULL dates
+        query = f"""
+            DELETE FROM {TABLE_NAME}
+            WHERE date IS NULL
+            AND (result IS NULL OR LOWER(result) = 'pending')
+        """
 
         cur.execute(query)
 
@@ -147,10 +152,9 @@ def delete_rows_without_date(conn):
 
         if deleted_count > 0:
             print(
-                f"✅ Success! Deleted {deleted_count} picks that were missing a date.")
+                f"✅ Deleted {deleted_count} pending picks that were missing a date.")
         else:
-            print(
-                "👍 No picks with missing dates were found. Your database is already clean!")
+            print("No pending picks with missing dates found.")
 
     except Exception as e:
         print(f"❌ An error occurred during the cleanup: {e}")
