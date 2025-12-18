@@ -704,7 +704,7 @@ if st.session_state.generated_picks:
                         st.markdown(f"**Pick #{i+1}**\n- {str(pick)}")
 
 # --- AI Picks History Table ---
-st.header("📜 RAGE Sports Picks History")
+st.header("📜 RAGE Sports Picks (bet these!)")
 ai_picks_history = list_ai_picks()
 
 if ai_picks_history:
