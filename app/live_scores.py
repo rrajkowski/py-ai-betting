@@ -73,6 +73,12 @@ def display_live_scores():
             live_games = [g for g in filtered_games if not g.get("completed", False)
                           and datetime.fromisoformat(g["commence_time"].replace("Z", "+00:00")) <= now_utc]
             upcoming_games = [g for g in filtered_games if g not in live_games]
+
+            # Sort upcoming games by commence_time (earliest first)
+            upcoming_games.sort(key=lambda g: datetime.fromisoformat(
+                g.get("commence_time", "9999-12-31T23:59:59Z").replace("Z", "+00:00")
+            ))
+
             final_games = live_games + upcoming_games
 
             # If no live games for NCAAF, show 5 upcoming
