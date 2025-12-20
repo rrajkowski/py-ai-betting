@@ -9,17 +9,31 @@ st.set_page_config(layout="wide", page_title="Live & Recent Scores")
 
 def display_live_scores():
 
-    # Add custom CSS to ensure full-width columns
+    # Add custom CSS to ensure full-width columns and proper spacing
+    # Version: 2024-12-20-v2 (cache buster)
     st.markdown("""
         <style>
-        /* Ensure columns use full width */
+        /* Force full-width layout for columns - v2 */
         [data-testid="column"] {
             width: 100% !important;
             flex: 1 1 auto !important;
+            min-width: 0 !important;
+            padding: 0 8px !important;
         }
+
+        /* Ensure equal column distribution */
+        [data-testid="stHorizontalBlock"] {
+            gap: 16px !important;
+        }
+
         /* Prevent text wrapping in team names */
         .stMarkdown {
-            width: 100%;
+            width: 100% !important;
+        }
+
+        /* Force box to use full column width */
+        .stMarkdown > div {
+            width: 100% !important;
         }
         </style>
     """, unsafe_allow_html=True)
