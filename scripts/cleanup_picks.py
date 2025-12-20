@@ -65,6 +65,75 @@ def delete_duplicate_picks(conn):
         print("No duplicate pending picks found.")
 
 
+def delete_spread_duplicates_same_team(conn):
+    """
+    Deletes duplicate spread picks for the same team in the same game.
+    Handles cases like:
+    - "Tulane Green Wave +17.5" and "Tulane Green Wave" (same team, same line)
+    Keeps only the most recent pick.
+    """
+    print("\n🔍 Scanning for duplicate spread picks (same team, same game)...")
+    cur = conn.cursor()
+
+    # Get all pending spread picks
+    cur.execute(f"""
+        SELECT id, game, market, pick, line, date
+        FROM {TABLE_NAME}
+        WHERE (result IS NULL OR LOWER(result) = 'pending')
+        AND LOWER(market) = 'spreads'
+        ORDER BY game, line, date DESC
+    """)
+
+    picks = cur.fetchall()
+    to_delete = []
+    seen_game_team_line = {}
+
+    import re
+
+    for pick_id, game, market, pick, line, date in picks:
+        if not game or not pick or line is None:
+            continue
+
+        # Normalize the pick to extract team name
+        pick_normalized = pick.lower().strip()
+
+        # Remove line value from pick string if present
+        if line is not None:
+            patterns = [
+                rf'\s*\+?\-?{re.escape(str(line))}\s*$',
+                rf'\s*\+{re.escape(str(abs(float(line))))}\s*$',
+                rf'\s*\-{re.escape(str(abs(float(line))))}\s*$',
+            ]
+            for pattern in patterns:
+                pick_normalized = re.sub(pattern, '', pick_normalized)
+
+        # Remove any remaining +/- at the end
+        pick_normalized = re.sub(r'\s*[\+\-]\s*$', '', pick_normalized).strip()
+
+        # Create a key: (game, team_name, abs(line))
+        key = (game.lower().strip(), pick_normalized, abs(float(line)))
+
+        if key in seen_game_team_line:
+            # This is a duplicate - mark for deletion
+            to_delete.append(pick_id)
+        else:
+            # First occurrence - keep it
+            seen_game_team_line[key] = pick_id
+
+    # Delete duplicates
+    if to_delete:
+        placeholders = ','.join('?' * len(to_delete))
+        cur.execute(f"""
+            DELETE FROM {TABLE_NAME}
+            WHERE id IN ({placeholders})
+        """, to_delete)
+        conn.commit()
+        print(
+            f"✅ Deleted {len(to_delete)} duplicate spread picks (same team/game/line).")
+    else:
+        print("No duplicate spread picks found.")
+
+
 def delete_conflicting_picks(conn):
     """Deletes conflicting pending picks (same game+market, opposite sides)."""
     print("\n🔍 Scanning for conflicting pending picks...")
@@ -169,6 +238,7 @@ def main():
     Only removes:
     - Low confidence pending picks (< 2 stars)
     - Duplicate pending picks (same market/pick)
+    - Duplicate spread picks (same team/game/line with different formatting)
     - Conflicting pending picks (same game/market, opposite sides)
     - Expired pending picks (>1 day old with no result)
     - Picks with missing dates
@@ -185,6 +255,8 @@ def main():
 
         delete_low_confidence_picks(conn)
         delete_duplicate_picks(conn)
+        # NEW: Clean up spread duplicates
+        delete_spread_duplicates_same_team(conn)
         delete_conflicting_picks(conn)
         delete_stuck_pending_picks(conn)
         delete_rows_without_date(conn)
