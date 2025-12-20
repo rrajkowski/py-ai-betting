@@ -9,11 +9,26 @@ st.set_page_config(layout="wide", page_title="Live & Recent Scores")
 
 def display_live_scores():
 
+    # Add custom CSS to ensure full-width columns
+    st.markdown("""
+        <style>
+        /* Ensure columns use full width */
+        [data-testid="column"] {
+            width: 100% !important;
+            flex: 1 1 auto !important;
+        }
+        /* Prevent text wrapping in team names */
+        .stMarkdown {
+            width: 100%;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
     # --- Style Config ---
     box_style = """
         border: 1px solid black;
         border-radius: 8px;
-        padding: 16px;
+        padding: 12px;
         margin-bottom: 12px;
         color: black;
         background-color: #f0f0f0;
@@ -21,12 +36,13 @@ def display_live_scores():
         display: flex;
         flex-direction: column;
         justify-content: space-between;
+        width: 100%;
     """
     status_style_live = "background-color: #d90429; color: white; padding: 2px 6px; border-radius: 4px; border: 1px solid black;"
-    status_style_default = "color: var(--gray-60); font-size: 13px; font-weight: bold;"
-    team_style = "display: flex; justify-content: space-between; align-items: center; font-size: 15px; line-height: 1.4; margin: 4px 0;"
-    team_name_style = "flex: 1; padding-right: 8px; word-wrap: break-word;"
-    score_style = "font-weight: bold; font-size: 22px; min-width: 30px; text-align: right;"
+    status_style_default = "color: var(--gray-60); font-size: 12px; font-weight: bold; white-space: nowrap;"
+    team_style = "display: flex; justify-content: space-between; align-items: center; font-size: 14px; line-height: 1.3; margin: 4px 0; gap: 8px;"
+    team_name_style = "flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;"
+    score_style = "font-weight: bold; font-size: 20px; min-width: 25px; text-align: right; flex-shrink: 0;"
 
     # --- Fetch scores (pulls 1 day of history) ---
     sports_data = {
@@ -69,17 +85,27 @@ def display_live_scores():
                 if commence_dt >= cutoff_utc:
                     filtered_games.append(g)
 
-            # --- Prioritize LIVE games ---
+            # --- Separate games by status ---
+            completed_games = [
+                g for g in filtered_games if g.get("completed", False)]
             live_games = [g for g in filtered_games if not g.get("completed", False)
                           and datetime.fromisoformat(g["commence_time"].replace("Z", "+00:00")) <= now_utc]
-            upcoming_games = [g for g in filtered_games if g not in live_games]
+            upcoming_games = [
+                g for g in filtered_games if g not in live_games and g not in completed_games]
 
-            # Sort upcoming games by commence_time (earliest first)
+            # Sort all categories by commence_time (earliest first)
+            completed_games.sort(key=lambda g: datetime.fromisoformat(
+                g.get("commence_time", "9999-12-31T23:59:59Z").replace("Z", "+00:00")
+            ))
+            live_games.sort(key=lambda g: datetime.fromisoformat(
+                g.get("commence_time", "9999-12-31T23:59:59Z").replace("Z", "+00:00")
+            ))
             upcoming_games.sort(key=lambda g: datetime.fromisoformat(
                 g.get("commence_time", "9999-12-31T23:59:59Z").replace("Z", "+00:00")
             ))
 
-            final_games = live_games + upcoming_games
+            # Prioritize: LIVE first, then upcoming, then completed
+            final_games = live_games + upcoming_games + completed_games
 
             # If no live games for NCAAF, show 5 upcoming
             if sport == "NCAAF" and not live_games:
