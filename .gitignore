@@ -65,9 +65,10 @@ db.sqlite3
 db.sqlite3-journal
 
 # Application databases
-# NOTE: bets.db is tracked in git for Streamlit Cloud persistence
-# Local changes to bets.db should NOT be committed (use git restore bets.db)
-# bets.db  # Commented out - keeping in git for production persistence
+# NOTE: bets.db is now ignored to prevent data loss
+# Streamlit Cloud will maintain its own persistent copy
+# Local development uses a separate database
+bets.db
 bets.db-journal
 bets.db-wal
 bets.db-shm
