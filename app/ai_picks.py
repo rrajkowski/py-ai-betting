@@ -490,6 +490,13 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
        - "odds_american" must be numeric (e.g., -110, 150)
        - "commence_time" must be copied exactly from source in ISO format
        - "confidence" must be 3, 4, or 5 (integer) - **NEVER 1 or 2**
+       - **"pick" field format** (CRITICAL - MUST FOLLOW EXACTLY):
+         * For **spreads**: ONLY the team name, NO line value (e.g., "Tulane Green Wave" NOT "Tulane Green Wave +17.5")
+         * For **totals**: ONLY "Over" or "Under", NO line value (e.g., "Over" NOT "Over 43.5")
+         * For **h2h**: ONLY the team name (e.g., "Pittsburgh Steelers")
+         * The line value goes in the separate "line" field, NOT in the "pick" field
+         * Example CORRECT: {{"pick": "Tulane Green Wave", "line": 17.5, "market": "spreads"}}
+         * Example WRONG: {{"pick": "Tulane Green Wave +17.5", "line": 17.5, "market": "spreads"}}
        - "sources_agreeing" must list ONLY sources that ACTUALLY appear in the context data for this specific game and pick
        - **DO NOT invent or hallucinate sources** - only list sources if they explicitly recommend this exact pick in the context
        - "reasoning" must be CONCISE (2-3 sentences max) and explain: (a) which sources agree, (b) why consensus is strong, (c) Kalshi sentiment if available, (d) for NCAAB/NCAAF: team rankings
@@ -600,6 +607,36 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
     skipped_duplicates = 0
     skipped_conflicts = 0
 
+    def normalize_pick_team(pick_str, line_val):
+        """
+        Normalize a pick string to extract just the team name.
+        Handles cases like:
+        - "Tulane Green Wave +17.5" -> "tulane green wave"
+        - "Tulane Green Wave" -> "tulane green wave"
+        - "Ole Miss Rebels -3.5" -> "ole miss rebels"
+        """
+        import re
+        pick_normalized = pick_str.lower().strip()
+
+        # Remove line value if present (e.g., "+17.5", "-3.5", "17.5")
+        if line_val is not None:
+            # Try to remove the line in various formats
+            patterns = [
+                # " +17.5" or " -17.5" at end
+                rf'\s*\+?\-?{re.escape(str(line_val))}\s*$',
+                # " +17.5" at end
+                rf'\s*\+{re.escape(str(abs(float(line_val))))}\s*$',
+                # " -17.5" at end
+                rf'\s*\-{re.escape(str(abs(float(line_val))))}\s*$',
+            ]
+            for pattern in patterns:
+                pick_normalized = re.sub(pattern, '', pick_normalized)
+
+        # Remove any remaining +/- signs at the end
+        pick_normalized = re.sub(r'\s*[\+\-]\s*$', '', pick_normalized)
+
+        return pick_normalized.strip()
+
     def is_conflicting_pick(game, market, pick_value, line, existing_picks_list):
         """Check if a pick conflicts with existing picks for the same game+market."""
         market_lower = market.lower()
@@ -608,13 +645,23 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
         for existing_pick, existing_line in existing_picks_list:
             existing_pick_lower = existing_pick.lower()
 
-            # Spread: Can't pick both teams (opposite signs)
+            # Spread: Can't pick both teams (opposite signs) OR same team with same/similar line
             if market_lower == 'spreads':
-                # If lines have opposite signs, it's a conflict
                 try:
                     new_line_val = float(str(line).replace('+', ''))
                     existing_line_val = float(
                         str(existing_line).replace('+', ''))
+
+                    # Normalize team names by removing line info
+                    new_team = normalize_pick_team(pick_value, line)
+                    existing_team = normalize_pick_team(
+                        existing_pick, existing_line)
+
+                    # If same team with same line value (regardless of sign), it's a duplicate
+                    if new_team == existing_team and abs(new_line_val) == abs(existing_line_val):
+                        return True
+
+                    # If lines have opposite signs, it's a conflict (picking both sides)
                     if (new_line_val > 0 and existing_line_val < 0) or (new_line_val < 0 and existing_line_val > 0):
                         return True
                 except (ValueError, TypeError):
