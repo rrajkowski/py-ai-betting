@@ -101,36 +101,106 @@ if is_admin():
 
     # Upload/restore backup button
     uploaded_file = st.sidebar.file_uploader(
-        "⬆️ Upload Backup to Restore",
+        "⬆️ Merge Backup (Smart Restore)",
         type=["db"],
         key="upload_backup",
-        help="Upload a previously downloaded bets.db backup file to restore data"
+        help="Upload a backup to merge with current data. Only adds new picks and updates results - no duplicates!"
     )
 
     if uploaded_file is not None:
-        if st.sidebar.button("🔄 Restore from Backup", type="primary"):
+        if st.sidebar.button("🔄 Merge Backup Data", type="primary"):
             import shutil
             import os
+            import sqlite3
+            import tempfile
 
-            # Create backup of current database before restoring
+            # Save uploaded file to temp location
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.db') as tmp_file:
+                tmp_file.write(uploaded_file.getbuffer())
+                backup_db_path = tmp_file.name
+
             current_db = "bets.db"
+
+            # Create safety backup of current database
             if os.path.exists(current_db):
                 backup_dir = "backups"
                 os.makedirs(backup_dir, exist_ok=True)
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                backup_path = f"{backup_dir}/bets_before_restore_{timestamp}.db"
-                shutil.copy2(current_db, backup_path)
-                st.sidebar.info(f"📦 Current DB backed up to: {backup_path}")
+                safety_backup = f"{backup_dir}/bets_before_merge_{timestamp}.db"
+                shutil.copy2(current_db, safety_backup)
+                st.sidebar.info(f"📦 Safety backup: {safety_backup}")
 
-            # Restore uploaded database
+            # Merge logic: Add new picks and update results
             try:
-                with open(current_db, "wb") as f:
-                    f.write(uploaded_file.getbuffer())
-                st.sidebar.success("✅ Database restored successfully!")
+                # Connect to both databases
+                current_conn = sqlite3.connect(current_db)
+                current_conn.row_factory = sqlite3.Row
+                backup_conn = sqlite3.connect(backup_db_path)
+                backup_conn.row_factory = sqlite3.Row
+
+                current_cur = current_conn.cursor()
+                backup_cur = backup_conn.cursor()
+
+                # Get all picks from backup
+                backup_cur.execute("SELECT * FROM ai_picks")
+                backup_picks = backup_cur.fetchall()
+
+                added = 0
+                updated = 0
+                skipped = 0
+
+                for pick in backup_picks:
+                    # Check if pick exists (match by game, pick, market, line, date)
+                    current_cur.execute("""
+                        SELECT id, result FROM ai_picks
+                        WHERE game = ? AND pick = ? AND market = ?
+                        AND COALESCE(line, 0) = COALESCE(?, 0)
+                        AND date(commence_time) = date(?)
+                    """, (pick['game'], pick['pick'], pick['market'], pick['line'], pick['commence_time']))
+
+                    existing = current_cur.fetchone()
+
+                    if existing:
+                        # Pick exists - update result if it changed from Pending
+                        if existing['result'].lower() == 'pending' and pick['result'].lower() != 'pending':
+                            current_cur.execute("""
+                                UPDATE ai_picks SET result = ? WHERE id = ?
+                            """, (pick['result'], existing['id']))
+                            updated += 1
+                        else:
+                            skipped += 1
+                    else:
+                        # New pick - insert it
+                        current_cur.execute("""
+                            INSERT INTO ai_picks
+                            (sport, game, pick, market, line, odds_american, result, confidence, reasoning, date, commence_time)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """, (
+                            pick['sport'], pick['game'], pick['pick'], pick['market'],
+                            pick['line'], pick['odds_american'], pick['result'],
+                            pick['confidence'], pick['reasoning'], pick['date'], pick['commence_time']
+                        ))
+                        added += 1
+
+                current_conn.commit()
+                current_conn.close()
+                backup_conn.close()
+
+                # Clean up temp file
+                os.unlink(backup_db_path)
+
+                # Show results
+                st.sidebar.success(f"✅ Merge complete!")
+                st.sidebar.info(
+                    f"📊 Added: {added} | Updated: {updated} | Skipped: {skipped}")
                 st.sidebar.info(
                     "🔄 Please refresh the page to see updated data.")
+
             except Exception as e:
-                st.sidebar.error(f"❌ Restore failed: {e}")
+                st.sidebar.error(f"❌ Merge failed: {e}")
+                # Clean up temp file on error
+                if os.path.exists(backup_db_path):
+                    os.unlink(backup_db_path)
 
 # Set the desired local timezone for display (PST/PDT)
 # Use 'America/Los_Angeles' for PST/PDT to handle daylight savings automatically
