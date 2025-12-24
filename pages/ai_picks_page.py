@@ -72,6 +72,66 @@ if is_admin():
                 sys.stdout = old_stdout
                 st.error(f"Cleanup failed: {e}")
 
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### 💾 Backup & Restore")
+
+    # Download backup button
+    if st.sidebar.button("⬇️ Download Backup"):
+        import os
+        db_path = "bets.db"
+        if os.path.exists(db_path):
+            with open(db_path, "rb") as f:
+                db_bytes = f.read()
+
+            # Get current timestamp for filename
+            from datetime import datetime
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"bets_backup_{timestamp}.db"
+
+            st.sidebar.download_button(
+                label="📥 Click to Download",
+                data=db_bytes,
+                file_name=filename,
+                mime="application/octet-stream",
+                key="download_backup"
+            )
+            st.sidebar.success(f"✅ Backup ready: {filename}")
+        else:
+            st.sidebar.error("❌ Database file not found!")
+
+    # Upload/restore backup button
+    uploaded_file = st.sidebar.file_uploader(
+        "⬆️ Upload Backup to Restore",
+        type=["db"],
+        key="upload_backup",
+        help="Upload a previously downloaded bets.db backup file to restore data"
+    )
+
+    if uploaded_file is not None:
+        if st.sidebar.button("🔄 Restore from Backup", type="primary"):
+            import shutil
+            import os
+
+            # Create backup of current database before restoring
+            current_db = "bets.db"
+            if os.path.exists(current_db):
+                backup_dir = "backups"
+                os.makedirs(backup_dir, exist_ok=True)
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                backup_path = f"{backup_dir}/bets_before_restore_{timestamp}.db"
+                shutil.copy2(current_db, backup_path)
+                st.sidebar.info(f"📦 Current DB backed up to: {backup_path}")
+
+            # Restore uploaded database
+            try:
+                with open(current_db, "wb") as f:
+                    f.write(uploaded_file.getbuffer())
+                st.sidebar.success("✅ Database restored successfully!")
+                st.sidebar.info(
+                    "🔄 Please refresh the page to see updated data.")
+            except Exception as e:
+                st.sidebar.error(f"❌ Restore failed: {e}")
+
 # Set the desired local timezone for display (PST/PDT)
 # Use 'America/Los_Angeles' for PST/PDT to handle daylight savings automatically
 LOCAL_TZ_NAME = 'America/Los_Angeles'
