@@ -850,14 +850,24 @@ def update_ai_pick_results():
 
     print(f"🔍 Checking {len(pending)} pending picks...")
     updated = 0
+    skipped_not_started = 0
+    skipped_not_completed = 0
 
     for row in pending:
         commence = row["commence_time"]
         dt = _safe_parse_datetime(commence)
         if not dt:
+            print(
+                f"⚠️ Could not parse commence_time for pick {row['id']}: {commence}")
             continue
+
+        # Skip games that haven't started yet
         if datetime.now(timezone.utc) < dt:
+            skipped_not_started += 1
             continue
+
+        # Extract the date from the pick's commence_time (YYYY-MM-DD)
+        pick_date = dt.strftime('%Y-%m-%d')
 
         # Map sport name to API key
         sport = row["sport"]
@@ -876,19 +886,34 @@ def update_ai_pick_results():
 
         try:
             scores = fetch_scores(sport=sport_key, days_from=2)
-        except Exception:
+        except Exception as e:
+            print(f"⚠️ Failed to fetch scores for {sport}: {e}")
             continue
 
         for g in scores:
+            # CRITICAL: Only process completed games
             if not g.get("completed"):
                 continue
+
+            # Match by team names
             if g.get("home_team") in row["game"] and g.get("away_team") in row["game"]:
+                # CRITICAL: Also match by date to prevent scoring wrong games
+                game_commence = g.get("commence_time", "")
+                game_date = game_commence[:10]  # Extract YYYY-MM-DD
+
+                if game_date != pick_date:
+                    print(
+                        f"⚠️ Date mismatch for {row['game']}: pick={pick_date}, game={game_date}")
+                    continue
+
                 home, away = g["home_team"], g["away_team"]
                 hs = next((s["score"]
                           for s in g["scores"] if s["name"] == home), None)
                 as_ = next((s["score"]
                            for s in g["scores"] if s["name"] == away), None)
                 if hs is None or as_ is None:
+                    print(
+                        f"⚠️ Missing scores for {row['game']}: home={hs}, away={as_}")
                     continue
 
                 # Convert to dict for helper function
@@ -902,11 +927,16 @@ def update_ai_pick_results():
                 result = _check_pick_result(pick_dict, int(hs), int(as_))
 
                 if result != 'Pending':
+                    print(
+                        f"✅ Scoring pick {row['id']}: {row['game']} - {row['pick']} ({row['market']}) = {result}")
                     cur.execute("UPDATE ai_picks SET result=? WHERE id=?",
                                 (result, row["id"]))
                     updated += 1
+                else:
+                    print(f"⚠️ Result still pending for {row['game']}")
                 break
 
     conn.commit()
     conn.close()
-    print(f"✅ Updated {updated} picks.")
+    print(
+        f"✅ Updated {updated} picks. Skipped {skipped_not_started} not started, {skipped_not_completed} not completed.")
