@@ -63,6 +63,10 @@ st.page_link("pages/ai_picks_page.py", label="🤖 Go to AI Daily Picks")
 # -----------------------------
 st.header("Bet Simulator")
 
+# ⚠️ DISABLED: API calls disabled to save costs
+# To re-enable: uncomment the fetch_odds() call below
+st.info("🚫 **Bet Simulator is currently disabled** to save API costs. Use the AI Picks page for betting recommendations.")
+
 # --- Sport and Game Selection ---
 sports_map = {
     "NFL (American Football)": "americanfootball_nfl",
@@ -72,12 +76,16 @@ sports_map = {
     "National Basketball Association (NBA)": "basketball_nba",
     "NHL (Ice Hockey)": "icehockey_nhl",
 }
-sport_label = st.selectbox("Select Sport", list(sports_map.keys()))
+sport_label = st.selectbox("Select Sport", list(
+    sports_map.keys()), disabled=True)
 sport_key = sports_map[sport_label]
 
-games_data = fetch_odds(sport_key)
+# DISABLED: Uncomment to re-enable API calls
+# games_data = fetch_odds(sport_key)
+games_data = []  # Empty list to disable API calls
+
 if not games_data:
-    st.info("⚠️ No games available for this sport right now.")
+    st.info("⚠️ Bet Simulator is disabled. No API calls will be made.")
 else:
     game = st.selectbox(
         "Select Game",
