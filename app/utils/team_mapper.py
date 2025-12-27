@@ -179,7 +179,7 @@ NBA_TEAMS = {
     "philadelphia": "Philadelphia 76ers", "76ers": "Philadelphia 76ers", "phi": "Philadelphia 76ers", "sixers": "Philadelphia 76ers",
 
     # Phoenix Suns
-    "phoenix": "Phoenix Suns", "suns": "Phoenix Suns", "phx": "Phoenix Suns",
+    "phoenix": "Phoenix Suns", "suns": "Phoenix Suns", "phx": "Phoenix Suns", "pho": "Phoenix Suns",
 
     # Portland Trail Blazers
     "portland": "Portland Trail Blazers", "trail blazers": "Portland Trail Blazers", "por": "Portland Trail Blazers", "blazers": "Portland Trail Blazers",

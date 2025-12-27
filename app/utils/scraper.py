@@ -134,8 +134,13 @@ def scrape_oddsshark_consensus(target_date: str, sport: str):
 
                 team_a, team_b = teams
                 game_title = f"{team_a} @ {team_b}"
+
+                # Use actual game date for game_id (not target_date)
+                # Extract date from game_date_utc (e.g., "2025-12-27T00:00:00Z" -> "2025-12-27")
+                game_id_date = game_date_utc.split(
+                    'T')[0] if 'T' in game_date_utc else game_date_utc
                 game_id = create_game_id(
-                    team_a, team_b, sport_name_upper, target_date)
+                    team_a, team_b, sport_name_upper, game_id_date)
 
                 # --- helper
                 def parse_odds(text):
@@ -541,8 +546,17 @@ def scrape_cbs_expert_picks(target_date: str, sport: str):
                     home_team_name, sport_name_upper)
 
                 # Create game_id
+                # CBS shows "today's" games but they typically start after midnight UTC (tomorrow)
+                # Use target_date + 1 day for NBA to match actual game dates
+                from datetime import datetime, timedelta
+                if sport_name_upper == 'NBA':
+                    game_date = (datetime.strptime(
+                        target_date, '%Y-%m-%d') + timedelta(days=1)).strftime('%Y-%m-%d')
+                else:
+                    game_date = target_date
+
                 game_id = create_game_id(
-                    away_team, home_team, sport_name_upper, target_date)
+                    away_team, home_team, sport_name_upper, game_date)
 
                 # Extract spread pick
                 spread_div = expert_picks_col.select_one("div.expert-spread")
@@ -595,7 +609,7 @@ def scrape_cbs_expert_picks(target_date: str, sport: str):
                         category="expert_consensus",
                         context_type="cbs_expert_pick",
                         game_id=game_id,
-                        match_date=target_date,
+                        match_date=game_date,  # Use actual game date, not target_date
                         sport=sport_name_upper,
                         team_pick=spread_pick["team"],
                         data=spread_pick,
@@ -608,7 +622,7 @@ def scrape_cbs_expert_picks(target_date: str, sport: str):
                         category="expert_consensus",
                         context_type="cbs_expert_pick",
                         game_id=game_id,
-                        match_date=target_date,
+                        match_date=game_date,  # Use actual game date, not target_date
                         sport=sport_name_upper,
                         team_pick=None,  # Total picks don't have a team
                         data=total_pick,
