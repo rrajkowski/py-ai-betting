@@ -65,7 +65,8 @@ st.header("Bet Simulator")
 
 # ⚠️ DISABLED: API calls disabled to save costs
 # To re-enable: uncomment the fetch_odds() call below
-st.info("🚫 **Bet Simulator is currently disabled** to save API costs. Use the AI Picks page for betting recommendations.")
+st.info("🚫 **Bet Simulator is currently disabled**.")
+st.page_link("pages/ai_picks_page.py", label="🤖 Use the AI Picks")
 
 # --- Sport and Game Selection ---
 sports_map = {
@@ -85,7 +86,7 @@ sport_key = sports_map[sport_label]
 games_data = []  # Empty list to disable API calls
 
 if not games_data:
-    st.info("⚠️ Bet Simulator is disabled. No API calls will be made.")
+    st.info("⚠️ Bet Simulator is disabled.")
 else:
     game = st.selectbox(
         "Select Game",
