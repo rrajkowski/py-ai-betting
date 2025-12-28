@@ -52,10 +52,10 @@ else:
     st.sidebar.markdown("---")
 
 # -----------------------------
-# AI Daily Picks Section
+# RAGE's Daily Picks Section
 # -----------------------------
 
-st.page_link("pages/ai_picks_page.py", label="🤖 Go to AI Daily Picks")
+st.page_link("pages/ai_picks_page.py", label="🤖 Go to RAGE's Daily Picks")
 
 
 # -----------------------------

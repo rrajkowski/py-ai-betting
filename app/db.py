@@ -320,3 +320,21 @@ def update_pick_result(pick_id, result):
     )
     conn.commit()
     conn.close()
+
+
+def delete_ai_pick(pick_id):
+    """
+    Deletes a specific AI pick by ID.
+    Returns True if successful, False otherwise.
+    """
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM ai_picks WHERE id = ?", (pick_id,))
+        deleted_count = cur.rowcount
+        conn.commit()
+        conn.close()
+        return deleted_count > 0
+    except Exception as e:
+        print(f"❌ Error deleting pick {pick_id}: {e}")
+        return False

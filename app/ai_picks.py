@@ -423,17 +423,29 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
        - Ranked team favored by 10+ points over unranked = High confidence in favorite
        - Unranked team getting points vs Top 10 = Potential upset value
 
-       **LINE VALUE ANALYSIS** (NEW - DETECT MARKET MISPRICING):
-       - Compare consensus picks to DraftKings market lines to identify value
+       **LINE VALUE ANALYSIS** (CRITICAL - MUST FOLLOW CONSENSUS DIRECTION):
+       - **RULE #1**: ALWAYS follow the consensus DIRECTION (Over/Under, Team A/Team B, Favorite/Underdog)
+       - **RULE #2**: NEVER pick the opposite direction just because of a line difference
+       - Compare consensus picks to DraftKings market lines to identify value ONLY when directions match
+
        - **Spread Value**: If consensus line is 2+ points better than DraftKings → +1 star boost
          * Example: Consensus says "Team A -3.5", DraftKings offers "Team A -1.5" → VALUE (getting extra 2 points)
          * Example: Consensus says "Team B +7.5", DraftKings offers "Team B +9.5" → VALUE (getting extra 2 points)
-       - **Total Value**: If consensus line is 3+ points different from DraftKings → +1 star boost
+         * WRONG: Consensus says "Team A -3.5", DraftKings offers "Team B +3.5" → DO NOT PICK (opposite sides)
+
+       - **Total Value**: If consensus line is 3+ points different from DraftKings AND same direction → +1 star boost
          * Example: Consensus says "Over 220", DraftKings offers "Over 217" → VALUE (easier to hit over)
          * Example: Consensus says "Under 225", DraftKings offers "Under 228" → VALUE (easier to hit under)
+         * WRONG: Consensus says "Under 240.5", DraftKings offers "Over 239.5" → DO NOT PICK (opposite directions)
+         * WRONG: Consensus says "Over 220", DraftKings offers "Under 223" → DO NOT PICK (opposite directions)
+
        - **Moneyline Value**: If consensus pick has odds of +120 or better (underdog value) → +0.5 star boost
          * Rationale: Underdogs with consensus support offer better risk/reward
-       - **IMPORTANT**: Only apply value boost if there's already at least 1 source supporting the pick
+
+       - **IMPORTANT**: Only apply value boost if:
+         1. There's already at least 1 source supporting the pick
+         2. The consensus direction matches the DraftKings pick direction
+         3. You are NOT picking the opposite side of the consensus
 
     4. **CONFIDENCE RATING SYSTEM** (CRITICAL - STRICT MINIMUM):
 
@@ -681,6 +693,73 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
 
         return False
 
+    def validate_pick_against_consensus(pick, context_payload):
+        """
+        Validates that the AI's pick matches the consensus direction.
+        Returns (is_valid, reason) tuple.
+        """
+        game = pick.get('game', '')
+        market = pick.get('market', '').lower()
+        pick_value = pick.get('pick', '').lower()
+
+        # Find this game in the context
+        games = context_payload.get('games', [])
+        game_context = None
+        for g in games:
+            if g.get('game_id', '') == game:
+                game_context = g
+                break
+
+        if not game_context:
+            # Can't validate without context, allow it
+            return (True, "No context found")
+
+        # Get expert consensus for this game
+        expert_consensus = game_context.get(
+            'context', {}).get('expert_consensus', [])
+
+        if not expert_consensus:
+            # No consensus data, allow it
+            return (True, "No consensus data")
+
+        # For totals, check if consensus direction matches pick direction
+        if market == 'totals':
+            consensus_directions = []
+            for expert in expert_consensus:
+                if isinstance(expert, dict):
+                    # Check various ways direction might be stored
+                    direction = expert.get('direction', '').lower()
+                    if not direction and 'pick' in expert:
+                        # Sometimes pick contains the direction
+                        pick_text = expert.get('pick', '').lower()
+                        if 'over' in pick_text:
+                            direction = 'over'
+                        elif 'under' in pick_text:
+                            direction = 'under'
+
+                    if direction in ['over', 'under']:
+                        consensus_directions.append(direction)
+
+            if consensus_directions:
+                # Count consensus
+                over_count = consensus_directions.count('over')
+                under_count = consensus_directions.count('under')
+
+                # Determine consensus direction
+                if over_count > under_count:
+                    consensus_dir = 'over'
+                elif under_count > over_count:
+                    consensus_dir = 'under'
+                else:
+                    # Tie, allow either
+                    return (True, "Consensus is split")
+
+                # Check if pick matches consensus
+                if pick_value != consensus_dir:
+                    return (False, f"Pick is {pick_value} but consensus is {consensus_dir} ({over_count} over, {under_count} under)")
+
+        return (True, "Validated")
+
     for pick in parsed:
         pick.setdefault("sport", sport)
         dt = _safe_parse_datetime(
@@ -695,6 +774,14 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
             if int(pick.get("confidence", 0)) < 3:
                 continue
         except (ValueError, TypeError):
+            continue
+
+        # Validate pick against consensus direction
+        is_valid, reason = validate_pick_against_consensus(
+            pick, context_payload)
+        if not is_valid:
+            st.warning(
+                f"⚠️ Skipping {pick.get('game')} - {pick.get('pick')}: {reason}")
             continue
 
         game = pick.get('game', '').strip()

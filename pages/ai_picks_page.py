@@ -13,6 +13,7 @@ from app.db import (
     fetch_performance_summary,
     get_unsettled_picks,
     update_pick_result,
+    delete_ai_pick,
 )
 from app.utils.db import get_db, init_prompt_context_db
 from app.utils.context_builder import create_super_prompt_payload
@@ -397,8 +398,8 @@ if updated_on_load > 0:
 
 
 # --- Page Configuration & Title ---
-st.set_page_config(page_title="🤖 AI Daily Picks", layout="wide")
-st.title("🤖 AI Daily Picks")
+st.set_page_config(page_title="🤖 RAGE's Daily Picks", layout="wide")
+st.title("🤖 RAGE's Daily Picks")
 st.markdown(
     "Click a button to generate AI-recommended bets for that sport. Picks are generated once per day.")
 
@@ -904,6 +905,54 @@ if ai_picks_history:
         columns={"Confidence (Stars)": "confidence"}
     )
 
+    # --- Admin Delete Functionality ---
+    if is_admin():
+        st.caption(
+            "🗑️ Admin: Click the delete button in the rightmost column to remove a pick from the database.")
+
+        # Create header row
+        header_cols = st.columns(
+            [1.2, 0.6, 2, 1.5, 0.8, 0.6, 0.8, 0.8, 0.8, 2.5, 0.4])
+        headers = ["Game Time (PT)", "Sport", "Game", "Pick", "Market",
+                   "Line", "Odds", "Result", "⭐", "Reasoning", "🗑️"]
+        for col, header in zip(header_cols, headers):
+            col.markdown(f"**{header}**")
+
+        st.markdown("---")
+
+        # Add delete buttons for each row
+        for idx, row in df.iterrows():
+            cols = st.columns(
+                [1.2, 0.6, 2, 1.5, 0.8, 0.6, 0.8, 0.8, 0.8, 2.5, 0.4])
+
+            cols[0].write(row.get("Game Time (PT)", "N/A"))
+            cols[1].write(row.get("sport", "N/A"))
+            cols[2].write(row.get("game", "N/A"))
+            cols[3].write(row.get("pick", "N/A"))
+            cols[4].write(row.get("market", "N/A"))
+            cols[5].write(str(row.get("line", "N/A")))
+            cols[6].write(str(row.get("odds_american", "N/A")))
+            cols[7].write(row.get("result", "Pending"))
+            cols[8].write(row.get("Confidence (Stars)", "⭐"))
+
+            # Truncate reasoning to fit
+            reasoning = str(row.get("reasoning", ""))
+            cols[9].write(reasoning[:80] + "..." if len(reasoning)
+                          > 80 else reasoning)
+
+            # Delete button
+            pick_id = row.get("id")
+            if cols[10].button("🗑️", key=f"delete_{pick_id}", help=f"Delete pick #{pick_id}"):
+                if delete_ai_pick(pick_id):
+                    st.success(f"✅ Deleted pick #{pick_id}")
+                    st.rerun()
+                else:
+                    st.error(f"❌ Failed to delete pick #{pick_id}")
+
+        st.markdown("---")
+        st.markdown("### 📊 Reference: Full Picks Table")
+
+    # Show the full dataframe for all users
     st.dataframe(df_display, width='stretch', hide_index=True)
 
 else:
