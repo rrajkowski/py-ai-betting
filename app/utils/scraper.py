@@ -641,8 +641,162 @@ def scrape_cbs_expert_picks(target_date: str, sport: str):
         print(f"❌ CBS Sports: Failed to scrape {sport_name_upper}: {e}")
 
 
+def scrape_boydsbets_picks(target_date: str, sport: str):
+    """
+    Scrapes Boyd's Bets expert picks from their free picks page.
+
+    Args:
+        target_date: Target date for grouping (YYYY-MM-DD)
+        sport: Sport key (e.g., 'americanfootball_nfl')
+    """
+    # 1. Check if sport is in season
+    if not SportConfig.is_in_season(sport):
+        print(f"📡 Boyd's Bets: Skipping {sport.upper()} - out of season")
+        return
+
+    # 2. Map sport key to Boyd's Bets sport filter
+    sport_filter_map = {
+        "americanfootball_nfl": "NFL",
+        "americanfootball_ncaaf": "CFB",
+        "basketball_nba": "NBA",
+        "basketball_ncaab": "CBB",
+        "icehockey_nhl": "NHL",
+    }
+
+    sport_filter = sport_filter_map.get(sport)
+    if not sport_filter:
+        print(f"📡 Boyd's Bets: No picks available for {sport}")
+        return
+
+    sport_name_upper = SportConfig.get_sport_name(sport)
+    url = "https://www.boydsbets.com/free-sports-picks/"
+
+    print(
+        f"📡 Boyd's Bets: Fetching {sport_name_upper} expert picks from {url}...")
+
+    try:
+        resp = requests.get(url, headers={
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        }, timeout=15)
+        resp.raise_for_status()
+        soup = BeautifulSoup(resp.text, "html.parser")
+
+        # Find the picks table
+        picks_table = soup.find("table")
+        if not picks_table:
+            print(f"⚠️ Boyd's Bets: No picks table found")
+            return
+
+        # Find all rows (skip header)
+        rows = picks_table.find_all("tr")[1:]  # Skip header row
+        print(f"🔍 Boyd's Bets: Found {len(rows)} total picks")
+
+        scraped_count = 0
+
+        for row in rows:
+            try:
+                cols = row.find_all("td")
+                if len(cols) < 4:
+                    continue
+
+                # Extract data
+                service = cols[0].get_text(strip=True)
+                row_sport = cols[1].get_text(strip=True)
+                pick_text = cols[2].get_text(strip=True)
+
+                # Filter by sport
+                if row_sport != sport_filter:
+                    continue
+
+                # Extract analysis if available
+                analysis_link = cols[3].find("a")
+                analysis = ""
+                if analysis_link and "Show" in analysis_link.get_text():
+                    # Analysis is available but requires clicking - we'll note this
+                    analysis = f"Analysis available from {service}"
+
+                # Parse the pick text
+                # Examples: "Jaguars -5 -110", "Bengals over 52 -110", "49ers -3 -112"
+                import re
+
+                # Try to extract team, market, line, and odds
+                pick_data = {
+                    "expert": service,
+                    "pick_text": pick_text,
+                    "analysis": analysis
+                }
+
+                # Parse different pick formats
+                # Format 1: "Team +/-spread odds" (e.g., "Jaguars -5 -110")
+                spread_match = re.search(
+                    r'(.+?)\s+([-+][\d.]+)\s+([-+]\d+)', pick_text)
+                if spread_match:
+                    team = spread_match.group(1).strip()
+                    line = spread_match.group(2)
+                    odds = spread_match.group(3)
+
+                    pick_data.update({
+                        "market": "spread",
+                        "team": normalize_team_name(team, sport_name_upper),
+                        "line": line,
+                        "odds_american": int(odds)
+                    })
+                else:
+                    # Format 2: "Team over/under total odds" (e.g., "Bengals over 52 -110")
+                    total_match = re.search(
+                        r'(.+?)\s+(over|under)\s+([\d.]+)\s+([-+]\d+)', pick_text, re.IGNORECASE)
+                    if total_match:
+                        team = total_match.group(1).strip()
+                        direction = total_match.group(2).lower()
+                        total = total_match.group(3)
+                        odds = total_match.group(4)
+
+                        pick_data.update({
+                            "market": "total",
+                            "direction": direction,
+                            "line": total,
+                            "odds_american": int(odds)
+                        })
+
+                        # For totals, we don't need a specific team for game_id
+                        # We'll try to extract team names from context if needed
+                        team_normalized = normalize_team_name(
+                            team, sport_name_upper)
+                        pick_data["team"] = team_normalized
+
+                # Only store if we successfully parsed the pick
+                if "market" in pick_data:
+                    # Create a basic game_id (we may not have full game info)
+                    # Use the team name and date
+                    team_for_id = pick_data.get("team", "Unknown")
+                    game_id = f"{sport_name_upper}-{team_for_id.replace(' ', '')}-{target_date}"
+
+                    insert_context(
+                        category="expert_consensus",
+                        context_type="boydsbets_pick",
+                        game_id=game_id,
+                        match_date=target_date,
+                        sport=sport_name_upper,
+                        team_pick=pick_data.get("team"),
+                        data=pick_data,
+                        source="boydsbets"
+                    )
+                    scraped_count += 1
+
+            except Exception as e:
+                print(f"⚠️ Boyd's Bets: Error parsing row: {e}")
+                continue
+
+        print(
+            f"✅ Boyd's Bets: Stored {scraped_count} {sport_name_upper} picks")
+
+    except Exception as e:
+        print(f"❌ Boyd's Bets: Failed to scrape {sport_name_upper}: {e}")
+
+
 def run_scrapers(target_date: str, sport: str):
     """Entrypoint for scraping multiple sources for a single sport."""
     scrape_oddsshark_consensus(target_date, sport)
     scrape_oddstrader_picks(target_date, sport)
     scrape_cbs_expert_picks(target_date, sport)
+    scrape_boydsbets_picks(target_date, sport)
