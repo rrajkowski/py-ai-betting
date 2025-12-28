@@ -401,7 +401,7 @@ if updated_on_load > 0:
 st.set_page_config(page_title="🤖 RAGE's Daily Picks", layout="wide")
 st.title("🤖 RAGE's Daily Picks")
 st.markdown(
-    "Click a button to generate AI-recommended bets for that sport. Picks are generated once per day.")
+    "Click a button to generate AI-recommended bets for that sport. **Top 2 high-confidence (4-5 star) picks per sport.** Picks are generated once per day.")
 
 # --- Initialize Session State ---
 # This is crucial for making new picks appear instantly.
@@ -788,12 +788,12 @@ if st.session_state.generated_picks:
     if not picks:
         st.info("The AI found no high-value picks for the upcoming games.")
     else:
-        # Use a maximum of 3 columns for display, regardless of the number of picks
-        num_cols = min(len(picks), 3)
+        # Use a maximum of 2 columns for display (top 2 picks per sport)
+        num_cols = min(len(picks), 2)
         cols = st.columns(num_cols)
 
         for i, pick in enumerate(picks):
-            with cols[i % 3]:
+            with cols[i % 2]:
                 with st.container(border=True):
                     # --- Check if 'pick' is a dictionary before processing ---
                     if isinstance(pick, dict):
@@ -880,8 +880,8 @@ if ai_picks_history:
             local_tz = ZoneInfo(LOCAL_TZ_NAME)
             dt_local = dt_utc.astimezone(local_tz)
 
-            # Format: "Thu, Dec 19, 5:15 PM PST"
-            return dt_local.strftime('%a, %b %d, %I:%M %p %Z')
+            # Format: "Thu, Dec 19, 5:15 PM" (removed timezone since it's in column header)
+            return dt_local.strftime('%a, %b %d, %I:%M %p')
         except Exception:
             return str(utc_str)  # Fallback to original if conversion fails
 
@@ -909,6 +909,44 @@ if ai_picks_history:
     if is_admin():
         st.caption(
             "🗑️ Admin: Click the delete button in the rightmost column to remove a pick from the database.")
+
+        # Add custom CSS for table styling
+        st.markdown("""
+            <style>
+            /* Prevent wrapping in confidence column and set min-width */
+            div[data-testid="column"]:nth-child(9) {
+                min-width: 80px;
+                white-space: nowrap;
+            }
+            /* Remove border and padding from delete button - comprehensive selectors */
+            button[kind="secondary"] {
+                border: none !important;
+                background: transparent !important;
+                padding: 0 !important;
+                min-height: auto !important;
+                box-shadow: none !important;
+            }
+            button[kind="secondary"]:hover {
+                background: rgba(255, 75, 75, 0.1) !important;
+                border: none !important;
+            }
+            button[kind="secondary"]:focus {
+                box-shadow: none !important;
+                border: none !important;
+            }
+            /* Target all buttons in the last column */
+            div[data-testid="column"]:last-child button {
+                border: none !important;
+                background: transparent !important;
+                padding: 0 !important;
+                min-height: auto !important;
+                box-shadow: none !important;
+            }
+            div[data-testid="column"]:last-child button:hover {
+                background: rgba(255, 75, 75, 0.1) !important;
+            }
+            </style>
+        """, unsafe_allow_html=True)
 
         # Create header row
         header_cols = st.columns(
@@ -951,6 +989,18 @@ if ai_picks_history:
 
         st.markdown("---")
         st.markdown("### 📊 Reference: Full Picks Table")
+
+    # Add CSS for dataframe confidence column styling
+    st.markdown("""
+        <style>
+        /* Prevent wrapping in confidence column in dataframe */
+        div[data-testid="stDataFrame"] table th:nth-child(9),
+        div[data-testid="stDataFrame"] table td:nth-child(9) {
+            min-width: 80px;
+            white-space: nowrap;
+        }
+        </style>
+    """, unsafe_allow_html=True)
 
     # Show the full dataframe for all users
     st.dataframe(df_display, width='stretch', hide_index=True)

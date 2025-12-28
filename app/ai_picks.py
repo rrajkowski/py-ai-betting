@@ -449,13 +449,13 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
 
     4. **CONFIDENCE RATING SYSTEM** (CRITICAL - STRICT MINIMUM):
 
-       **5 STARS** (Highest Confidence):
+       **5 STARS** (Highest Confidence - PRIORITIZE THESE):
        - 3+ sources agree (strong consensus)
        - 2 sources + Kalshi Strong Signal
        - 2 sources + line value (2+ points for spreads, 3+ for totals)
        - OddsTrader 4-star + 2 other sources
 
-       **4 STARS** (High Confidence):
+       **4 STARS** (High Confidence - PRIORITIZE THESE):
        - 2 sources agree (any agreement)
        - 1 source + Kalshi Strong Signal
        - 1 source + Kalshi Strong Signal + line value
@@ -463,7 +463,7 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
        - OddsTrader 4-star + line value
        - OddsTrader 3-star + 2 other sources
 
-       **3 STARS** (Medium Confidence - Minimum Threshold):
+       **3 STARS** (Medium Confidence - USE ONLY IF NO 4-5 STAR PICKS AVAILABLE):
        - OddsTrader 4-star pick alone
        - 1 high-confidence source (CBS 5+ experts, OddsShark computer pick)
        - 1 high-confidence source + line value
@@ -471,8 +471,10 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
        - 2 medium sources agree
 
        **ABSOLUTE REQUIREMENT**: Only include picks with **3, 4, or 5 stars**
+       - **STRONGLY PREFER 4-5 star picks** - only use 3-star picks if no better options exist
        - **DO NOT GENERATE 1 or 2 star picks** - they will be rejected
        - If no picks meet the 3+ star threshold, return an empty picks array
+       - **IDEAL OUTPUT**: 2 picks with 4-5 stars each
 
     5. **VALIDATION RULES** (CRITICAL - NO EXCEPTIONS):
        - Only select games where `commence_time` is in the future (not started)
@@ -521,23 +523,27 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
        - **DO NOT include** extraction dates, timestamps, or technical details in reasoning
 
     7. **PICK SELECTION STRATEGY**:
-       - Return a maximum of 3 picks
+       - Return a maximum of 2 picks per sport
        - **Prioritize highest consensus and confidence first**
-       - If all 3 picks are from the same market AND there's a reasonable alternative from a different market (3+ stars), consider replacing the lowest confidence pick
+       - **STRONGLY PREFER 4-5 star picks** - only include 3-star picks if no 4-5 star options exist
+       - If both picks are from the same market AND there's a reasonable alternative from a different market (4+ stars), consider replacing the lowest confidence pick
        - Don't force diversity if consensus is clearly concentrated in one market
        - Example acceptable outputs:
-         * 2 totals, 1 spread (if totals have stronger consensus)
-         * 1 spread, 1 total, 1 h2h (balanced)
-         * 3 totals (only if all are 5-star and no other markets have 4+ star picks)
+         * 2 totals (if both are 4-5 stars)
+         * 1 spread, 1 total (if both are 4-5 stars)
+         * 1 h2h (if only one 4-5 star pick exists)
+         * 0 picks (if no picks meet 4+ star threshold)
 
     8. **FINAL VALIDATION BEFORE RETURNING** (MANDATORY CHECKLIST):
        - Review each pick's confidence rating
+       - **PRIORITIZE 4-5 star picks** - if you have more than 2 picks, keep only the top 2 by confidence
        - **REMOVE any picks with confidence < 3**
        - **REMOVE any picks with odds outside +150 to -150 range**
          * Check EVERY pick: Is -150 ≤ odds ≤ +150?
          * If NO, DELETE that pick immediately
          * Examples to DELETE: -175, -200, -425, +160, +200, +300
        - **REMOVE any conflicting picks** (both sides of same game/market)
+       - **LIMIT TO 2 PICKS MAXIMUM** - if you have 3+ picks after filtering, keep only the top 2 by confidence
        - If this leaves you with 0 picks, return {{"picks": []}}
        - Better to return no picks than picks that violate the rules
 
