@@ -907,85 +907,83 @@ if ai_picks_history:
 
     # --- Admin Delete Functionality ---
     if is_admin():
-        st.caption(
-            "🗑️ Admin: Click the delete button in the rightmost column to remove a pick from the database.")
-
         # Add custom CSS for table styling
         st.markdown("""
             <style>
             /* Prevent wrapping in confidence column and set min-width */
-            div[data-testid="column"]:nth-child(9) {
+            .admin-delete-table div[data-testid="column"]:nth-child(9) {
                 min-width: 80px;
                 white-space: nowrap;
             }
-            /* Remove border and padding from delete button - comprehensive selectors */
-            button[kind="secondary"] {
+            /* Remove border and padding from delete button ONLY in admin table */
+            .admin-delete-table button {
                 border: none !important;
                 background: transparent !important;
                 padding: 0 !important;
                 min-height: auto !important;
                 box-shadow: none !important;
             }
-            button[kind="secondary"]:hover {
+            .admin-delete-table button:hover {
                 background: rgba(255, 75, 75, 0.1) !important;
                 border: none !important;
             }
-            button[kind="secondary"]:focus {
+            .admin-delete-table button:focus {
                 box-shadow: none !important;
                 border: none !important;
-            }
-            /* Target all buttons in the last column */
-            div[data-testid="column"]:last-child button {
-                border: none !important;
-                background: transparent !important;
-                padding: 0 !important;
-                min-height: auto !important;
-                box-shadow: none !important;
-            }
-            div[data-testid="column"]:last-child button:hover {
-                background: rgba(255, 75, 75, 0.1) !important;
             }
             </style>
         """, unsafe_allow_html=True)
 
-        # Create header row
-        header_cols = st.columns(
-            [1.2, 0.6, 2, 1.5, 0.8, 0.6, 0.8, 0.8, 0.8, 2.5, 0.4])
-        headers = ["Game Time (PT)", "Sport", "Game", "Pick", "Market",
-                   "Line", "Odds", "Result", "⭐", "Reasoning", "🗑️"]
-        for col, header in zip(header_cols, headers):
-            col.markdown(f"**{header}**")
+        # Collapsible admin section (collapsed by default)
+        with st.expander("🗑️ Admin: Delete Picks", expanded=False):
+            st.caption(
+                "Click the delete button in the rightmost column to remove a pick from the database.")
 
-        st.markdown("---")
+            # Wrap table in a div with unique class
+            st.markdown('<div class="admin-delete-table">',
+                        unsafe_allow_html=True)
 
-        # Add delete buttons for each row
-        for idx, row in df.iterrows():
-            cols = st.columns(
+            # Create header row
+            header_cols = st.columns(
                 [1.2, 0.6, 2, 1.5, 0.8, 0.6, 0.8, 0.8, 0.8, 2.5, 0.4])
+            headers = ["Game Time (PT)", "Sport", "Game", "Pick", "Market",
+                       "Line", "Odds", "Result", "⭐", "Reasoning", "🗑️"]
+            for col, header in zip(header_cols, headers):
+                col.markdown(f"**{header}**")
 
-            cols[0].write(row.get("Game Time (PT)", "N/A"))
-            cols[1].write(row.get("sport", "N/A"))
-            cols[2].write(row.get("game", "N/A"))
-            cols[3].write(row.get("pick", "N/A"))
-            cols[4].write(row.get("market", "N/A"))
-            cols[5].write(str(row.get("line", "N/A")))
-            cols[6].write(str(row.get("odds_american", "N/A")))
-            cols[7].write(row.get("result", "Pending"))
-            cols[8].write(row.get("Confidence (Stars)", "⭐"))
+            st.markdown("---")
 
-            # Truncate reasoning to fit
-            reasoning = str(row.get("reasoning", ""))
-            cols[9].write(reasoning[:80] + "..." if len(reasoning)
-                          > 80 else reasoning)
+            # Add delete buttons for each row
+            for idx, row in df.iterrows():
+                cols = st.columns(
+                    [1.2, 0.6, 2, 1.5, 0.8, 0.6, 0.8, 0.8, 0.8, 2.5, 0.4])
 
-            # Delete button
-            pick_id = row.get("id")
-            if cols[10].button("🗑️", key=f"delete_{pick_id}", help=f"Delete pick #{pick_id}"):
-                if delete_ai_pick(pick_id):
-                    st.success(f"✅ Deleted pick #{pick_id}")
-                    st.rerun()
-                else:
-                    st.error(f"❌ Failed to delete pick #{pick_id}")
+                cols[0].write(row.get("Game Time (PT)", "N/A"))
+                cols[1].write(row.get("sport", "N/A"))
+                cols[2].write(row.get("game", "N/A"))
+                cols[3].write(row.get("pick", "N/A"))
+                cols[4].write(row.get("market", "N/A"))
+                cols[5].write(str(row.get("line", "N/A")))
+                cols[6].write(str(row.get("odds_american", "N/A")))
+                cols[7].write(row.get("result", "Pending"))
+                cols[8].write(row.get("Confidence (Stars)", "⭐"))
+
+                # Truncate reasoning to fit
+                reasoning = str(row.get("reasoning", ""))
+                cols[9].write(reasoning[:80] + "..." if len(reasoning)
+                              > 80 else reasoning)
+
+                # Delete button
+                pick_id = row.get("id")
+                if cols[10].button("🗑️", key=f"delete_{pick_id}", help=f"Delete pick #{pick_id}"):
+                    if delete_ai_pick(pick_id):
+                        st.success(f"✅ Deleted pick #{pick_id}")
+                        st.rerun()
+                    else:
+                        st.error(f"❌ Failed to delete pick #{pick_id}")
+
+            # Close the admin-delete-table div
+            st.markdown('</div>', unsafe_allow_html=True)
 
         st.markdown("---")
         st.markdown("### 📊 Reference: Full Picks Table")
