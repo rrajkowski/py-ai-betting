@@ -10,7 +10,6 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from datetime import datetime, timezone
 from app.utils.context_builder import create_super_prompt_payload
 from app.ai_picks import fetch_odds
-import json
 
 
 def main():
@@ -25,13 +24,13 @@ def main():
     print(f"\n📅 Target Date: {target_date}")
     
     # 1. Check consensus data
-    print(f"\n🔨 Building context payload for NFL...")
+    print("\n🔨 Building context payload for NFL...")
     context = create_super_prompt_payload(target_date, "americanfootball_nfl")
     
     games = context.get('games', [])
     
     if not games:
-        print(f"   ❌ No games in context!")
+        print("   ❌ No games in context!")
         return
     
     print(f"   ✅ Found {len(games)} games in context")
@@ -45,13 +44,13 @@ def main():
             break
     
     if not miami_pitt:
-        print(f"\n   ❌ Miami @ Pittsburgh not found in context!")
-        print(f"\n   Available games:")
+        print("\n   ❌ Miami @ Pittsburgh not found in context!")
+        print("\n   Available games:")
         for g in games:
             print(f"      - {g.get('game_id')}")
         return
     
-    print(f"\n✅ Found Miami @ Pittsburgh in context:")
+    print("\n✅ Found Miami @ Pittsburgh in context:")
     print(f"   Game ID: {miami_pitt.get('game_id')}")
     print(f"   Match Date: {miami_pitt.get('match_date')}")
     
@@ -59,7 +58,7 @@ def main():
     print(f"   Expert Consensus Count: {len(expert_consensus)}")
     
     if expert_consensus:
-        print(f"\n   📊 Expert Consensus Data:")
+        print("\n   📊 Expert Consensus Data:")
         for i, consensus in enumerate(expert_consensus, 1):
             print(f"      {i}. Source: {consensus.get('source', 'unknown')}")
             print(f"         Market: {consensus.get('market', 'N/A')}")
@@ -69,11 +68,11 @@ def main():
             print(f"         Confidence: {consensus.get('confidence', 'N/A')}")
     
     # 2. Check odds data
-    print(f"\n🎲 Fetching odds for NFL...")
+    print("\n🎲 Fetching odds for NFL...")
     raw_odds = fetch_odds("americanfootball_nfl")
     
     if not raw_odds:
-        print(f"   ❌ No odds data!")
+        print("   ❌ No odds data!")
         return
     
     print(f"   ✅ Found {len(raw_odds)} games with odds")
@@ -88,13 +87,13 @@ def main():
             break
     
     if not miami_pitt_odds:
-        print(f"\n   ❌ Miami @ Pittsburgh not found in odds!")
-        print(f"\n   Available games:")
+        print("\n   ❌ Miami @ Pittsburgh not found in odds!")
+        print("\n   Available games:")
         for g in raw_odds[:5]:
             print(f"      - {g.get('away_team')} @ {g.get('home_team')}")
         return
     
-    print(f"\n✅ Found Miami @ Pittsburgh in odds:")
+    print("\n✅ Found Miami @ Pittsburgh in odds:")
     print(f"   {miami_pitt_odds.get('away_team')} @ {miami_pitt_odds.get('home_team')}")
     print(f"   Commence Time: {miami_pitt_odds.get('commence_time')}")
     
@@ -125,13 +124,13 @@ def main():
         print(f"   - Extreme moneyline picks (rejected): {len(extreme_ml)}")
         
         if valid_picks:
-            print(f"\n✅ AI should be able to generate picks from:")
+            print("\n✅ AI should be able to generate picks from:")
             for pick in valid_picks:
                 print(f"   - {pick.get('source')}: {pick.get('market')} {pick.get('line')} @ {pick.get('odds', pick.get('odds_american'))}")
         else:
-            print(f"\n❌ No valid picks within odds range (-150 to +150)")
+            print("\n❌ No valid picks within odds range (-150 to +150)")
     else:
-        print(f"❌ No expert consensus data - AI cannot generate picks")
+        print("❌ No expert consensus data - AI cannot generate picks")
 
 
 if __name__ == "__main__":

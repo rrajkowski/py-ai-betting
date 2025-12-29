@@ -45,7 +45,7 @@ if len(totals_df) > 0:
     print(f"  Under: {under_count:2d} picks ({under_pct:5.1f}%)")
     
     if under_count > over_count * 2:
-        print(f"\n  ⚠️  WARNING: Heavy Under bias detected!")
+        print("\n  ⚠️  WARNING: Heavy Under bias detected!")
         print(f"      Under picks are {under_count/max(over_count, 1):.1f}x more common than Over picks")
 
 # For spreads, analyze favorites vs underdogs

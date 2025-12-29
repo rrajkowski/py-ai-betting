@@ -289,8 +289,8 @@ def scrape_oddstrader_picks(target_date: str, sport: str):
         target_date: Target date for grouping (YYYY-MM-DD)
         sport: Sport key (e.g., 'americanfootball_nfl')
     """
-    print(f"⚠️ OddsTrader: Scraper disabled (requires JavaScript rendering not available on Streamlit Cloud)")
-    print(f"   Using OddsShark and CBS Sports for consensus data instead")
+    print("⚠️ OddsTrader: Scraper disabled (requires JavaScript rendering not available on Streamlit Cloud)")
+    print("   Using OddsShark and CBS Sports for consensus data instead")
     return
 
     # DISABLED CODE BELOW - Kept for reference
@@ -655,11 +655,12 @@ def scrape_boydsbets_picks(target_date: str, sport: str):
         return
 
     # 2. Map sport key to Boyd's Bets sport filter
+    # Boyd's uses NCAA-F and NCAA-B for college sports (not CFB/CBB)
     sport_filter_map = {
         "americanfootball_nfl": "NFL",
-        "americanfootball_ncaaf": "CFB",
+        "americanfootball_ncaaf": "NCAA-F",  # College Football
         "basketball_nba": "NBA",
-        "basketball_ncaab": "CBB",
+        "basketball_ncaab": "NCAA-B",  # College Basketball
         "icehockey_nhl": "NHL",
     }
 
@@ -684,7 +685,7 @@ def scrape_boydsbets_picks(target_date: str, sport: str):
         # Find the picks table
         picks_table = soup.find("table")
         if not picks_table:
-            print(f"⚠️ Boyd's Bets: No picks table found")
+            print("⚠️ Boyd's Bets: No picks table found")
             return
 
         # Find all rows (skip header)

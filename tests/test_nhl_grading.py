@@ -27,7 +27,7 @@ def test_h2h_grading():
     
     result = _check_pick_result(pick, home_score=3, away_score=5)
     print(f"Pick: {pick['pick']}")
-    print(f"Score: Ottawa 5, Montreal 3")
+    print("Score: Ottawa 5, Montreal 3")
     print(f"Result: {result}")
     assert result == 'Win', f"Expected 'Win', got '{result}'"
     print("✅ PASS: Ottawa moneyline correctly graded as Win")
@@ -36,7 +36,7 @@ def test_h2h_grading():
     pick['pick'] = 'Montréal Canadiens'
     result = _check_pick_result(pick, home_score=3, away_score=5)
     print(f"\nPick: {pick['pick']}")
-    print(f"Score: Ottawa 5, Montreal 3")
+    print("Score: Ottawa 5, Montreal 3")
     print(f"Result: {result}")
     assert result == 'Loss', f"Expected 'Loss', got '{result}'"
     print("✅ PASS: Montreal moneyline correctly graded as Loss")
@@ -44,7 +44,7 @@ def test_h2h_grading():
     # Test tie
     result = _check_pick_result(pick, home_score=3, away_score=3)
     print(f"\nPick: {pick['pick']}")
-    print(f"Score: 3-3 (Tie)")
+    print("Score: 3-3 (Tie)")
     print(f"Result: {result}")
     assert result == 'Push', f"Expected 'Push', got '{result}'"
     print("✅ PASS: Tie correctly graded as Push")
@@ -66,8 +66,8 @@ def test_spread_grading():
     
     result = _check_pick_result(pick, home_score=3, away_score=5)
     print(f"Pick: {pick['pick']} {pick['line']}")
-    print(f"Score: Ottawa 5, Montreal 3 (Ottawa wins by 2)")
-    print(f"Adjusted: 5 + (-1.5) = 3.5 vs 3")
+    print("Score: Ottawa 5, Montreal 3 (Ottawa wins by 2)")
+    print("Adjusted: 5 + (-1.5) = 3.5 vs 3")
     print(f"Result: {result}")
     assert result == 'Win', f"Expected 'Win', got '{result}'"
     print("✅ PASS: Spread -1.5 correctly graded as Win")
@@ -77,8 +77,8 @@ def test_spread_grading():
     pick['line'] = 1.5  # Montreal getting 1.5
     result = _check_pick_result(pick, home_score=3, away_score=5)
     print(f"\nPick: {pick['pick']} +{pick['line']}")
-    print(f"Score: Ottawa 5, Montreal 3 (Montreal loses by 2)")
-    print(f"Adjusted: 3 + 1.5 = 4.5 vs 5")
+    print("Score: Ottawa 5, Montreal 3 (Montreal loses by 2)")
+    print("Adjusted: 3 + 1.5 = 4.5 vs 5")
     print(f"Result: {result}")
     assert result == 'Loss', f"Expected 'Loss', got '{result}'"
     print("✅ PASS: Spread +1.5 correctly graded as Loss")
@@ -100,7 +100,7 @@ def test_total_grading():
     
     result = _check_pick_result(pick, home_score=3, away_score=5)
     print(f"Pick: {pick['pick']} {pick['line']}")
-    print(f"Score: Ottawa 5, Montreal 3 (Total: 8)")
+    print("Score: Ottawa 5, Montreal 3 (Total: 8)")
     print(f"Result: {result}")
     assert result == 'Win', f"Expected 'Win', got '{result}'"
     print("✅ PASS: Over 6.5 correctly graded as Win")
@@ -109,7 +109,7 @@ def test_total_grading():
     pick['pick'] = 'Under'
     result = _check_pick_result(pick, home_score=3, away_score=5)
     print(f"\nPick: {pick['pick']} {pick['line']}")
-    print(f"Score: Ottawa 5, Montreal 3 (Total: 8)")
+    print("Score: Ottawa 5, Montreal 3 (Total: 8)")
     print(f"Result: {result}")
     assert result == 'Loss', f"Expected 'Loss', got '{result}'"
     print("✅ PASS: Under 6.5 correctly graded as Loss")
@@ -118,7 +118,7 @@ def test_total_grading():
     pick['line'] = 8.0
     result = _check_pick_result(pick, home_score=3, away_score=5)
     print(f"\nPick: {pick['pick']} {pick['line']}")
-    print(f"Score: Ottawa 5, Montreal 3 (Total: 8)")
+    print("Score: Ottawa 5, Montreal 3 (Total: 8)")
     print(f"Result: {result}")
     assert result == 'Push', f"Expected 'Push', got '{result}'"
     print("✅ PASS: Under 8.0 correctly graded as Push")
@@ -132,7 +132,7 @@ def test_nhl_api_connection():
     
     try:
         scores = fetch_scores(sport="icehockey_nhl", days_from=2)
-        print(f"✅ Successfully fetched NHL scores")
+        print("✅ Successfully fetched NHL scores")
         print(f"   Found {len(scores)} games")
         
         # Show completed games
@@ -150,7 +150,7 @@ def test_nhl_api_connection():
         
         return True
     except Exception as e:
-        print(f"❌ FAIL: Could not fetch NHL scores")
+        print("❌ FAIL: Could not fetch NHL scores")
         print(f"   Error: {e}")
         return False
 

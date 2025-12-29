@@ -4,7 +4,6 @@ import streamlit as st
 
 from app.db import init_db, insert_bet, list_bets, init_ai_picks
 from app.utils.db import init_prompt_context_db  # NEW: Import for new table setup
-from app.ai_picks import fetch_odds
 
 # -----------------------------
 # Page Configuration (MUST be first Streamlit command)

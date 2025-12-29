@@ -67,7 +67,7 @@ def test_market_filtering(sport_key, sport_name):
                 })
                 filtered_markets += 1
     
-    print(f"\n📊 Results:")
+    print("\n📊 Results:")
     print(f"   Total markets: {total_markets}")
     print(f"   Filtered markets: {filtered_markets}")
     print(f"   Filtered out: {total_markets - filtered_markets}")
@@ -77,13 +77,13 @@ def test_market_filtering(sport_key, sport_name):
     spreads_count = sum(1 for m in normalized_odds if m['market'] == 'spreads')
     totals_count = sum(1 for m in normalized_odds if m['market'] == 'totals')
     
-    print(f"\n📈 Market breakdown:")
+    print("\n📈 Market breakdown:")
     print(f"   h2h (moneyline): {h2h_count}")
     print(f"   spreads: {spreads_count}")
     print(f"   totals: {totals_count}")
     
     # Show sample markets
-    print(f"\n📋 Sample markets (first 10):")
+    print("\n📋 Sample markets (first 10):")
     for i, market in enumerate(normalized_odds[:10]):
         print(f"   {i+1}. {market['game']}")
         print(f"      {market['market']}: {market['pick']} @ {market['odds']}")

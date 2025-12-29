@@ -385,7 +385,7 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
        - Odds from DraftKings
        - Historical performance data
        - Kalshi sentiment data (popularity_score, volume_24h, open_interest)
-       - Expert consensus from multiple sources (OddsShark, OddsTrader, CBS Sports)
+       - Expert consensus from multiple sources (OddsShark, OddsTrader, CBS Sports, BoydsBets)
        - Team rankings (NCAAB/NCAAF): AP Poll, Coaches Poll, CBS Rankings
 
     2. **MARKET DIVERSITY GUIDELINE** (IMPORTANT):
@@ -397,7 +397,7 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
 
     3. **CONSENSUS WEIGHTING** (CRITICAL):
        - **ONLY use sources that are EXPLICITLY present in the context data**
-       - Available sources: "oddsshark", "oddstrader", "cbs_sports", "kalshi"
+       - Available sources: "oddsshark", "oddstrader", "cbs_sports", "boydsbets", "kalshi"
        - If 2+ sources agree on the SAME bet (same team, same market, similar line): **BOOST confidence by +1 star**
        - If 3+ sources agree: **BOOST confidence by +2 stars**
 
@@ -408,6 +408,7 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
          * Use the `star_rating` field from OddsTrader data to determine baseline
        - CBS Sports 5+ expert consensus = High confidence baseline
        - OddsShark computer pick = Medium confidence baseline
+       - Boyd's Bets expert pick = Medium confidence baseline
 
        **KALSHI AS PRIMARY SIGNAL** (NEW - HIGH PRIORITY):
        - **Kalshi Strong Signal** = (implied_prob > 0.65 OR implied_prob < 0.35) AND volume_24h > 500 AND open_interest > 2000
@@ -518,6 +519,7 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
          * Replace "OddsShark" or "oddsshark" with "Consensus 1"
          * Replace "OddsTrader" or "oddstrader" with "Consensus 2"
          * Replace "CBS Sports" or "cbs_sports" with "Consensus 3"
+         * Replace "Boyd's Bets" or "boydsbets" with "Consensus 4"
          * Replace "DraftKings" with "Sportsbook"
          * Keep "Kalshi" as is (public prediction)
        - **DO NOT include** extraction dates, timestamps, or technical details in reasoning

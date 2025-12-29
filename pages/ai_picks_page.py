@@ -10,7 +10,6 @@ from app.db import (
     get_most_recent_pick_timestamp,
     list_ai_picks,
     init_ai_picks,
-    fetch_performance_summary,
     get_unsettled_picks,
     update_pick_result,
     delete_ai_pick,
@@ -191,7 +190,7 @@ if is_admin():
                 os.unlink(backup_db_path)
 
                 # Show results
-                st.sidebar.success(f"✅ Merge complete!")
+                st.sidebar.success("✅ Merge complete!")
                 st.sidebar.info(
                     f"📊 Added: {added} | Updated: {updated} | Skipped: {skipped}")
                 st.sidebar.info(
@@ -622,7 +621,7 @@ def run_ai_picks(sport_key, sport_name):
                 try:
                     game_time = datetime.fromisoformat(
                         game_time_str.replace('Z', '+00:00'))
-                except:
+                except (ValueError, AttributeError):
                     continue
 
                 # Skip games outside time window

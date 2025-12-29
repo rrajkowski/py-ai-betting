@@ -3,7 +3,6 @@
 import sys
 sys.path.insert(0, '/Users/rubenrajkowski/Sites/py-ai-betting')
 
-from datetime import datetime, timezone, timedelta
 
 # Simulate the duplicate detection logic
 def test_duplicate_detection():
@@ -80,7 +79,7 @@ def test_duplicate_detection():
         seen_games.add(game)
         unique_picks.append(pick)
     
-    print(f"\n📊 Results:")
+    print("\n📊 Results:")
     print(f"   Total new picks: {len(new_picks)}")
     print(f"   Duplicates skipped: {skipped_duplicates}")
     print(f"   Conflicts skipped: {skipped_conflicts}")

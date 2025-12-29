@@ -45,7 +45,7 @@ try:
     )
 
     response_text = message.content[0].text
-    print(f"\n✅ Claude Sonnet 4.5 Response:")
+    print("\n✅ Claude Sonnet 4.5 Response:")
     print(f"   {response_text}")
 
     # Test with Claude Haiku 4.5 (correct model name)
@@ -61,7 +61,7 @@ try:
     )
 
     response_text2 = message2.content[0].text
-    print(f"\n✅ Claude Haiku 4.5 Response:")
+    print("\n✅ Claude Haiku 4.5 Response:")
     print(f"   {response_text2}")
 
     print("\n" + "=" * 80)

@@ -17,15 +17,15 @@ for i, row in enumerate(rows):
     text = row.get_text()
     if 'MIA' in text and 'PIT' in text:
         print(f'=== Miami @ Pittsburgh (Row {i}) ===\n')
-        
+
         # Get all cells
         cells = row.select('td')
         print(f'Total cells: {len(cells)}\n')
-        
+
         for j, cell in enumerate(cells):
             print(f'--- Cell {j} ---')
             print(f'Text: {cell.get_text(strip=True)[:150]}')
-            
+
             # Check for team logos
             logos = cell.select('.TeamLogo-image')
             if logos:
@@ -36,7 +36,7 @@ for i, row in enumerate(rows):
                         print('  - Pittsburgh')
                     elif 'miami' in src.lower():
                         print('  - Miami')
-            
+
             # Check for picks (buttons or divs)
             picks = cell.select('.TableExpertPicks-pickLayout')
             if picks:
@@ -50,7 +50,7 @@ for i, row in enumerate(rows):
                             print('  Pick: Pittsburgh')
                         elif 'miami' in src.lower():
                             print('  Pick: Miami')
-                    
+
                     # Get spread from button
                     button = pick.select_one('button')
                     if button:
@@ -63,10 +63,9 @@ for i, row in enumerate(rows):
                                 line = config_data.get('line', '')
                                 market = config_data.get('marketName', '')
                                 print(f'    Market: {market}, Line: {line}')
-                            except:
+                            except (json.JSONDecodeError, KeyError, TypeError):
                                 pass
-            
-            print()
-        
-        break
 
+            print()
+
+        break

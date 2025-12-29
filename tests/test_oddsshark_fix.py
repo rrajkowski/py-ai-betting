@@ -106,7 +106,7 @@ if total_count > 0:
     spread_pct = (len(by_market.get('spread', [])) / total_count) * 100
     total_pct = (len(by_market.get('total', [])) / total_count) * 100
 
-    print(f"\n📊 BALANCE CHECK:")
+    print("\n📊 BALANCE CHECK:")
     print(f"   Moneyline: {ml_pct:.0f}% (target: ~33%)")
     print(f"   Spread:    {spread_pct:.0f}% (target: ~33%)")
     print(f"   Total:     {total_pct:.0f}% (target: ~33%)")

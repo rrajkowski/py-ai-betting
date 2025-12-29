@@ -92,7 +92,7 @@ def test_validate_pick_against_consensus():
     
     is_valid, reason = validate_pick_against_consensus(pick1, context1)
     print(f"Pick: {pick1['pick']} {pick1['line']}")
-    print(f"Consensus: 3 sources say Under 240.5")
+    print("Consensus: 3 sources say Under 240.5")
     print(f"Result: {'✅ VALID' if is_valid else '❌ REJECTED'}")
     print(f"Reason: {reason}")
     assert not is_valid, "Should reject Over when consensus is Under"
@@ -112,7 +112,7 @@ def test_validate_pick_against_consensus():
     
     is_valid, reason = validate_pick_against_consensus(pick2, context1)
     print(f"Pick: {pick2['pick']} {pick2['line']}")
-    print(f"Consensus: 3 sources say Under 240.5")
+    print("Consensus: 3 sources say Under 240.5")
     print(f"Result: {'✅ VALID' if is_valid else '❌ REJECTED'}")
     print(f"Reason: {reason}")
     assert is_valid, "Should accept Under when consensus is Under"
@@ -146,7 +146,7 @@ def test_validate_pick_against_consensus():
     
     is_valid, reason = validate_pick_against_consensus(pick3, context3)
     print(f"Pick: {pick3['pick']} {pick3['line']}")
-    print(f"Consensus: 2 Over, 2 Under (split)")
+    print("Consensus: 2 Over, 2 Under (split)")
     print(f"Result: {'✅ VALID' if is_valid else '❌ REJECTED'}")
     print(f"Reason: {reason}")
     assert is_valid, "Should accept either direction when consensus is split"

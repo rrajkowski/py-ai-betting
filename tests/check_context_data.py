@@ -40,31 +40,31 @@ for row in rows:
     sport = row['sport'] or 'UNKNOWN'
     source = row['source'] or 'UNKNOWN'
     context_type = row['context_type']
-    
+
     # Count by sport
     if sport not in by_sport:
         by_sport[sport] = 0
     by_sport[sport] += 1
-    
+
     # Count by source
     if source not in by_source:
         by_source[source] = 0
     by_source[source] += 1
-    
+
     # Parse data to check market types
     try:
         data = json.loads(row['data'])
         market = data.get('market', 'UNKNOWN')
-        
+
         if market not in by_market:
             by_market[market] = {'total': 0, 'by_source': {}}
-        
+
         by_market[market]['total'] += 1
-        
+
         if source not in by_market[market]['by_source']:
             by_market[market]['by_source'][source] = 0
         by_market[market]['by_source'][source] += 1
-    except:
+    except (json.JSONDecodeError, KeyError, TypeError):
         pass
 
 print("\n📊 BY SPORT:")
@@ -82,7 +82,7 @@ print("-" * 80)
 for market, data in sorted(by_market.items()):
     print(f"\n  {market.upper()}:")
     print(f"    Total: {data['total']} entries")
-    print(f"    By source:")
+    print("    By source:")
     for source, count in sorted(data['by_source'].items()):
         pct = (count / data['total']) * 100
         print(f"      {source:20s}: {count:3d} ({pct:5.1f}%)")
@@ -108,7 +108,7 @@ for i, row in enumerate(samples, 1):
         print(f"   Market: {data.get('market', 'N/A')}")
         print(f"   Line: {data.get('line', 'N/A')}")
         print(f"   Data: {json.dumps(data, indent=6)[:200]}...")
-    except:
+    except (json.JSONDecodeError, KeyError, TypeError):
         print(f"   Data: {row['data'][:100]}...")
 
 conn.close()
@@ -124,24 +124,29 @@ if total_market_entries > 0:
     for market, data in sorted(by_market.items(), key=lambda x: x[1]['total'], reverse=True):
         pct = (data['total'] / total_market_entries) * 100
         print(f"  {market:15s}: {data['total']:3d} entries ({pct:5.1f}%)")
-    
+
     # Check for bias
-    totals_pct = (by_market.get('total', {}).get('total', 0) / total_market_entries) * 100
-    spread_pct = (by_market.get('spread', {}).get('total', 0) / total_market_entries) * 100
-    ml_pct = (by_market.get('moneyline', {}).get('total', 0) / total_market_entries) * 100
-    
+    totals_pct = (by_market.get('total', {}).get(
+        'total', 0) / total_market_entries) * 100
+    spread_pct = (by_market.get('spread', {}).get(
+        'total', 0) / total_market_entries) * 100
+    ml_pct = (by_market.get('moneyline', {}).get(
+        'total', 0) / total_market_entries) * 100
+
     print("\n🔍 ANALYSIS:")
     if totals_pct > 50:
-        print(f"  ⚠️  TOTALS BIAS: {totals_pct:.0f}% of scraped data is totals")
-        print(f"      This explains why AI picks are mostly totals!")
-    
+        print(
+            f"  ⚠️  TOTALS BIAS: {totals_pct:.0f}% of scraped data is totals")
+        print("      This explains why AI picks are mostly totals!")
+
     if spread_pct < 20:
-        print(f"  ⚠️  LOW SPREADS: Only {spread_pct:.0f}% of scraped data is spreads")
-        print(f"      Scrapers may not be collecting spread data properly")
-    
+        print(
+            f"  ⚠️  LOW SPREADS: Only {spread_pct:.0f}% of scraped data is spreads")
+        print("      Scrapers may not be collecting spread data properly")
+
     if ml_pct < 20:
-        print(f"  ⚠️  LOW MONEYLINE: Only {ml_pct:.0f}% of scraped data is moneyline")
-        print(f"      Scrapers may not be collecting moneyline data properly")
+        print(
+            f"  ⚠️  LOW MONEYLINE: Only {ml_pct:.0f}% of scraped data is moneyline")
+        print("      Scrapers may not be collecting moneyline data properly")
 
 print("\n" + "=" * 80)
-

@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Verify all scraper and Kalshi API fixes are working correctly."""
 
-from app.utils.db import get_db
+from datetime import datetime
 from collections import defaultdict
+from app.utils.db import get_db
+from app.utils.context_builder import build_merged_context
 
 print("=" * 80)
 print("VERIFICATION REPORT - Scrapers & Kalshi API")
@@ -90,7 +92,7 @@ cur.execute("""
 """)
 
 dates = [row[0] for row in cur.fetchall()]
-print(f"Game dates in database:")
+print("Game dates in database:")
 for date in dates:
     print(f"  • {date}")
 
@@ -98,8 +100,6 @@ for date in dates:
 print("\n6. CONTEXT BUILDER TEST")
 print("-" * 80)
 
-from datetime import datetime
-from app.utils.context_builder import build_merged_context
 
 target_date = datetime.now().strftime('%Y-%m-%d')
 context_games = build_merged_context(target_date, 'NBA')
@@ -129,7 +129,7 @@ if all_working:
     print(f"   • Kalshi API: {kalshi_count} markets")
     print(f"   • Game ID matching: {multi_source} games with 2+ sources")
     print(f"   • Context builder: {len(context_games)} games merged")
-    print(f"\n🎯 Ready for AI picks generation with 4-5 star ratings!")
+    print("\n🎯 Ready for AI picks generation with 4-5 star ratings!")
 else:
     print("⚠️  SOME ISSUES DETECTED")
     if kalshi_count == 0:
@@ -140,4 +140,3 @@ else:
         print("   • Context builder not merging data")
 
 conn.close()
-

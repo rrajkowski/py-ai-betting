@@ -2,7 +2,6 @@
 
 import requests
 from datetime import datetime, timezone, timedelta
-import json
 
 API_URL = "https://api.elections.kalshi.com/trade-api/v2"
 
@@ -31,29 +30,30 @@ try:
         },
         timeout=15
     )
-    
+
     if response.status_code == 200:
         data = response.json()
         markets = data.get("markets", [])
-        
+
         print(f"✅ Found {len(markets)} NBA game markets")
-        
+
         # Filter for games in next 24 hours
         upcoming_games = []
         for m in markets:
             close_time_str = m.get("close_time")
             if not close_time_str:
                 continue
-            
+
             try:
-                close_time = datetime.fromisoformat(close_time_str.replace("Z", "+00:00"))
+                close_time = datetime.fromisoformat(
+                    close_time_str.replace("Z", "+00:00"))
                 if now_utc < close_time <= next_24h:
                     upcoming_games.append(m)
-            except:
+            except (ValueError, AttributeError):
                 pass
-        
+
         print(f"✅ Found {len(upcoming_games)} games in next 24 hours")
-        
+
         if len(upcoming_games) > 0:
             print("\n📊 Upcoming games:")
             for i, m in enumerate(upcoming_games[:5], 1):
@@ -61,11 +61,12 @@ try:
                 title = m.get("title", "N/A")
                 close_time = m.get("close_time", "N/A")
                 yes_bid = m.get("yes_bid", 0)
-                
+
                 print(f"\n{i}. {ticker}")
                 print(f"   Title: {title}")
                 print(f"   Close: {close_time}")
-                print(f"   Yes Price: {yes_bid} cents ({yes_bid}% probability)")
+                print(
+                    f"   Yes Price: {yes_bid} cents ({yes_bid}% probability)")
         else:
             print("\n⚠️ No games in next 24 hours")
             print("\nShowing sample markets (any date):")
@@ -94,13 +95,13 @@ try:
         },
         timeout=15
     )
-    
+
     if response.status_code == 200:
         data = response.json()
         markets = data.get("markets", [])
-        
+
         print(f"✅ Found {len(markets)} NBA spread markets")
-        
+
         if len(markets) > 0:
             print("\nSample spread markets:")
             for i, m in enumerate(markets[:3], 1):
@@ -128,13 +129,13 @@ try:
         },
         timeout=15
     )
-    
+
     if response.status_code == 200:
         data = response.json()
         markets = data.get("markets", [])
-        
+
         print(f"✅ Found {len(markets)} NBA total markets")
-        
+
         if len(markets) > 0:
             print("\nSample total markets:")
             for i, m in enumerate(markets[:3], 1):
@@ -150,4 +151,3 @@ except Exception as e:
 print("\n" + "=" * 80)
 print("COMPLETE")
 print("=" * 80)
-

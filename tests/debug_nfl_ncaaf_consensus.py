@@ -58,7 +58,7 @@ def check_consensus_data(sport_key, sport_name):
                 'data': json.loads(data_json) if data_json else {}
             })
 
-        print(f"\n   📊 Breakdown by source:")
+        print("\n   📊 Breakdown by source:")
         for source, entries in by_source.items():
             print(f"      • {source}: {len(entries)} games")
 
@@ -74,13 +74,13 @@ def check_consensus_data(sport_key, sport_name):
                     print(f"        Confidence: {data.get('confidence')}")
 
     # Build context payload
-    print(f"\n🔨 Building context payload...")
+    print("\n🔨 Building context payload...")
     try:
         context = create_super_prompt_payload(target_date, sport_key)
         games = context.get('games', [])
 
         if not games:
-            print(f"   ❌ Context builder returned 0 games")
+            print("   ❌ Context builder returned 0 games")
         else:
             print(f"   ✅ Context builder returned {len(games)} games")
 
@@ -103,14 +103,14 @@ def check_consensus_data(sport_key, sport_name):
                 f"   📊 Games with consensus data: {games_with_consensus}/{len(games)}")
 
             if games_with_consensus == 0:
-                print(f"\n   ⚠️  NO GAMES HAVE CONSENSUS DATA!")
-                print(f"   This is why AI is returning 0 picks.")
-                print(f"\n   Possible reasons:")
+                print("\n   ⚠️  NO GAMES HAVE CONSENSUS DATA!")
+                print("   This is why AI is returning 0 picks.")
+                print("\n   Possible reasons:")
                 print(
                     f"   1. Scrapers found no 3-4 star picks for {sport_name} today")
-                print(f"   2. Scrapers are failing silently")
+                print("   2. Scrapers are failing silently")
                 print(
-                    f"   3. Games are too far in the future (scrapers only show picks for next 1-2 days)")
+                    "   3. Games are too far in the future (scrapers only show picks for next 1-2 days)")
             else:
                 # Show sample game with consensus
                 for game in games:
@@ -118,7 +118,7 @@ def check_consensus_data(sport_key, sport_name):
                     for market in markets:
                         consensus = market.get('consensus', {})
                         if consensus.get('oddsshark') or consensus.get('oddstrader') or consensus.get('cbs'):
-                            print(f"\n   📋 Sample game with consensus:")
+                            print("\n   📋 Sample game with consensus:")
                             print(f"      Game: {game.get('game')}")
                             print(f"      Market: {market.get('key')}")
                             print(

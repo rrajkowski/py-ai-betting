@@ -99,7 +99,7 @@ def build_merged_context(target_date: str, sport: str):
         source = row.get('source', 'unknown')
         data = row.get('data', {})
 
-        if context_type in ['oddsshark_pick', 'oddstrader_pick', 'cbs_expert_pick', 'expert_consensus']:
+        if context_type in ['oddsshark_pick', 'oddstrader_pick', 'cbs_expert_pick', 'boydsbets_pick', 'expert_consensus']:
             # Add source attribution to the data
             data_with_source = data.copy() if isinstance(data, dict) else {}
             data_with_source['source'] = source

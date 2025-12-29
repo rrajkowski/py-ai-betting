@@ -6,7 +6,6 @@ Checks what data was scraped from each source and how the AI made its decision.
 
 import sqlite3
 import json
-from datetime import datetime
 
 DB_PATH = "bets.db"
 
@@ -74,7 +73,7 @@ def main():
             by_source[source] = []
         by_source[source].append(row)
     
-    print(f"\n2. DATA BY SOURCE")
+    print("\n2. DATA BY SOURCE")
     print("-" * 80)
     
     for source, records in sorted(by_source.items()):

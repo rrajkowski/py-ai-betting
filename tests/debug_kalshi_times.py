@@ -2,7 +2,7 @@
 """Debug script to check Kalshi market close times and game dates."""
 
 import requests
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 import re
 
 API_URL = "https://api.elections.kalshi.com/trade-api/v2"
@@ -51,7 +51,7 @@ if response.status_code == 200:
                 games_by_date[game_date] = []
             games_by_date[game_date].append(m)
 
-    print(f"\n📅 Games by date:")
+    print("\n📅 Games by date:")
     for date in sorted(games_by_date.keys())[:5]:  # Show first 5 dates
         count = len(games_by_date[date])
         print(f"   {date}: {count} markets")

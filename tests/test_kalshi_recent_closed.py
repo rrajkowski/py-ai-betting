@@ -1,7 +1,7 @@
 """Check for recently closed Kalshi NBA markets (today's games)."""
 
 import requests
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 
 API_URL = "https://api.elections.kalshi.com/trade-api/v2"
 
@@ -30,36 +30,37 @@ try:
         },
         timeout=15
     )
-    
+
     if response.status_code == 200:
         data = response.json()
         markets = data.get("markets", [])
-        
+
         print(f"✅ Found {len(markets)} closed markets")
-        
+
         # Filter for markets that closed today
         today_closed = []
         for m in markets:
             close_time_str = m.get("close_time")
             if not close_time_str:
                 continue
-            
+
             try:
-                close_time = datetime.fromisoformat(close_time_str.replace("Z", "+00:00"))
+                close_time = datetime.fromisoformat(
+                    close_time_str.replace("Z", "+00:00"))
                 if start_of_today <= close_time <= now_utc:
                     today_closed.append(m)
-            except:
+            except (ValueError, AttributeError):
                 pass
-        
+
         print(f"✅ Found {len(today_closed)} markets that closed today")
-        
+
         if len(today_closed) > 0:
             print("\n📊 Markets that closed today:")
             for i, m in enumerate(today_closed[:10], 1):
                 ticker = m.get("ticker", "N/A")
                 title = m.get("title", "N/A")
                 close_time = m.get("close_time", "N/A")
-                
+
                 print(f"\n{i}. {ticker}")
                 print(f"   Title: {title}")
                 print(f"   Close: {close_time}")
@@ -94,23 +95,22 @@ for status in statuses:
             },
             timeout=10
         )
-        
+
         if response.status_code == 200:
             data = response.json()
             markets = data.get("markets", [])
             print(f"✅ Status '{status}': {len(markets)} markets found")
-            
+
             if len(markets) > 0:
                 m = markets[0]
                 print(f"   Sample: {m.get('title')[:60]}")
                 print(f"   Close: {m.get('close_time')}")
         else:
             print(f"❌ Status '{status}': HTTP {response.status_code}")
-    
+
     except Exception as e:
         print(f"❌ Status '{status}': Error - {e}")
 
 print("\n" + "=" * 80)
 print("COMPLETE")
 print("=" * 80)
-

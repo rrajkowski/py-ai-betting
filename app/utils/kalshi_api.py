@@ -225,11 +225,8 @@ def fetch_kalshi_consensus(sport_key: str, target_date: str):
     # Progressive filtering: Start with 12 hours, expand to 24h, then 48h if needed
     # This matches user preference for AI picks time-based filtering
     now_utc = datetime.now(timezone.utc)
-    today_date = now_utc.strftime('%Y-%m-%d')
 
     # Calculate date ranges for progressive filtering
-    max_12h = now_utc + timedelta(hours=12)
-    max_24h = now_utc + timedelta(hours=24)
     max_48h = now_utc + timedelta(hours=48)
 
     # For NFL: extend to 2 days for Thu/Sun/Mon games

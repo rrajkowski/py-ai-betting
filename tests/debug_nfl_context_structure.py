@@ -24,25 +24,25 @@ def main():
     print(f"\n📅 Target Date: {target_date}")
     
     # Build context payload
-    print(f"\n🔨 Building context payload for NFL...")
+    print("\n🔨 Building context payload for NFL...")
     context = create_super_prompt_payload(target_date, "americanfootball_nfl")
     
     games = context.get('games', [])
     
     if not games:
-        print(f"   ❌ No games in context!")
+        print("   ❌ No games in context!")
         return
     
     print(f"   ✅ Found {len(games)} games in context")
     
     # Show structure of first game
-    print(f"\n📋 Structure of first game:")
+    print("\n📋 Structure of first game:")
     print("="*80)
     first_game = games[0]
     print(json.dumps(first_game, indent=2))
     
     # Check for expert consensus
-    print(f"\n🔍 Checking for expert consensus in all games:")
+    print("\n🔍 Checking for expert consensus in all games:")
     print("="*80)
     for i, game in enumerate(games, 1):
         game_id = game.get('game_id', 'unknown')
@@ -53,14 +53,14 @@ def main():
         print(f"   Expert Consensus Count: {len(expert_consensus)}")
         
         if expert_consensus:
-            print(f"   Expert Consensus Data:")
+            print("   Expert Consensus Data:")
             for j, consensus in enumerate(expert_consensus, 1):
                 print(f"      {j}. Source: {consensus.get('source', 'unknown')}")
                 print(f"         Pick: {consensus.get('pick', 'N/A')}")
                 print(f"         Confidence: {consensus.get('confidence', 'N/A')}")
                 print(f"         Full data: {json.dumps(consensus, indent=10)[:200]}...")
         else:
-            print(f"   ⚠️  NO EXPERT CONSENSUS DATA!")
+            print("   ⚠️  NO EXPERT CONSENSUS DATA!")
     
     print("\n" + "="*80)
     print("DIAGNOSIS:")

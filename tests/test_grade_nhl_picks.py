@@ -95,12 +95,12 @@ def grade_nhl_picks():
             if result != 'Pending':
                 update_pick_result(pick_id, result)
                 graded += 1
-                print(f"   ✅ Updated in database")
+                print("   ✅ Updated in database")
             else:
-                print(f"   ⚠️  Could not determine result")
+                print("   ⚠️  Could not determine result")
                 not_completed += 1
         else:
-            print(f"   ⏳ Game not completed yet")
+            print("   ⏳ Game not completed yet")
             not_completed += 1
     
     conn.close()

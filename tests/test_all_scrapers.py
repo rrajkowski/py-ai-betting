@@ -4,7 +4,7 @@ Comprehensive test script to verify all scrapers and Kalshi API are working prop
 Tests: OddsShark, CBS, OddsTrader (disabled), Kalshi API, and context builder.
 """
 
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
 from app.utils.scraper import scrape_oddsshark_consensus, scrape_cbs_expert_picks
 from app.utils.kalshi_api import fetch_kalshi_consensus
 from app.utils.context_builder import create_super_prompt_payload

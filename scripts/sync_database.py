@@ -90,12 +90,12 @@ def main():
     
     # Check if local database exists
     if os.path.exists(LOCAL_DB):
-        print(f"\n📊 Current local database stats:")
+        print("\n📊 Current local database stats:")
         local_stats = get_db_stats(LOCAL_DB)
         print_db_stats("Local Database", local_stats)
         
         # Create backup
-        print(f"\n💾 Creating backup of local database...")
+        print("\n💾 Creating backup of local database...")
         backup_path = create_backup(LOCAL_DB)
         
         if backup_path:

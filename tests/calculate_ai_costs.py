@@ -1,6 +1,5 @@
 """Calculate daily and monthly AI model costs for sports betting picks."""
 
-import json
 
 # Model pricing (per million tokens)
 PRICING = {
@@ -131,7 +130,7 @@ total_monthly = realistic_monthly_cost + odds_api_monthly
 
 print(f"  AI Models:     ${realistic_daily_cost:.4f}/day  →  ${realistic_monthly_cost:.2f}/month")
 print(f"  Odds API:      ${odds_api_daily:.2f}/day  →  ${odds_api_monthly:.2f}/month")
-print(f"  " + "-" * 60)
+print("  " + "-" * 60)
 print(f"  TOTAL:         ${total_daily:.2f}/day  →  ${total_monthly:.2f}/month")
 
 print("\n\n💡 COST OPTIMIZATION TIPS:")

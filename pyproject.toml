@@ -1,0 +1,6 @@
+[tool.ruff]
+# Only check these directories
+src = ["app", "pages"]
+
+# Exclude the test folder specifically
+extend-exclude = ["tests"]
