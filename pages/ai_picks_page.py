@@ -44,6 +44,12 @@ init_prompt_context_db()  # NEW: Initialize the new prompt context table
 
 # Only show Maintenance menu for admin users
 if is_admin():
+    st.sidebar.markdown("### ⚙️ Admin")
+
+    # Link to manual picks page
+    st.sidebar.page_link("pages/admin_manual_picks.py",
+                         label="➕ Add Manual Picks", icon="🔧")
+
     st.sidebar.markdown("### ⚙️ Maintenance")
     if st.sidebar.button("🔁 Update Pick Results"):
         update_ai_pick_results()
@@ -886,9 +892,15 @@ if ai_picks_history:
 
     df["Game Time (PT)"] = df["date"].apply(utc_to_pst_display)
 
+    # --- Add source column with default value for old picks ---
+    if "source" not in df.columns:
+        df["source"] = "AI"
+    df["source"] = df["source"].fillna("AI")
+
     # --- Define and reorder display columns ---
     display_cols = [
         "Game Time (PT)",
+        "source",
         "sport",
         "game",
         "pick",
@@ -944,8 +956,8 @@ if ai_picks_history:
 
             # Create header row
             header_cols = st.columns(
-                [1.2, 0.6, 2, 1.5, 0.8, 0.6, 0.8, 0.8, 0.8, 2.5, 0.4])
-            headers = ["Game Time (PT)", "Sport", "Game", "Pick", "Market",
+                [1.2, 0.5, 0.6, 2, 1.5, 0.8, 0.6, 0.8, 0.8, 0.8, 2.5, 0.4])
+            headers = ["Game Time (PT)", "Source", "Sport", "Game", "Pick", "Market",
                        "Line", "Odds", "Result", "⭐", "Reasoning", "🗑️"]
             for col, header in zip(header_cols, headers):
                 col.markdown(f"**{header}**")
@@ -955,26 +967,27 @@ if ai_picks_history:
             # Add delete buttons for each row
             for idx, row in df.iterrows():
                 cols = st.columns(
-                    [1.2, 0.6, 2, 1.5, 0.8, 0.6, 0.8, 0.8, 0.8, 2.5, 0.4])
+                    [1.2, 0.5, 0.6, 2, 1.5, 0.8, 0.6, 0.8, 0.8, 0.8, 2.5, 0.4])
 
                 cols[0].write(row.get("Game Time (PT)", "N/A"))
-                cols[1].write(row.get("sport", "N/A"))
-                cols[2].write(row.get("game", "N/A"))
-                cols[3].write(row.get("pick", "N/A"))
-                cols[4].write(row.get("market", "N/A"))
-                cols[5].write(str(row.get("line", "N/A")))
-                cols[6].write(str(row.get("odds_american", "N/A")))
-                cols[7].write(row.get("result", "Pending"))
-                cols[8].write(row.get("Confidence (Stars)", "⭐"))
+                cols[1].write(row.get("source", "AI"))
+                cols[2].write(row.get("sport", "N/A"))
+                cols[3].write(row.get("game", "N/A"))
+                cols[4].write(row.get("pick", "N/A"))
+                cols[5].write(row.get("market", "N/A"))
+                cols[6].write(str(row.get("line", "N/A")))
+                cols[7].write(str(row.get("odds_american", "N/A")))
+                cols[8].write(row.get("result", "Pending"))
+                cols[9].write(row.get("Confidence (Stars)", "⭐"))
 
                 # Truncate reasoning to fit
                 reasoning = str(row.get("reasoning", ""))
-                cols[9].write(reasoning[:80] + "..." if len(reasoning)
-                              > 80 else reasoning)
+                cols[10].write(reasoning[:80] + "..." if len(reasoning)
+                               > 80 else reasoning)
 
                 # Delete button
                 pick_id = row.get("id")
-                if cols[10].button("🗑️", key=f"delete_{pick_id}", help=f"Delete pick #{pick_id}"):
+                if cols[11].button("🗑️", key=f"delete_{pick_id}", help=f"Delete pick #{pick_id}"):
                     if delete_ai_pick(pick_id):
                         st.success(f"✅ Deleted pick #{pick_id}")
                         st.rerun()

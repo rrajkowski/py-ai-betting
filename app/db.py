@@ -124,7 +124,7 @@ def list_bets(limit=50):
 def init_ai_picks():
     """
     Ensures the ai_picks table exists and has the correct schema,
-    including commence_time for accurate scheduling.
+    including commence_time for accurate scheduling and source for tracking pick origin.
     """
     conn = get_db()
     cur = conn.cursor()
@@ -142,7 +142,8 @@ def init_ai_picks():
             reasoning TEXT,
             date TEXT,
             result TEXT DEFAULT 'Pending',
-            commence_time TEXT
+            commence_time TEXT,
+            source TEXT DEFAULT 'AI'
         )
     """)
 
@@ -152,6 +153,10 @@ def init_ai_picks():
     if 'commence_time' not in existing_cols:
         print("⚠️ Adding missing column 'commence_time' to ai_picks table.")
         cur.execute("ALTER TABLE ai_picks ADD COLUMN commence_time TEXT")
+
+    if 'source' not in existing_cols:
+        print("⚠️ Adding missing column 'source' to ai_picks table.")
+        cur.execute("ALTER TABLE ai_picks ADD COLUMN source TEXT DEFAULT 'AI'")
 
     conn.commit()
     conn.close()
@@ -182,7 +187,7 @@ def list_ai_picks(limit=50):
 
 def insert_ai_picks(picks: list):
     """
-    Batch inserts multiple AI picks, ensuring commence_time is saved correctly.
+    Batch inserts multiple AI picks, ensuring commence_time and source are saved correctly.
     """
     conn = get_db()
     cur = conn.cursor()
@@ -200,18 +205,20 @@ def insert_ai_picks(picks: list):
             odds = None
 
         commence_time = p.get("commence_time")
+        source = p.get("source", "AI")  # Default to AI if not specified
 
         picks_to_insert.append((
             p.get("game"), p.get("sport"), p.get("pick"), p.get("market"),
             line, odds, p.get("confidence"), p.get("reasoning"),
             commence_time,  # Use commence_time for the 'date' field
             p.get("result", "Pending"),
-            commence_time
+            commence_time,
+            source
         ))
 
     cur.executemany("""
-        INSERT INTO ai_picks (game, sport, pick, market, line, odds_american, confidence, reasoning, date, result, commence_time)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO ai_picks (game, sport, pick, market, line, odds_american, confidence, reasoning, date, result, commence_time, source)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, picks_to_insert)
 
     conn.commit()
@@ -220,7 +227,7 @@ def insert_ai_picks(picks: list):
 
 def insert_ai_pick(pick: dict):
     """
-    Insert a single AI pick, ensuring commence_time is saved correctly.
+    Insert a single AI pick, ensuring commence_time and source are saved correctly.
     """
     conn = get_db()
     cur = conn.cursor()
@@ -236,10 +243,11 @@ def insert_ai_pick(pick: dict):
         odds_value = None
 
     commence_time = pick.get("commence_time")
+    source = pick.get("source", "AI")  # Default to AI if not specified
 
     cur.execute("""
-        INSERT INTO ai_picks (game, sport, pick, market, line, odds_american, confidence, reasoning, date, result, commence_time)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO ai_picks (game, sport, pick, market, line, odds_american, confidence, reasoning, date, result, commence_time, source)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         pick.get("game"),
         pick.get("sport"),
@@ -252,6 +260,7 @@ def insert_ai_pick(pick: dict):
         commence_time,  # Use commence_time for the 'date' field
         pick.get("result", "Pending"),
         commence_time,
+        source,
     ))
 
     conn.commit()

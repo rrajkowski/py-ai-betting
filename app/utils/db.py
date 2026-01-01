@@ -56,7 +56,8 @@ def init_prompt_context_db():
 def init_ai_picks():
     """
     Initializes the ai_picks table with an improved schema,
-    including a new 'commence_time' column for accurate pending pick cleanup.
+    including a new 'commence_time' column for accurate pending pick cleanup
+    and 'source' column to track pick origin (AI vs RAGE).
     """
     conn = get_db()
     cur = conn.cursor()
@@ -73,15 +74,18 @@ def init_ai_picks():
             result TEXT DEFAULT 'Pending',
             confidence TEXT,
             reasoning TEXT,
-            commence_time TEXT
+            commence_time TEXT,
+            source TEXT DEFAULT 'AI'
         )
     """)
 
-    # --- Schema migration: Add 'commence_time' column if missing ---
+    # --- Schema migration: Add missing columns if needed ---
     cur.execute("PRAGMA table_info(ai_picks)")
     cols = {row['name'] for row in cur.fetchall()}
     if 'commence_time' not in cols:
         cur.execute("ALTER TABLE ai_picks ADD COLUMN commence_time TEXT")
+    if 'source' not in cols:
+        cur.execute("ALTER TABLE ai_picks ADD COLUMN source TEXT DEFAULT 'AI'")
 
     conn.commit()
     conn.close()
