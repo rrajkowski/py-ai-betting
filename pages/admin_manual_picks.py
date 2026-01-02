@@ -69,7 +69,7 @@ if 'parlay_picks' not in st.session_state:
 # -----------------------------
 # Parlay Builder Section
 # -----------------------------
-with st.expander("🎰 Parlay Builder (Combine up to 3 picks)", expanded=False):
+with st.expander("🎰 Parlay Builder (Combine up to 6 picks)", expanded=False):
     st.markdown("### Build a Parlay")
     st.caption(
         "Add individual picks to build a parlay. The odds will be automatically calculated.")
@@ -77,7 +77,7 @@ with st.expander("🎰 Parlay Builder (Combine up to 3 picks)", expanded=False):
     # Display current parlay picks
     if st.session_state.parlay_picks:
         st.markdown(
-            f"**Current Parlay ({len(st.session_state.parlay_picks)}/3 picks):**")
+            f"**Current Parlay ({len(st.session_state.parlay_picks)}/6 picks):**")
 
         for idx, pick in enumerate(st.session_state.parlay_picks, 1):
             col1, col2, col3 = st.columns([3, 2, 1])
@@ -148,7 +148,7 @@ with st.expander("🎰 Parlay Builder (Combine up to 3 picks)", expanded=False):
             st.session_state.parlay_picks = []
             st.rerun()
     else:
-        st.info("👆 Add picks below to build a parlay. You can combine up to 3 picks.")
+        st.info("👆 Add picks below to build a parlay. You can combine up to 6 picks.")
 
 st.markdown("---")
 
@@ -317,7 +317,7 @@ if 'games_data' in st.session_state and st.session_state.games_data:
 
         with col1:
             # Add to Parlay button
-            can_add_to_parlay = len(st.session_state.parlay_picks) < 3
+            can_add_to_parlay = len(st.session_state.parlay_picks) < 6
             if st.button("🎰 Add to Parlay", type="secondary", use_container_width=True, disabled=not can_add_to_parlay):
                 # Prepare pick data for parlay
                 parlay_pick = {
@@ -332,11 +332,11 @@ if 'games_data' in st.session_state and st.session_state.games_data:
 
                 st.session_state.parlay_picks.append(parlay_pick)
                 st.success(
-                    f"✅ Added to parlay! ({len(st.session_state.parlay_picks)}/3)")
+                    f"✅ Added to parlay! ({len(st.session_state.parlay_picks)}/6)")
                 st.rerun()
 
             if not can_add_to_parlay:
-                st.caption("⚠️ Parlay is full (3/3)")
+                st.caption("⚠️ Parlay is full (6/6)")
 
         with col2:
             # Add Pick Button (single pick)
