@@ -75,7 +75,8 @@ class SportConfig:
             }
         },
         "basketball_ncaab": {
-            "ticker": "KXNCAABGAME",
+            # Men's College Basketball (note: NCAAMB not NCAAB)
+            "ticker": "KXNCAAMBGAME",
             "base_limit": 50,
             "schedule": {
                 "tuesday": 40,    # Big game day

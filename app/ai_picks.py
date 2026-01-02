@@ -13,9 +13,20 @@ from .utils.sport_config import SportConfig
 from dotenv import load_dotenv
 
 load_dotenv()
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+
+# Load API keys from Streamlit secrets (cloud) or environment variables (local)
+try:
+    GEMINI_API_KEY = st.secrets.get(
+        "GEMINI_API_KEY", os.getenv("GEMINI_API_KEY"))
+    OPENAI_API_KEY = st.secrets.get(
+        "OPENAI_API_KEY", os.getenv("OPENAI_API_KEY"))
+    ANTHROPIC_API_KEY = st.secrets.get(
+        "ANTHROPIC_API_KEY", os.getenv("ANTHROPIC_API_KEY"))
+except (KeyError, FileNotFoundError):
+    # Fallback to environment variables if secrets not available
+    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+    ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 
 # --- Configure Gemini ---
 if GEMINI_API_KEY:

@@ -57,12 +57,33 @@ def scrape_oddsshark_consensus(target_date: str, sport: str):
     print(
         f"📡 Scraper: Fetching {sport_name_upper} picks (limit: {dynamic_limit}) from {url}...")
 
+    # Retry logic for OddsShark (can be slow/unreliable)
+    max_retries = 2
+    retry_delay = 2  # seconds
+
+    for attempt in range(max_retries):
+        try:
+            resp = requests.get(url, headers={
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+            }, timeout=30)  # Increased timeout from 15 to 30 seconds
+            resp.raise_for_status()
+            soup = BeautifulSoup(resp.text, "html.parser")
+            break  # Success, exit retry loop
+        except requests.exceptions.Timeout:
+            if attempt < max_retries - 1:
+                print(
+                    f"⚠️ OddsShark timeout (attempt {attempt + 1}/{max_retries}), retrying in {retry_delay}s...")
+                import time
+                time.sleep(retry_delay)
+                continue
+            else:
+                print(f"❌ Scraper timeout for {sport_name_upper} at {url}")
+                return
+        except requests.exceptions.RequestException as e:
+            print(f"❌ Scraper error for {sport_name_upper}: {e}")
+            return
+
     try:
-        resp = requests.get(url, headers={
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-        }, timeout=15)
-        resp.raise_for_status()
-        soup = BeautifulSoup(resp.text, "html.parser")
 
         game_containers = soup.select(".computer-picks-event-container")
         print(
@@ -717,8 +738,34 @@ def scrape_boydsbets_picks(target_date: str, sport: str):
                     analysis = f"Analysis available from {service}"
 
                 # Parse the pick text
-                # Examples: "Jaguars -5 -110", "Bengals over 52 -110", "49ers -3 -112"
+                # Examples:
+                # - "Jaguars -5 -110" (spread)
+                # - "Bengals over 52 -110" (total)
+                # - "Jacksonville State -2½ -110" (spread with fraction)
+                # - "Merrimack -170" (moneyline)
+                # - "Gonzaga under 155 -110" (total)
                 import re
+
+                # Helper function to convert fractions to decimals
+                def convert_fraction_to_decimal(text):
+                    """Convert fractions like ½, ¼, ¾ to decimal equivalents."""
+                    fraction_map = {
+                        '½': '.5',
+                        '¼': '.25',
+                        '¾': '.75',
+                        '⅓': '.33',
+                        '⅔': '.67',
+                        '⅛': '.125',
+                        '⅜': '.375',
+                        '⅝': '.625',
+                        '⅞': '.875'
+                    }
+                    for frac, dec in fraction_map.items():
+                        text = text.replace(frac, dec)
+                    return text
+
+                # Convert fractions in pick_text
+                pick_text_normalized = convert_fraction_to_decimal(pick_text)
 
                 # Try to extract team, market, line, and odds
                 pick_data = {
@@ -728,9 +775,9 @@ def scrape_boydsbets_picks(target_date: str, sport: str):
                 }
 
                 # Parse different pick formats
-                # Format 1: "Team +/-spread odds" (e.g., "Jaguars -5 -110")
+                # Format 1: "Team +/-spread odds" (e.g., "Jaguars -5 -110", "Stanford +10 -110")
                 spread_match = re.search(
-                    r'(.+?)\s+([-+][\d.]+)\s+([-+]\d+)', pick_text)
+                    r'(.+?)\s+([-+][\d.]+)\s+([-+]\d+)', pick_text_normalized)
                 if spread_match:
                     team = spread_match.group(1).strip()
                     line = spread_match.group(2)
@@ -743,9 +790,9 @@ def scrape_boydsbets_picks(target_date: str, sport: str):
                         "odds_american": int(odds)
                     })
                 else:
-                    # Format 2: "Team over/under total odds" (e.g., "Bengals over 52 -110")
+                    # Format 2: "Team over/under total odds" (e.g., "Bengals over 52 -110", "Gonzaga under 155 -110")
                     total_match = re.search(
-                        r'(.+?)\s+(over|under)\s+([\d.]+)\s+([-+]\d+)', pick_text, re.IGNORECASE)
+                        r'(.+?)\s+(over|under)\s+([\d.]+)\s+([-+]\d+)', pick_text_normalized, re.IGNORECASE)
                     if total_match:
                         team = total_match.group(1).strip()
                         direction = total_match.group(2).lower()
@@ -764,6 +811,19 @@ def scrape_boydsbets_picks(target_date: str, sport: str):
                         team_normalized = normalize_team_name(
                             team, sport_name_upper)
                         pick_data["team"] = team_normalized
+                    else:
+                        # Format 3: "Team odds" (moneyline) (e.g., "Merrimack -170", "Wizards +100")
+                        moneyline_match = re.search(
+                            r'(.+?)\s+([-+]\d+)$', pick_text_normalized)
+                        if moneyline_match:
+                            team = moneyline_match.group(1).strip()
+                            odds = moneyline_match.group(2)
+
+                            pick_data.update({
+                                "market": "h2h",
+                                "team": normalize_team_name(team, sport_name_upper),
+                                "odds_american": int(odds)
+                            })
 
                 # Only store if we successfully parsed the pick
                 if "market" in pick_data:
