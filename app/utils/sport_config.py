@@ -77,16 +77,16 @@ class SportConfig:
         "basketball_ncaab": {
             # Men's College Basketball (note: NCAAMB not NCAAB)
             "ticker": "KXNCAAMBGAME",
-            "base_limit": 50,
+            "base_limit": 150,  # NCAAB has 300+ games per day during season
             "schedule": {
-                "tuesday": 40,    # Big game day
-                "wednesday": 40,  # Big game day
-                "thursday": 30,   # Many games
-                "friday": 20,     # Moderate games
-                "saturday": 50,   # Peak game day
-                "sunday": 15,     # Fewer games
-                "monday": 20,     # Moderate games
-                "default": 20
+                "tuesday": 100,   # Big game day
+                "wednesday": 100,  # Big game day
+                "thursday": 100,   # Many games
+                "friday": 100,     # Many games (today had 352 available!)
+                "saturday": 150,   # Peak game day (most games)
+                "sunday": 60,      # Fewer games
+                "monday": 80,      # Moderate games
+                "default": 80      # Default for other days
             }
         },
         "basketball_nba": {

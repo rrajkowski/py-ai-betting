@@ -58,14 +58,15 @@ def scrape_oddsshark_consensus(target_date: str, sport: str):
         f"📡 Scraper: Fetching {sport_name_upper} picks (limit: {dynamic_limit}) from {url}...")
 
     # Retry logic for OddsShark (can be slow/unreliable)
-    max_retries = 2
-    retry_delay = 2  # seconds
+    max_retries = 3  # Increased from 2 to 3
+    retry_delay = 3  # Increased from 2 to 3 seconds
 
+    soup = None
     for attempt in range(max_retries):
         try:
             resp = requests.get(url, headers={
                 "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-            }, timeout=30)  # Increased timeout from 15 to 30 seconds
+            }, timeout=45)  # Increased timeout from 30 to 45 seconds
             resp.raise_for_status()
             soup = BeautifulSoup(resp.text, "html.parser")
             break  # Success, exit retry loop
@@ -77,11 +78,16 @@ def scrape_oddsshark_consensus(target_date: str, sport: str):
                 time.sleep(retry_delay)
                 continue
             else:
-                print(f"❌ Scraper timeout for {sport_name_upper} at {url}")
+                print(
+                    f"❌ Scraper timeout for {sport_name_upper} at {url} after {max_retries} attempts")
                 return
         except requests.exceptions.RequestException as e:
             print(f"❌ Scraper error for {sport_name_upper}: {e}")
             return
+
+    if soup is None:
+        print(f"❌ Failed to fetch {sport_name_upper} data from OddsShark")
+        return
 
     try:
 
@@ -714,6 +720,7 @@ def scrape_boydsbets_picks(target_date: str, sport: str):
         print(f"🔍 Boyd's Bets: Found {len(rows)} total picks")
 
         scraped_count = 0
+        sports_found = {}  # Debug: Track what sports are found
 
         for row in rows:
             try:
@@ -725,6 +732,9 @@ def scrape_boydsbets_picks(target_date: str, sport: str):
                 service = cols[0].get_text(strip=True)
                 row_sport = cols[1].get_text(strip=True)
                 pick_text = cols[2].get_text(strip=True)
+
+                # Track sports for debugging
+                sports_found[row_sport] = sports_found.get(row_sport, 0) + 1
 
                 # Filter by sport
                 if row_sport != sport_filter:
@@ -847,6 +857,15 @@ def scrape_boydsbets_picks(target_date: str, sport: str):
             except Exception as e:
                 print(f"⚠️ Boyd's Bets: Error parsing row: {e}")
                 continue
+
+        # Debug output
+        if sports_found:
+            sports_list = ", ".join(
+                [f"{sport}({count})" for sport, count in sports_found.items()])
+            print(f"🔍 Boyd's Bets: Sports found: {sports_list}")
+            if sport_filter not in sports_found:
+                print(
+                    f"⚠️ Boyd's Bets: Looking for '{sport_filter}' but not found in scraped data")
 
         print(
             f"✅ Boyd's Bets: Stored {scraped_count} {sport_name_upper} picks")

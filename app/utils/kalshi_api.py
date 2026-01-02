@@ -234,11 +234,15 @@ def fetch_kalshi_consensus(sport_key: str, target_date: str):
         max_48h = now_utc + timedelta(days=2)
 
     filtered_markets = []
+    date_parse_failures = 0
+    date_filter_failures = 0
+
     for m in all_markets:
         ticker = m.get("ticker", "")
         game_date_str = extract_game_date_from_ticker(ticker)
 
         if not game_date_str:
+            date_parse_failures += 1
             continue
 
         try:
@@ -251,8 +255,24 @@ def fetch_kalshi_consensus(sport_key: str, target_date: str):
             # (AI picks will do its own 12h/24h filtering)
             if now_utc <= game_date <= max_48h:
                 filtered_markets.append(m)
+            else:
+                date_filter_failures += 1
         except (ValueError, AttributeError):
+            date_parse_failures += 1
             continue
+
+    # Debug output
+    if date_parse_failures > 0 or date_filter_failures > 0:
+        print(
+            f"🔍 Kalshi Debug: {date_parse_failures} date parse failures, {date_filter_failures} filtered out (outside 48h window)")
+        if date_filter_failures > 0 and len(all_markets) > 0:
+            # Show sample of filtered dates
+            sample_ticker = all_markets[0].get("ticker", "")
+            sample_date = extract_game_date_from_ticker(sample_ticker)
+            print(
+                f"🔍 Kalshi Debug: Sample ticker: {sample_ticker}, extracted date: {sample_date}")
+            print(
+                f"🔍 Kalshi Debug: Current time: {now_utc.strftime('%Y-%m-%d %H:%M UTC')}, Max time: {max_48h.strftime('%Y-%m-%d %H:%M UTC')}")
 
     # 6. Sort by game date (extracted from ticker)
     filtered_markets.sort(
