@@ -943,11 +943,13 @@ def _check_pick_result(pick_dict, home_score, away_score):
 
 
 def update_ai_pick_results():
+    import json
+
     conn = get_db()
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
     cur.execute(
-        "SELECT id, game, pick, market, line, sport, commence_time FROM ai_picks WHERE LOWER(result)='pending'")
+        "SELECT id, game, pick, market, line, sport, commence_time, reasoning FROM ai_picks WHERE LOWER(result)='pending'")
     pending = cur.fetchall()
     if not pending:
         print("No pending picks to update.")
@@ -975,8 +977,119 @@ def update_ai_pick_results():
         # Extract the date from the pick's commence_time (YYYY-MM-DD)
         pick_date = dt.strftime('%Y-%m-%d')
 
-        # Map sport name to API key
+        # Handle PARLAY picks separately
         sport = row["sport"]
+        if sport == "PARLAY":
+            # Parse parlay legs from reasoning field
+            try:
+                reasoning_data = json.loads(row["reasoning"])
+                parlay_legs = reasoning_data.get("legs", [])
+
+                if not parlay_legs:
+                    print(f"⚠️ Parlay {row['id']} has no legs data")
+                    continue
+
+                # Check each leg's result
+                leg_results = []
+                all_legs_completed = True
+
+                for leg in parlay_legs:
+                    leg_sport = leg.get("sport")
+                    leg_game = leg.get("game")
+                    leg_pick = leg.get("pick")
+                    leg_market = leg.get("market")
+                    leg_line = leg.get("line")
+
+                    # Map sport to API key
+                    if leg_sport == "NFL":
+                        sport_key = "americanfootball_nfl"
+                    elif leg_sport == "NCAAF":
+                        sport_key = "americanfootball_ncaaf"
+                    elif leg_sport == "NCAAB":
+                        sport_key = "basketball_ncaab"
+                    elif leg_sport == "NBA":
+                        sport_key = "basketball_nba"
+                    elif leg_sport == "NHL":
+                        sport_key = "icehockey_nhl"
+                    else:
+                        print(f"⚠️ Unknown sport in parlay leg: {leg_sport}")
+                        all_legs_completed = False
+                        break
+
+                    # Fetch scores for this leg's sport
+                    try:
+                        scores = fetch_scores(sport=sport_key, days_from=2)
+                    except Exception as e:
+                        print(
+                            f"⚠️ Failed to fetch scores for {leg_sport}: {e}")
+                        all_legs_completed = False
+                        break
+
+                    # Find the matching game
+                    leg_result = None
+                    for g in scores:
+                        if not g.get("completed"):
+                            continue
+
+                        # Match by team names
+                        if g.get("home_team") in leg_game and g.get("away_team") in leg_game:
+                            home, away = g["home_team"], g["away_team"]
+                            hs = next(
+                                (s["score"] for s in g["scores"] if s["name"] == home), None)
+                            as_ = next(
+                                (s["score"] for s in g["scores"] if s["name"] == away), None)
+
+                            if hs is None or as_ is None:
+                                continue
+
+                            # Check this leg's result
+                            leg_pick_dict = {
+                                'game': leg_game,
+                                'pick': leg_pick,
+                                'market': leg_market,
+                                'line': leg_line
+                            }
+                            leg_result = _check_pick_result(
+                                leg_pick_dict, int(hs), int(as_))
+                            break
+
+                    if leg_result is None or leg_result == 'Pending':
+                        all_legs_completed = False
+                        break
+
+                    leg_results.append(leg_result)
+
+                # Determine parlay result: all legs must win (or push) for parlay to win
+                if all_legs_completed and len(leg_results) == len(parlay_legs):
+                    if all(r == 'Win' for r in leg_results):
+                        parlay_result = 'Win'
+                    elif any(r == 'Loss' for r in leg_results):
+                        parlay_result = 'Loss'
+                    else:
+                        # All pushes or mix of wins and pushes
+                        parlay_result = 'Push'
+
+                    print(
+                        f"✅ Scoring parlay {row['id']}: {parlay_result} (legs: {leg_results})")
+                    cur.execute(
+                        "UPDATE ai_picks SET result=? WHERE id=?", (parlay_result, row["id"]))
+                    updated += 1
+                else:
+                    print(f"⚠️ Parlay {row['id']} not all legs completed yet")
+                    skipped_not_completed += 1
+
+            except json.JSONDecodeError:
+                # Old format parlay without JSON structure - skip automatic scoring
+                print(
+                    f"⚠️ Parlay {row['id']} uses old format - manual scoring required")
+                print(
+                    f"   To manually score this parlay, use: UPDATE ai_picks SET result='Loss' WHERE id={row['id']};")
+            except Exception as e:
+                print(f"⚠️ Error processing parlay {row['id']}: {e}")
+
+            continue
+
+        # Map sport name to API key for regular picks
         if sport == "NFL":
             sport_key = "americanfootball_nfl"
         elif sport == "NCAAF":

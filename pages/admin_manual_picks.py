@@ -116,9 +116,24 @@ with st.expander("🎰 Parlay Builder (Combine up to 6 picks)", expanded=False):
 
         if st.button("✅ Save Parlay to Database", type="primary", use_container_width=True):
             # Combine all picks into one entry
+            import json
+
             games_list = [p['game'] for p in st.session_state.parlay_picks]
             picks_list = [
                 f"{p['pick']} ({p['market']})" for p in st.session_state.parlay_picks]
+
+            # Store structured parlay leg data as JSON for result checking
+            parlay_legs = []
+            for p in st.session_state.parlay_picks:
+                leg = {
+                    "game": p['game'],
+                    "sport": p['sport'],
+                    "pick": p['pick'],
+                    "market": p['market'],
+                    "line": p.get('line'),
+                    "commence_time": p['commence_time']
+                }
+                parlay_legs.append(leg)
 
             parlay_data = {
                 "game": " | ".join(games_list),
@@ -128,7 +143,8 @@ with st.expander("🎰 Parlay Builder (Combine up to 6 picks)", expanded=False):
                 "line": None,
                 "odds_american": parlay_odds,
                 "confidence": str(parlay_confidence),
-                "reasoning": f"Parlay ({len(st.session_state.parlay_picks)} picks): " + " | ".join([f"{p['sport']}: {p['pick']}" for p in st.session_state.parlay_picks]),
+                # Store parlay legs as JSON in reasoning field for result checking
+                "reasoning": json.dumps({"legs": parlay_legs, "description": f"Parlay ({len(st.session_state.parlay_picks)} picks): " + " | ".join([f"{p['sport']}: {p['pick']}" for p in st.session_state.parlay_picks])}),
                 # Use first game's time
                 "commence_time": st.session_state.parlay_picks[0]['commence_time'],
                 "result": "Pending",

@@ -897,6 +897,21 @@ if ai_picks_history:
         df["source"] = "AI"
     df["source"] = df["source"].fillna("AI")
 
+    # --- Parse parlay reasoning for better display ---
+    def format_parlay_reasoning(row):
+        """Format parlay reasoning for display."""
+        if row.get("sport") == "PARLAY" and row.get("reasoning"):
+            try:
+                import json
+                reasoning_data = json.loads(row["reasoning"])
+                return reasoning_data.get("description", row["reasoning"])
+            except (json.JSONDecodeError, TypeError):
+                # Old format or invalid JSON - return as is
+                return row["reasoning"]
+        return row["reasoning"]
+
+    df["reasoning"] = df.apply(format_parlay_reasoning, axis=1)
+
     # --- Define and reorder display columns ---
     display_cols = [
         "Game Time (PT)",
