@@ -4,7 +4,7 @@ Test the new time-based filtering logic.
 """
 
 from datetime import datetime, timezone, timedelta
-from app.ai_picks import fetch_odds
+from app.rage_picks import fetch_odds
 import sys
 sys.path.insert(0, '.')
 

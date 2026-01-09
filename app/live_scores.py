@@ -1,6 +1,6 @@
 # live_scores.py
 import streamlit as st
-from app.ai_picks import fetch_scores
+from app.rage_picks import fetch_scores
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 

@@ -6,7 +6,6 @@ Example: python scripts/update_parlay_result.py 123 Loss
 """
 
 import sys
-import sqlite3
 from pathlib import Path
 
 # Add parent directory to path to import app modules

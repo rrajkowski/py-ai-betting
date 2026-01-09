@@ -58,7 +58,7 @@ try:
     response_text = response.content[0].text
     print(f"✅ Claude Response: {response_text}")
 
-    # Test with JSON prompt (like in ai_picks.py)
+    # Test with JSON prompt (like in rage_picks.py)
     print("\n🧪 Testing Claude with JSON prompt...")
 
     json_prompt = """Return a JSON object with this format: {"picks": [{"game": "Test Game", "confidence": 5}]}
@@ -108,9 +108,9 @@ print("\n3. CHECKING APP CODE:")
 print("-" * 80)
 
 try:
-    # Import the function from app/ai_picks.py
+    # Import the function from app/rage_picks.py
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-    from app.ai_picks import _call_claude_model
+    from app.rage_picks import _call_claude_model
 
     print("✅ _call_claude_model imported successfully")
 

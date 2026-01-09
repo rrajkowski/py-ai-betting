@@ -45,10 +45,10 @@ if parlays:
         
         # Update to Loss if pending
         if p_dict['result'].lower() == 'pending':
-            print(f"\n  Updating to Loss...")
+            print("\n  Updating to Loss...")
             cur.execute("UPDATE ai_picks SET result = 'Loss' WHERE id = ?", (p_dict['id'],))
             conn.commit()
-            print(f"  ✅ Updated!")
+            print("  ✅ Updated!")
 else:
     print("No parlays found. Showing all parlays:")
     cur.execute("""

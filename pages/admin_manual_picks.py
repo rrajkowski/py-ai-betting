@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 
 from app.auth import add_auth_to_page, is_admin
 from app.db import insert_ai_pick, list_ai_picks, delete_ai_pick
-from app.ai_picks import fetch_odds
+from app.rage_picks import fetch_odds
 
 
 # -----------------------------
@@ -217,7 +217,7 @@ if 'games_data' in st.session_state and st.session_state.games_data:
             local_tz = ZoneInfo("America/Los_Angeles")
             dt_local = dt_utc.astimezone(local_tz)
             game_label += f" - {dt_local.strftime('%a %b %d, %I:%M %p')}"
-        except:
+        except (KeyError, ValueError, TypeError, AttributeError):
             pass
         game_options[game_label] = game
 
@@ -440,7 +440,7 @@ if rage_picks:
                     local_tz = ZoneInfo("America/Los_Angeles")
                     dt_local = dt_utc.astimezone(local_tz)
                     st.caption(dt_local.strftime('%a, %b %d, %I:%M %p PT'))
-                except:
+                except (ValueError, TypeError, AttributeError):
                     st.caption(pick.get('date', 'N/A'))
 
             with col2:

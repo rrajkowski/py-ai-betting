@@ -19,7 +19,7 @@ from app.utils.context_builder import create_super_prompt_payload
 from app.utils.scraper import run_scrapers
 from app.utils.kalshi_api import fetch_kalshi_consensus
 from app.auth import add_auth_to_page, is_admin
-from app.ai_picks import (
+from app.rage_picks import (
     fetch_scores,
     update_ai_pick_results,
     generate_ai_picks,  # Make sure to import generate_ai_picks
@@ -179,7 +179,8 @@ if is_admin():
                         # New pick - insert it
                         current_cur.execute("""
                             INSERT INTO ai_picks
-                            (sport, game, pick, market, line, odds_american, result, confidence, reasoning, date, commence_time)
+                            (sport, game, pick, market, line, odds_american,
+                             result, confidence, reasoning, date, commence_time)
                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """, (
                             pick['sport'], pick['game'], pick['pick'], pick['market'],
@@ -406,7 +407,7 @@ if updated_on_load > 0:
 st.set_page_config(page_title="🤖 RAGE's Daily Picks", layout="wide")
 st.title("🤖 RAGE's Daily Picks")
 st.markdown(
-    "**Top 2 high-confidence (4-5 star) picks per sport.** Picks are generated once per day.")
+    "High confidence picks from RAGE Sports. Picks are created once per day.")
 
 # --- Initialize Session State ---
 # This is crucial for making new picks appear instantly.
@@ -582,7 +583,7 @@ def run_ai_picks(sport_key, sport_name):
             f"✅ Context Built ({len(context_payload.get('games', []))} Games)")
 
     with st.spinner(f"Step 3: AI is analyzing {sport_name} games..."):
-        from app.ai_picks import fetch_odds
+        from app.rage_picks import fetch_odds
 
         raw_odds = fetch_odds(sport_key)
 
@@ -760,24 +761,6 @@ with col2:
     )
 
 with col3:
-    if admin_user and st.button("🏀 Generate NCAAB Picks", use_container_width=True):
-        st.session_state.generated_picks = None
-        run_ai_picks("basketball_ncaab", "NCAAB")
-    # Column header label for everyone
-    st.markdown(
-        "<div style='text-align: center; font-size: 14px; font-weight: 600; margin: 2px 0 2px;'>🏀 NCAAB</div>",
-        unsafe_allow_html=True,
-    )
-    units_color = "#22c55e" if ncaab_stats['units'] >= 0 else "#ef4444"
-    st.markdown(
-        f"<div style='text-align: center; font-size: 12px; color: #6b7280; margin-top: 0px;'>"
-        f"{ncaab_stats['wins']}-{ncaab_stats['losses']}-{ncaab_stats['pushes']} • "
-        f"<span style='color: {units_color}; font-weight: 600;'>{ncaab_stats['units']:+.1f}u</span>"
-        f"</div>",
-        unsafe_allow_html=True
-    )
-
-with col4:
     if admin_user and st.button("🏀 Generate NBA Picks", use_container_width=True):
         st.session_state.generated_picks = None
         run_ai_picks("basketball_nba", "NBA")
@@ -791,6 +774,25 @@ with col4:
         f"<div style='text-align: center; font-size: 12px; color: #6b7280; margin-top: 0px;'>"
         f"{nba_stats['wins']}-{nba_stats['losses']}-{nba_stats['pushes']} • "
         f"<span style='color: {units_color}; font-weight: 600;'>{nba_stats['units']:+.1f}u</span>"
+        f"</div>",
+        unsafe_allow_html=True
+    )
+
+with col4:
+    # Use graduation cap for NCAAB to distinguish it from NBA
+    if admin_user and st.button("🎓 Generate NCAAB Picks", use_container_width=True):
+        st.session_state.generated_picks = None
+        run_ai_picks("basketball_ncaab", "NCAAB")
+    # Column header label for everyone
+    st.markdown(
+        "<div style='text-align: center; font-size: 14px; font-weight: 600; margin: 2px 0 2px;'>🎓 NCAAB</div>",
+        unsafe_allow_html=True,
+    )
+    units_color = "#22c55e" if ncaab_stats['units'] >= 0 else "#ef4444"
+    st.markdown(
+        f"<div style='text-align: center; font-size: 12px; color: #6b7280; margin-top: 0px;'>"
+        f"{ncaab_stats['wins']}-{ncaab_stats['losses']}-{ncaab_stats['pushes']} • "
+        f"<span style='color: {units_color}; font-weight: 600;'>{ncaab_stats['units']:+.1f}u</span>"
         f"</div>",
         unsafe_allow_html=True
     )
