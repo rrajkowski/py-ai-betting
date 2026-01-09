@@ -406,7 +406,7 @@ if updated_on_load > 0:
 st.set_page_config(page_title="🤖 RAGE's Daily Picks", layout="wide")
 st.title("🤖 RAGE's Daily Picks")
 st.markdown(
-    "Click a button to generate AI-recommended bets for that sport. **Top 2 high-confidence (4-5 star) picks per sport.** Picks are generated once per day.")
+    "**Top 2 high-confidence (4-5 star) picks per sport.** Picks are generated once per day.")
 
 # --- Initialize Session State ---
 # This is crucial for making new picks appear instantly.
@@ -708,7 +708,11 @@ def run_ai_picks(sport_key, sport_name):
 
 
 # --- UI Controls (Buttons) with Sport Stats ---
-st.header("Generate New Picks")
+
+# Hide generate UI from non-admin users, but keep sport stats visible to everyone
+admin_user = is_admin()
+if admin_user:
+    st.header("Generate New Picks")
 
 # Get stats for each sport
 nfl_stats = get_sport_summary("NFL")
@@ -720,7 +724,7 @@ nhl_stats = get_sport_summary("NHL")
 col1, col2, col3, col4, col5 = st.columns(5)
 
 with col1:
-    if st.button("🏈 Generate NFL Picks", use_container_width=True):
+    if admin_user and st.button("🏈 Generate NFL Picks", use_container_width=True):
         st.session_state.generated_picks = None
         run_ai_picks("americanfootball_nfl", "NFL")
     units_color = "#22c55e" if nfl_stats['units'] >= 0 else "#ef4444"
@@ -733,7 +737,7 @@ with col1:
     )
 
 with col2:
-    if st.button("🎓 Generate NCAAF Picks", use_container_width=True):
+    if admin_user and st.button("🎓 Generate NCAAF Picks", use_container_width=True):
         st.session_state.generated_picks = None
         run_ai_picks("americanfootball_ncaaf", "NCAAF")
     units_color = "#22c55e" if ncaaf_stats['units'] >= 0 else "#ef4444"
@@ -746,7 +750,7 @@ with col2:
     )
 
 with col3:
-    if st.button("🏀 Generate NCAAB Picks", use_container_width=True):
+    if admin_user and st.button("🏀 Generate NCAAB Picks", use_container_width=True):
         st.session_state.generated_picks = None
         run_ai_picks("basketball_ncaab", "NCAAB")
     units_color = "#22c55e" if ncaab_stats['units'] >= 0 else "#ef4444"
@@ -759,7 +763,7 @@ with col3:
     )
 
 with col4:
-    if st.button("🏀 Generate NBA Picks", use_container_width=True):
+    if admin_user and st.button("🏀 Generate NBA Picks", use_container_width=True):
         st.session_state.generated_picks = None
         run_ai_picks("basketball_nba", "NBA")
     units_color = "#22c55e" if nba_stats['units'] >= 0 else "#ef4444"
@@ -772,7 +776,7 @@ with col4:
     )
 
 with col5:
-    if st.button("🏒 Generate NHL Picks", use_container_width=True):
+    if admin_user and st.button("🏒 Generate NHL Picks", use_container_width=True):
         st.session_state.generated_picks = None
         run_ai_picks("icehockey_nhl", "NHL")
     units_color = "#22c55e" if nhl_stats['units'] >= 0 else "#ef4444"
