@@ -262,6 +262,8 @@ st.subheader("❓ WHAT THIS IS")
 st.markdown("""
 <div style="font-size: 1.1em; line-height: 1.8;">
 
+**This is Not a Capper. It's an AI Pick Engine.**
+
 🤖 **Multiple AI models** scan spreads, totals, and props.
 
 📊 **You watch the models perform** and tail the winners.
