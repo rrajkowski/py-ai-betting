@@ -54,6 +54,29 @@ if not is_admin():
     st.error("🚫 Access Denied: Admin only")
     st.stop()
 
+# --- Hide Streamlit's default page navigation ---
+st.markdown("""
+<style>
+    [data-testid="stSidebarNav"] {
+        display: none;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# --- Sidebar Navigation (Public) ---
+st.sidebar.markdown("### Navigation")
+st.sidebar.page_link("pages/home_page.py", label="Home", icon="🏠")
+st.sidebar.page_link("pages/rage_picks_page.py",
+                     label="RAGE Picks", icon="🤖")
+st.sidebar.page_link("pages/live_scores_page.py",
+                     label="Live Scores", icon="📊")
+st.sidebar.markdown("---")
+
+# --- Admin Section ---
+st.sidebar.markdown("### ⚙️ Admin")
+st.sidebar.page_link("pages/admin_manual_picks.py",
+                     label="Manual Picks", icon="🔧")
+
 # -----------------------------
 # Page Configuration
 # -----------------------------

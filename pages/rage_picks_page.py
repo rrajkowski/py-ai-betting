@@ -42,13 +42,31 @@ add_auth_to_page()
 init_ai_picks()
 init_prompt_context_db()  # NEW: Initialize the new prompt context table
 
-# Only show Maintenance menu for admin users
+# --- Hide Streamlit's default page navigation ---
+st.markdown("""
+<style>
+    [data-testid="stSidebarNav"] {
+        display: none;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# --- Sidebar Navigation (Public) ---
+st.sidebar.markdown("### Navigation")
+st.sidebar.page_link("pages/home_page.py", label="Home", icon="🏠")
+st.sidebar.page_link("pages/rage_picks_page.py",
+                     label="RAGE Picks", icon="🤖")
+st.sidebar.page_link("pages/live_scores_page.py",
+                     label="Live Scores", icon="📊")
+st.sidebar.markdown("---")
+
+# Only show Admin menu for admin users
 if is_admin():
     st.sidebar.markdown("### ⚙️ Admin")
 
     # Link to manual picks page
     st.sidebar.page_link("pages/admin_manual_picks.py",
-                         label="➕ Add Manual Picks", icon="🔧")
+                         label="Manual Picks", icon="🔧")
 
     st.sidebar.markdown("### ⚙️ Maintenance")
     if st.sidebar.button("🔁 Update Pick Results"):
