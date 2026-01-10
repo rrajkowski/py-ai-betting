@@ -212,20 +212,20 @@ st.markdown('<div class="hero-subtitle">No locks. No deletes. Just units.</div>'
 # Get 7-day stats
 stats = get_7day_stats()
 
-st.markdown("""
+st.markdown(f"""
 <div style="border: 2px solid #ddd; border-radius: 12px; padding: 2em; margin: 1.5em 0;">
     <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 2em; text-align: center;">
         <div>
             <div style="font-size: 0.9em; color: #666; margin-bottom: 0.5em;">Last 7 Days</div>
-            <div style="font-size: 2.2em; font-weight: bold; color: #1f77b4;">+""" + stats['units'] + """u</div>
+            <div style="font-size: 2.2em; font-weight: bold; color: #1f77b4;">+{stats['units']}u</div>
         </div>
         <div>
             <div style="font-size: 0.9em; color: #666; margin-bottom: 0.5em;">Win Rate</div>
-            <div style="font-size: 2.2em; font-weight: bold; color: #1f77b4;">""" + stats['win_rate'] + """%</div>
+            <div style="font-size: 2.2em; font-weight: bold; color: #1f77b4;">{stats['win_rate']}%</div>
         </div>
         <div>
             <div style="font-size: 0.9em; color: #666; margin-bottom: 0.5em;">ROI</div>
-            <div style="font-size: 2.2em; font-weight: bold; color: #1f77b4;">+""" + stats['roi'] + """%</div>
+            <div style="font-size: 2.2em; font-weight: bold; color: #1f77b4;">+{stats['roi']}%</div>
         </div>
     </div>
 </div>
