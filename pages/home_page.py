@@ -233,10 +233,10 @@ st.markdown(f"""
 
 st.caption("✓ All picks posted before games · Full history below")
 
-# CTA Button - Left aligned and narrow
-col1, col2 = st.columns([0.2, 0.8])
-with col1:
-    if st.button("📊 View Today's Full Slate", type="primary"):
+# CTA Button - Centered
+col1, col2, col3 = st.columns([1, 0.5, 1])
+with col2:
+    if st.button("📊 View Today's Full Slate", type="primary", use_container_width=True):
         st.switch_page("pages/rage_picks_page.py")
 
 st.markdown("---")
@@ -330,9 +330,9 @@ if picks:
 else:
     st.info("No picks in history.")
 
-col1, col2 = st.columns([0.2, 0.8])
-with col1:
-    if st.button("📋 View Full History", type="primary"):
+col1, col2, col3 = st.columns([1, 0.5, 1])
+with col2:
+    if st.button("📋 View Full History", type="primary", use_container_width=True):
         st.switch_page("pages/rage_picks_page.py")
 
 st.markdown("---")
@@ -383,9 +383,9 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-col1, col2 = st.columns([0.2, 0.8])
-with col1:
-    if st.button("🎯 See Today's Picks", type="primary"):
+col1, col2, col3 = st.columns([1, 0.5, 1])
+with col2:
+    if st.button("🎯 View Today's Full Slate", type="primary", use_container_width=True):
         st.switch_page("pages/rage_picks_page.py")
 
 st.markdown("---")
@@ -395,5 +395,6 @@ st.markdown("""
 <div style="text-align: center; color: #888; font-size: 0.9em; padding: 2em 0;">
     <p><strong>For entertainment and informational purposes only.</strong></p>
     <p>No guarantees. No financial advice. If you're mad about a loss, blame variance — not the model.</p>
+    <pRAGE picks</p>
 </div>
 """, unsafe_allow_html=True)
