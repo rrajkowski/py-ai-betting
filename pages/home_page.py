@@ -234,7 +234,7 @@ st.markdown(f"""
 st.caption("✓ All picks posted before games · Full history below")
 
 # CTA Button - Left aligned and narrow
-col1, col2, col3 = st.columns([0.2, 0.8])
+col1, col2 = st.columns([0.2, 0.8])
 with col1:
     if st.button("📊 View Today's Full Slate", type="primary"):
         st.switch_page("pages/rage_picks_page.py")
@@ -330,7 +330,7 @@ if picks:
 else:
     st.info("No picks in history.")
 
-col1, col2, col3 = st.columns([0.2, 0.8])
+col1, col2 = st.columns([0.2, 0.8])
 with col1:
     if st.button("📋 View Full History", type="primary"):
         st.switch_page("pages/rage_picks_page.py")
