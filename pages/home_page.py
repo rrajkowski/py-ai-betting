@@ -204,7 +204,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<div class="hero-title">AI vs Vegas — Public Record</div>',
+st.markdown('<div style="text-align: left;"><div class="hero-title">AI vs Vegas — Public Record</div></div>',
             unsafe_allow_html=True)
 st.markdown('<div class="hero-subtitle">No locks. No deletes. Just units.</div>',
             unsafe_allow_html=True)
@@ -212,20 +212,31 @@ st.markdown('<div class="hero-subtitle">No locks. No deletes. Just units.</div>'
 # Get 7-day stats
 stats = get_7day_stats()
 
-col1, col2, col3 = st.columns(3)
-with col1:
-    st.metric("Last 7 Days", f"+{stats['units']}u", delta=None)
-with col2:
-    st.metric("Win Rate", f"{stats['win_rate']}%", delta=None)
-with col3:
-    st.metric("ROI", f"+{stats['roi']}%", delta=None)
+st.markdown("""
+<div style="border: 2px solid #ddd; border-radius: 12px; padding: 2em; margin: 1.5em 0;">
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 2em; text-align: center;">
+        <div>
+            <div style="font-size: 0.9em; color: #666; margin-bottom: 0.5em;">Last 7 Days</div>
+            <div style="font-size: 2.2em; font-weight: bold; color: #1f77b4;">+""" + stats['units'] + """u</div>
+        </div>
+        <div>
+            <div style="font-size: 0.9em; color: #666; margin-bottom: 0.5em;">Win Rate</div>
+            <div style="font-size: 2.2em; font-weight: bold; color: #1f77b4;">""" + stats['win_rate'] + """%</div>
+        </div>
+        <div>
+            <div style="font-size: 0.9em; color: #666; margin-bottom: 0.5em;">ROI</div>
+            <div style="font-size: 2.2em; font-weight: bold; color: #1f77b4;">+""" + stats['roi'] + """%</div>
+        </div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
 st.caption("✓ All picks posted before games · Full history below")
 
-# CTA Button
-col1, col2, col3 = st.columns([1, 1, 1])
-with col2:
-    if st.button("📊 View Today's Picks", use_container_width=True, type="primary"):
+# CTA Button - Left aligned and narrow
+col1, col2, col3 = st.columns([0.2, 0.8])
+with col1:
+    if st.button("📊 View Today's Full Slate", type="primary"):
         st.switch_page("pages/rage_picks_page.py")
 
 st.markdown("---")
@@ -319,9 +330,9 @@ if picks:
 else:
     st.info("No picks in history.")
 
-col1, col2, col3 = st.columns([1, 1, 1])
-with col2:
-    if st.button("📋 View Full History", use_container_width=True):
+col1, col2, col3 = st.columns([0.2, 0.8])
+with col1:
+    if st.button("📋 View Full History", type="primary"):
         st.switch_page("pages/rage_picks_page.py")
 
 st.markdown("---")
