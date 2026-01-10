@@ -258,13 +258,13 @@ st.markdown("---")
 
 # --- WHAT THIS IS SECTION ---
 st.subheader("❓ WHAT THIS IS")
-st.markdown("### This Is Not a Capper. It's an AI Pick Engine.")
 
 st.markdown("""
 <div style="font-size: 1.1em; line-height: 1.8;">
 
-- 🤖 **Multiple AI models** scan spreads, totals, and props.
-- 📊 **You watch the models perform** and tail the winners.
+🤖 **Multiple AI models** scan spreads, totals, and props.
+
+📊 **You watch the models perform** and tail the winners.
 
 </div>
 """, unsafe_allow_html=True)
@@ -277,10 +277,13 @@ st.subheader("⚙️ HOW IT WORKS")
 st.markdown("""
 <div style="font-size: 1.1em; line-height: 1.8;">
 
-- **1️⃣ Models Scan** — Lines pulled across major books in real time.
-- **2️⃣ Models Post** — Every pick is timestamped before kickoff.
-- **3️⃣ Results Logged** — Wins. Losses. Units. Nothing gets deleted.
-- **4️⃣ You Decide** — Tail, fade, parlay, or ignore.
+**1️⃣ Models Scan** — Lines pulled across major books in real time.
+
+**2️⃣ Models Post** — Every pick is timestamped before kickoff.
+
+**3️⃣ Results Logged** — Wins. Losses. Units. Nothing gets deleted.
+
+**4️⃣ You Decide** — Tail, fade, parlay, or ignore.
 
 </div>
 """, unsafe_allow_html=True)
