@@ -236,7 +236,7 @@ st.caption("✓ All picks posted before games · Full history below")
 # CTA Button - Centered
 col1, col2, col3 = st.columns([1, 0.5, 1])
 with col2:
-    if st.button("📊 View Today's Full Slate", type="primary", use_container_width=True):
+    if st.button("📊 View Today's Full Slate", type="primary", width="stretch"):
         st.switch_page("pages/rage_picks_page.py")
 
 st.markdown("---")
@@ -324,7 +324,7 @@ if picks:
             })
 
     if display_data:
-        st.dataframe(display_data, use_container_width=True, hide_index=True)
+        st.dataframe(display_data, width="stretch", hide_index=True)
     else:
         st.info("No settled picks yet.")
 else:
@@ -332,7 +332,7 @@ else:
 
 col1, col2, col3 = st.columns([1, 0.5, 1])
 with col2:
-    if st.button("📋 View Full History", type="primary", use_container_width=True):
+    if st.button("📋 View Full History", type="primary", width="stretch"):
         st.switch_page("pages/rage_picks_page.py")
 
 st.markdown("---")
@@ -347,10 +347,6 @@ with col1:
     - **✋ No "LOCK OF THE DAY"** — No hype, just data
     - **🚫 No Telegram pump-and-dump** — Transparent from day one
     - **📊 No edited records** — All picks stay in the database
-    """)
-
-with col2:
-    st.markdown("""
     - **🤖 Multiple AI models** — Diverse perspectives, better edges
     - **📈 Transparent unit tracking** — See every win and loss
     - **🎯 Built to beat closing lines** — Not designed to sell picks
@@ -385,7 +381,7 @@ st.markdown("""
 
 col1, col2, col3 = st.columns([1, 0.5, 1])
 with col2:
-    if st.button("🎯 View Today's Full Slate", type="primary", use_container_width=True):
+    if st.button("🎯 View Today's Full Slate", type="primary", width="stretch"):
         st.switch_page("pages/rage_picks_page.py")
 
 st.markdown("---")
@@ -395,6 +391,6 @@ st.markdown("""
 <div style="text-align: center; color: #888; font-size: 0.9em; padding: 2em 0;">
     <p><strong>For entertainment and informational purposes only.</strong></p>
     <p>No guarantees. No financial advice. If you're mad about a loss, blame variance — not the model.</p>
-    <pRAGE picks</p>
+    <p>RAGE Picks &copy; 2025</p>
 </div>
 """, unsafe_allow_html=True)
