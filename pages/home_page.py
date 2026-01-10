@@ -340,17 +340,14 @@ st.markdown("---")
 # --- WHY USE THIS SECTION ---
 st.subheader("✅ WHY USE THIS")
 
-col1, col2 = st.columns(2)
-
-with col1:
-    st.markdown("""
-    - **✋ No "LOCK OF THE DAY"** — No hype, just data
-    - **🚫 No Telegram pump-and-dump** — Transparent from day one
-    - **📊 No edited records** — All picks stay in the database
-    - **🤖 Multiple AI models** — Diverse perspectives, better edges
-    - **📈 Transparent unit tracking** — See every win and loss
-    - **🎯 Built to beat closing lines** — Not designed to sell picks
-    """)
+st.markdown("""
+- **✋ No "LOCK OF THE DAY"** — No hype, just data
+- **🚫 No Telegram pump-and-dump** — Transparent from day one
+- **📊 No edited records** — All picks stay in the database
+- **🤖 Multiple AI models** — Diverse perspectives, better edges
+- **📈 Transparent unit tracking** — See every win and loss
+- **🎯 Built to beat closing lines** — Not designed to sell picks
+""")
 
 st.markdown("---")
 
