@@ -260,58 +260,30 @@ st.markdown("---")
 st.subheader("❓ WHAT THIS IS")
 st.markdown("### This Is Not a Capper. It's an AI Pick Engine.")
 
-col1, col2 = st.columns(2)
-with col1:
-    st.markdown("""
-    🤖 **Multiple AI models** scan spreads, totals, and props.
-    """)
-with col2:
-    st.markdown("""
-    📊 **You watch the models perform** and tail the winners.
-    """)
+st.markdown("""
+<div style="font-size: 1.1em; line-height: 1.8;">
+
+- 🤖 **Multiple AI models** scan spreads, totals, and props.
+- 📊 **You watch the models perform** and tail the winners.
+
+</div>
+""", unsafe_allow_html=True)
 
 st.markdown("---")
 
 # --- HOW IT WORKS SECTION ---
 st.subheader("⚙️ HOW IT WORKS")
 
-col1, col2, col3, col4 = st.columns(4)
+st.markdown("""
+<div style="font-size: 1.1em; line-height: 1.8;">
 
-with col1:
-    st.markdown("""
-    <div style="text-align: center; padding: 1em;">
-    <div style="font-size: 2em; margin-bottom: 0.5em;">1️⃣</div>
-    <strong>Models Scan</strong>
-    <p style="font-size: 0.85em; color: #666; margin-top: 0.5em;">Lines pulled across major books in real time.</p>
-    </div>
-    """, unsafe_allow_html=True)
+- **1️⃣ Models Scan** — Lines pulled across major books in real time.
+- **2️⃣ Models Post** — Every pick is timestamped before kickoff.
+- **3️⃣ Results Logged** — Wins. Losses. Units. Nothing gets deleted.
+- **4️⃣ You Decide** — Tail, fade, parlay, or ignore.
 
-with col2:
-    st.markdown("""
-    <div style="text-align: center; padding: 1em;">
-    <div style="font-size: 2em; margin-bottom: 0.5em;">2️⃣</div>
-    <strong>Models Post</strong>
-    <p style="font-size: 0.85em; color: #666; margin-top: 0.5em;">Every pick is timestamped before kickoff.</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-with col3:
-    st.markdown("""
-    <div style="text-align: center; padding: 1em;">
-    <div style="font-size: 2em; margin-bottom: 0.5em;">3️⃣</div>
-    <strong>Results Logged</strong>
-    <p style="font-size: 0.85em; color: #666; margin-top: 0.5em;">Wins. Losses. Units. Nothing gets deleted.</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-with col4:
-    st.markdown("""
-    <div style="text-align: center; padding: 1em;">
-    <div style="font-size: 2em; margin-bottom: 0.5em;">4️⃣</div>
-    <strong>You Decide</strong>
-    <p style="font-size: 0.85em; color: #666; margin-top: 0.5em;">Tail, fade, parlay, or ignore.</p>
-    </div>
-    """, unsafe_allow_html=True)
+</div>
+""", unsafe_allow_html=True)
 
 st.markdown("---")
 
