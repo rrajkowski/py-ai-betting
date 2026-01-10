@@ -383,9 +383,9 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-col1, col2, col3 = st.columns([1, 1, 1])
-with col2:
-    if st.button("🎯 See Today's Picks", use_container_width=True, type="primary"):
+col1, col2 = st.columns([0.2, 0.8])
+with col1:
+    if st.button("🎯 See Today's Picks", type="primary"):
         st.switch_page("pages/rage_picks_page.py")
 
 st.markdown("---")
