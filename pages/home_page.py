@@ -151,9 +151,12 @@ def generate_random_daily_pick():
                         sport_name = SportConfig.get_sport_name(sport)
                         home = game.get('home_team', 'Unknown')
                         away = game.get('away_team', 'Unknown')
+                        commence_time = game.get(
+                            'commence_time', datetime.now(timezone.utc).isoformat())
 
                         pick_data = {
-                            'date': datetime.now(timezone.utc).isoformat(),
+                            'date': commence_time,
+                            'commence_time': commence_time,
                             'sport': sport_name,
                             'game': f"{away} @ {home}",
                             'pick': pick.get('name', 'Unknown'),
