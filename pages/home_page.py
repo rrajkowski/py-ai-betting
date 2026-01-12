@@ -79,20 +79,49 @@ def get_7day_stats():
 
 
 def get_todays_free_pick():
-    """Get the best pick from today (highest confidence)."""
+    """Get the best pick from upcoming games (highest confidence)."""
     conn = get_db()
     cur = conn.cursor()
 
-    today = datetime.now(timezone.utc).date().isoformat()
+    now_utc = datetime.now(timezone.utc)
+    today = now_utc.date().isoformat()
 
+    print(f"\n🔍 [get_todays_free_pick] Looking for pending picks...")
+    print(f"   Current time: {now_utc.isoformat()}")
+
+    # Look for pending picks with games starting in the future (next 7 days)
+    # Order by confidence (highest first), then by commence_time (soonest first)
     cur.execute("""
         SELECT * FROM ai_picks
-        WHERE date LIKE ? AND result = 'Pending'
-        ORDER BY confidence DESC
+        WHERE result = 'Pending'
+        AND commence_time IS NOT NULL
+        AND datetime(commence_time) > datetime('now')
+        ORDER BY confidence DESC, commence_time ASC
         LIMIT 1
-    """, (f"{today}%",))
+    """)
 
     pick = cur.fetchone()
+
+    if pick:
+        pick_dict = dict(pick)
+        print(
+            f"   ✅ Found pick: {pick_dict.get('game')} - {pick_dict.get('pick')}")
+        print(f"      Confidence: {pick_dict.get('confidence')}")
+        print(f"      Game starts: {pick_dict.get('commence_time')}")
+    else:
+        print(f"   ❌ No pending picks found!")
+        # Debug: show all pending picks
+        cur.execute(
+            "SELECT id, date, game, pick, result, commence_time FROM ai_picks WHERE result = 'Pending' ORDER BY commence_time DESC LIMIT 5")
+        all_pending = cur.fetchall()
+        if all_pending:
+            print(f"   📋 Recent pending picks:")
+            for row in all_pending:
+                print(
+                    f"      - {row[1]}: {row[2]} ({row[3]}) - starts: {row[5]}")
+        else:
+            print(f"   📋 No pending picks in database at all!")
+
     conn.close()
 
     return dict(pick) if pick else None
@@ -111,8 +140,16 @@ def format_confidence_stars(confidence_str):
 
 def generate_random_daily_pick():
     """Generate a random daily pick from existing pending picks with stars."""
+    print("\n" + "="*80)
+    print("🎲 [generate_random_daily_pick] Starting...")
+
     conn = get_db()
     cur = conn.cursor()
+
+    # First, check how many pending picks exist
+    cur.execute("SELECT COUNT(*) FROM ai_picks WHERE result = 'Pending'")
+    total_pending = cur.fetchone()[0]
+    print(f"   📊 Total pending picks in database: {total_pending}")
 
     # Get all pending picks that have a star rating (confidence)
     cur.execute("""
@@ -125,12 +162,39 @@ def generate_random_daily_pick():
     """)
 
     pick = cur.fetchone()
-    conn.close()
 
     if pick:
         pick_dict = dict(pick)
+        print(
+            f"   ✅ Selected pick: {pick_dict.get('game')} - {pick_dict.get('pick')}")
+        print(f"      Sport: {pick_dict.get('sport')}")
+        print(f"      Market: {pick_dict.get('market')}")
+        print(f"      Confidence: {pick_dict.get('confidence')}")
+        print(f"      Date: {pick_dict.get('date')}")
+        print(f"      Commence Time: {pick_dict.get('commence_time')}")
+        conn.close()
+        print("="*80 + "\n")
         return pick_dict
+    else:
+        print(f"   ❌ No pending picks with confidence found!")
+        # Debug: show what we have
+        cur.execute("""
+            SELECT id, game, pick, confidence, result
+            FROM ai_picks
+            WHERE result = 'Pending'
+            LIMIT 5
+        """)
+        debug_picks = cur.fetchall()
+        if debug_picks:
+            print(f"   📋 Sample pending picks (checking confidence field):")
+            for row in debug_picks:
+                print(
+                    f"      - {row[1]} ({row[2]}) - confidence: '{row[3]}' - result: {row[4]}")
+        else:
+            print(f"   📋 No pending picks at all!")
 
+    conn.close()
+    print("="*80 + "\n")
     return None
 
 
@@ -149,13 +213,22 @@ if is_admin():
     st.sidebar.page_link("pages/admin_manual_picks.py",
                          label="Manual Picks", icon="🔧")
 
-    if st.sidebar.button("🔄 Refresh Daily Pick", type="primary"):
+    if st.sidebar.button("🔄 Refresh Daily Pick", type="secondary"):
+        print("\n" + "="*80)
+        print("🔘 [Refresh Daily Pick Button] Clicked!")
+        print("="*80)
+
         pick_data = generate_random_daily_pick()
+
         if pick_data:
+            print(
+                f"\n📝 [insert_ai_pick] Inserting pick: {pick_data.get('game')}")
             insert_ai_pick(pick_data)
+            print(f"✅ [insert_ai_pick] Pick inserted successfully")
             st.sidebar.success("✅ Daily pick refreshed!")
             st.rerun()
         else:
+            print(f"❌ [Refresh Daily Pick] No pick data returned")
             st.sidebar.error("❌ Could not generate pick. No games available.")
 
 # --- HERO SECTION ---
