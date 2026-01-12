@@ -27,31 +27,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- Sidebar Navigation (Public) ---
-st.sidebar.markdown("### Navigation")
-st.sidebar.page_link("pages/home_page.py", label="Home", icon="🏠")
-st.sidebar.page_link("pages/rage_picks_page.py",
-                     label="RAGE Picks", icon="🤖")
-st.sidebar.page_link("pages/live_scores_page.py",
-                     label="Live Scores", icon="📊")
-st.sidebar.markdown("---")
-
-# --- Admin Section (if logged in) ---
-if is_admin():
-    st.sidebar.markdown("### ⚙️ Admin")
-    st.sidebar.page_link("pages/admin_manual_picks.py",
-                         label="Manual Picks", icon="🔧")
-
-    if st.sidebar.button("🔄 Refresh Daily Pick", type="primary"):
-        pick_data = generate_random_daily_pick()
-        if pick_data:
-            insert_ai_pick(pick_data)
-            st.sidebar.success("✅ Daily pick refreshed!")
-            st.rerun()
-        else:
-            st.sidebar.error("❌ Could not generate pick. No games available.")
-
-# --- Helper Functions ---
+# --- Helper Functions (defined before sidebar) ---
 
 
 def get_7day_stats():
@@ -197,6 +173,30 @@ def generate_random_daily_pick():
 
     return None
 
+
+# --- Sidebar Navigation (Public) ---
+st.sidebar.markdown("### Navigation")
+st.sidebar.page_link("pages/home_page.py", label="Home", icon="🏠")
+st.sidebar.page_link("pages/rage_picks_page.py",
+                     label="RAGE Picks", icon="🤖")
+st.sidebar.page_link("pages/live_scores_page.py",
+                     label="Live Scores", icon="📊")
+st.sidebar.markdown("---")
+
+# --- Admin Section (if logged in) ---
+if is_admin():
+    st.sidebar.markdown("### ⚙️ Admin")
+    st.sidebar.page_link("pages/admin_manual_picks.py",
+                         label="Manual Picks", icon="🔧")
+
+    if st.sidebar.button("🔄 Refresh Daily Pick", type="primary"):
+        pick_data = generate_random_daily_pick()
+        if pick_data:
+            insert_ai_pick(pick_data)
+            st.sidebar.success("✅ Daily pick refreshed!")
+            st.rerun()
+        else:
+            st.sidebar.error("❌ Could not generate pick. No games available.")
 
 # --- HERO SECTION ---
 st.markdown("""
