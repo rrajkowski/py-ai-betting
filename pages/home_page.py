@@ -8,8 +8,6 @@ import streamlit as st
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 from app.db import get_db, list_ai_picks, insert_ai_pick
-from app.rage_picks import fetch_odds
-import random
 
 # --- Page Configuration ---
 st.set_page_config(
@@ -112,67 +110,26 @@ def format_confidence_stars(confidence_str):
 
 
 def generate_random_daily_pick():
-    """Generate a random daily pick from upcoming games with stars."""
-    from app.utils.sport_config import SportConfig
+    """Generate a random daily pick from existing pending picks with stars."""
+    conn = get_db()
+    cur = conn.cursor()
 
-    # List of sports to try
-    sports = [
-        "americanfootball_nfl",
-        "americanfootball_ncaaf",
-        "basketball_nba",
-        "basketball_ncaab",
-        "icehockey_nhl"
-    ]
+    # Get all pending picks that have a star rating (confidence)
+    cur.execute("""
+        SELECT * FROM ai_picks
+        WHERE result = 'Pending'
+        AND confidence IS NOT NULL
+        AND confidence != ''
+        ORDER BY RANDOM()
+        LIMIT 1
+    """)
 
-    # Shuffle to get random sport
-    random.shuffle(sports)
+    pick = cur.fetchone()
+    conn.close()
 
-    for sport in sports:
-        try:
-            games = fetch_odds(sport)
-            if games:
-                # Pick a random game
-                game = random.choice(games)
-
-                # Get random market and pick
-                markets = []
-                if game.get('bookmakers'):
-                    for bm in game['bookmakers']:
-                        for market in bm.get('markets', []):
-                            markets.append((market, bm))
-
-                if markets:
-                    market, bookmaker = random.choice(markets)
-                    outcomes = market.get('outcomes', [])
-                    if outcomes:
-                        pick = random.choice(outcomes)
-
-                        # Create pick data
-                        sport_name = SportConfig.get_sport_name(sport)
-                        home = game.get('home_team', 'Unknown')
-                        away = game.get('away_team', 'Unknown')
-                        commence_time = game.get(
-                            'commence_time', datetime.now(timezone.utc).isoformat())
-
-                        pick_data = {
-                            'date': commence_time,
-                            'commence_time': commence_time,
-                            'sport': sport_name,
-                            'game': f"{away} @ {home}",
-                            'pick': pick.get('name', 'Unknown'),
-                            'market': market.get('key', 'unknown'),
-                            'line': pick.get('point', '-'),
-                            'odds_american': pick.get('odds', '?'),
-                            'confidence': '4 stars',
-                            'source': 'RAGE',
-                            'result': 'Pending',
-                            'reasoning': 'Random daily pick from upcoming games'
-                        }
-
-                        return pick_data
-        except Exception as e:
-            print(f"Error fetching {sport}: {e}")
-            continue
+    if pick:
+        pick_dict = dict(pick)
+        return pick_dict
 
     return None
 
