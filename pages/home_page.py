@@ -7,7 +7,8 @@ from app.auth import is_admin
 import streamlit as st
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
-from app.db import get_db, list_ai_picks
+from app.db import get_db, list_ai_picks, insert_ai_pick
+from app.rage_picks import fetch_odds
 import random
 
 # --- Page Configuration ---
@@ -40,6 +41,15 @@ if is_admin():
     st.sidebar.markdown("### ⚙️ Admin")
     st.sidebar.page_link("pages/admin_manual_picks.py",
                          label="Manual Picks", icon="🔧")
+
+    if st.sidebar.button("🔄 Refresh Daily Pick", type="primary"):
+        pick_data = generate_random_daily_pick()
+        if pick_data:
+            insert_ai_pick(pick_data)
+            st.sidebar.success("✅ Daily pick refreshed!")
+            st.rerun()
+        else:
+            st.sidebar.error("❌ Could not generate pick. No games available.")
 
 # --- Helper Functions ---
 
@@ -123,6 +133,69 @@ def format_confidence_stars(confidence_str):
         return "⭐" * stars
     except (ValueError, IndexError):
         return confidence_str
+
+
+def generate_random_daily_pick():
+    """Generate a random daily pick from upcoming games with stars."""
+    from app.utils.sport_config import SportConfig
+
+    # List of sports to try
+    sports = [
+        "americanfootball_nfl",
+        "americanfootball_ncaaf",
+        "basketball_nba",
+        "basketball_ncaab",
+        "icehockey_nhl"
+    ]
+
+    # Shuffle to get random sport
+    random.shuffle(sports)
+
+    for sport in sports:
+        try:
+            games = fetch_odds(sport)
+            if games:
+                # Pick a random game
+                game = random.choice(games)
+
+                # Get random market and pick
+                markets = []
+                if game.get('bookmakers'):
+                    for bm in game['bookmakers']:
+                        for market in bm.get('markets', []):
+                            markets.append((market, bm))
+
+                if markets:
+                    market, bookmaker = random.choice(markets)
+                    outcomes = market.get('outcomes', [])
+                    if outcomes:
+                        pick = random.choice(outcomes)
+
+                        # Create pick data
+                        sport_name = SportConfig.get_sport_name(sport)
+                        home = game.get('home_team', 'Unknown')
+                        away = game.get('away_team', 'Unknown')
+
+                        pick_data = {
+                            'date': datetime.now(timezone.utc).isoformat(),
+                            'sport': sport_name,
+                            'game': f"{away} @ {home}",
+                            'pick': pick.get('name', 'Unknown'),
+                            'market': market.get('key', 'unknown'),
+                            'line': pick.get('point', '-'),
+                            'odds_american': pick.get('odds', '?'),
+                            'confidence': '4 stars',
+                            'source': 'RAGE',
+                            'result': 'Pending',
+                            'reasoning': 'Random daily pick from upcoming games'
+                        }
+
+                        return pick_data
+        except Exception as e:
+            print(f"Error fetching {sport}: {e}")
+            continue
+
+    return None
 
 
 # --- HERO SECTION ---
