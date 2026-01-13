@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 from app.auth import add_auth_to_page, is_admin
 from app.db import insert_ai_pick, list_ai_picks, delete_ai_pick
 from app.rage_picks import fetch_odds
+from app.utils.sidebar import render_sidebar_navigation, render_admin_section
 
 
 # -----------------------------
@@ -63,17 +64,11 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- Inline Navigation (Public) ---
-st.markdown("""
-<div style="text-align: center; margin-bottom: 2em; font-size: 1.05em; font-weight: 500;">
-    Navigation: Home | RAGE Picks | Live Scores
-</div>
-""", unsafe_allow_html=True)
+# --- Sidebar Navigation ---
+render_sidebar_navigation()
 
 # --- Admin Section ---
-st.sidebar.markdown("### ⚙️ Admin")
-st.sidebar.page_link("pages/admin_manual_picks.py",
-                     label="Manual Picks", icon="🔧")
+render_admin_section()
 
 # -----------------------------
 # Page Configuration

@@ -3,7 +3,8 @@
 Public-facing home page with hero section, results, and free daily pick.
 No authentication required - fully public.
 """
-from app.auth import is_admin
+from app.utils.sidebar import render_sidebar_navigation, render_admin_section
+from app.utils.admin_sidebar import render_refresh_daily_pick_button
 import streamlit as st
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
@@ -198,36 +199,14 @@ def generate_random_daily_pick():
     return None
 
 
-# --- Inline Navigation (Public) ---
-st.markdown("""
-<div style="text-align: center; margin-bottom: 2em; font-size: 1.05em; font-weight: 500;">
-    Navigation: Home | RAGE Picks | Live Scores
-</div>
-""", unsafe_allow_html=True)
+# --- Sidebar Navigation ---
+render_sidebar_navigation()
 
 # --- Admin Section (if logged in) ---
-if is_admin():
-    st.sidebar.markdown("### ⚙️ Admin")
-    st.sidebar.page_link("pages/admin_manual_picks.py",
-                         label="Manual Picks", icon="🔧")
+render_admin_section()
 
-    if st.sidebar.button("🔄 Refresh Daily Pick", type="secondary"):
-        print("\n" + "="*80)
-        print("🔘 [Refresh Daily Pick Button] Clicked!")
-        print("="*80)
-
-        pick_data = generate_random_daily_pick()
-
-        if pick_data:
-            print(
-                f"\n📝 [insert_ai_pick] Inserting pick: {pick_data.get('game')}")
-            insert_ai_pick(pick_data)
-            print(f"✅ [insert_ai_pick] Pick inserted successfully")
-            st.sidebar.success("✅ Daily pick refreshed!")
-            st.rerun()
-        else:
-            print(f"❌ [Refresh Daily Pick] No pick data returned")
-            st.sidebar.error("❌ Could not generate pick. No games available.")
+# --- Admin Utilities ---
+render_refresh_daily_pick_button(generate_random_daily_pick, insert_ai_pick)
 
 # --- HERO SECTION ---
 st.markdown("""
