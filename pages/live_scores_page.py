@@ -12,14 +12,12 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- Sidebar Navigation (Public) ---
-st.sidebar.markdown("### Navigation")
-st.sidebar.page_link("pages/home_page.py", label="Home", icon="🏠")
-st.sidebar.page_link("pages/rage_picks_page.py",
-                     label="RAGE Picks", icon="🤖")
-st.sidebar.page_link("pages/live_scores_page.py",
-                     label="Live Scores", icon="📊")
-st.sidebar.markdown("---")
+# --- Inline Navigation (Public) ---
+st.markdown("""
+<div style="text-align: center; margin-bottom: 2em; font-size: 1.05em; font-weight: 500;">
+    Navigation: Home | RAGE Picks | Live Scores
+</div>
+""", unsafe_allow_html=True)
 
 # --- Admin Section (if logged in) ---
 if is_admin():
