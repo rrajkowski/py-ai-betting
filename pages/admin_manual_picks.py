@@ -4,9 +4,13 @@ from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
 from app.auth import add_auth_to_page, is_admin
-from app.db import insert_ai_pick, list_ai_picks, delete_ai_pick
+from app.db import insert_ai_pick, list_ai_picks, delete_ai_pick, init_ai_picks
 from app.rage_picks import fetch_odds
 from app.utils.sidebar import render_sidebar_navigation, render_admin_section
+
+# --- INITIALIZATION ---
+# Ensure database tables exist
+init_ai_picks()
 
 
 # -----------------------------

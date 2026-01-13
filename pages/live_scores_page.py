@@ -2,6 +2,11 @@
 import streamlit as st
 from app.live_scores import display_live_scores
 from app.utils.sidebar import render_sidebar_navigation, render_admin_section
+from app.db import init_ai_picks
+
+# --- INITIALIZATION ---
+# Ensure database tables exist
+init_ai_picks()
 
 # --- Hide Streamlit's default page navigation ---
 st.markdown("""

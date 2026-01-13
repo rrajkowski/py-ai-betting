@@ -8,7 +8,7 @@ from app.utils.admin_sidebar import render_refresh_daily_pick_button
 import streamlit as st
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
-from app.db import get_db, list_ai_picks, insert_ai_pick
+from app.db import get_db, list_ai_picks, insert_ai_pick, init_ai_picks
 
 # --- Page Configuration ---
 st.set_page_config(
@@ -16,6 +16,10 @@ st.set_page_config(
     page_icon="🏆",
     layout="wide"
 )
+
+# --- INITIALIZATION ---
+# Ensure database tables exist
+init_ai_picks()
 
 # --- Hide Streamlit's default page navigation ---
 st.markdown("""
