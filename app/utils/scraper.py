@@ -497,13 +497,14 @@ def scrape_cbs_expert_picks(target_date: str, sport: str):
 
     # Map team abbreviations to full names for normalization
     # CBS uses 3-letter abbreviations (TOR, IND, CLE, etc.)
+    # Note: Some teams have alternate abbreviations (e.g., PHO/PHX for Phoenix)
     nba_abbrev_map = {
         "ATL": "Atlanta", "BOS": "Boston", "BKN": "Brooklyn", "CHA": "Charlotte",
         "CHI": "Chicago", "CLE": "Cleveland", "DAL": "Dallas", "DEN": "Denver",
         "DET": "Detroit", "GS": "Golden State", "HOU": "Houston", "IND": "Indiana",
         "LAC": "LA Clippers", "LAL": "LA Lakers", "MEM": "Memphis", "MIA": "Miami",
         "MIL": "Milwaukee", "MIN": "Minnesota", "NO": "New Orleans", "NY": "New York",
-        "OKC": "Oklahoma City", "ORL": "Orlando", "PHI": "Philadelphia", "PHX": "Phoenix",
+        "OKC": "Oklahoma City", "ORL": "Orlando", "PHI": "Philadelphia", "PHX": "Phoenix", "PHO": "Phoenix",
         "POR": "Portland", "SAC": "Sacramento", "SA": "San Antonio", "TOR": "Toronto",
         "UTA": "Utah", "WAS": "Washington"
     }
@@ -562,8 +563,13 @@ def scrape_cbs_expert_picks(target_date: str, sport: str):
                 home_team_name = nba_abbrev_map.get(home_abbrev)
 
                 if not away_team_name or not home_team_name:
+                    unknown_abbrevs = []
+                    if not away_team_name:
+                        unknown_abbrevs.append(away_abbrev)
+                    if not home_team_name:
+                        unknown_abbrevs.append(home_abbrev)
                     print(
-                        f"⚠️ CBS Sports: Unknown team abbreviations: {away_abbrev}, {home_abbrev}")
+                        f"⚠️ CBS Sports: Unknown team abbreviations: {', '.join(unknown_abbrevs)}")
                     continue
 
                 # Normalize team names

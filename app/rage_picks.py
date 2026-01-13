@@ -333,12 +333,12 @@ def _call_gemini_model(model_name, prompt):
 
 
 def _call_claude_model(model_name, prompt):
-    """Call Anthropic Claude model."""
+    """Call Anthropic Claude model with retry logic for rate limits."""
     if not ANTHROPIC_API_KEY:
         raise ValueError("ANTHROPIC_API_KEY not set.")
 
     try:
-        from anthropic import Anthropic
+        from anthropic import Anthropic, RateLimitError
     except ImportError:
         raise ValueError(
             "anthropic package not installed. Run: pip install anthropic")
@@ -348,28 +348,44 @@ def _call_claude_model(model_name, prompt):
     # Claude requires explicit JSON formatting instruction
     json_prompt = f"{prompt}\n\nIMPORTANT: Return ONLY valid JSON in this exact format: {{\"picks\": [...]}}"
 
-    response = client.messages.create(
-        model=model_name,
-        max_tokens=4096,
-        messages=[{"role": "user", "content": json_prompt}]
-    )
+    # Retry logic for rate limits (free tier has strict limits)
+    max_retries = 2
+    retry_delay = 2  # seconds
 
-    raw = response.content[0].text
+    for attempt in range(max_retries + 1):
+        try:
+            response = client.messages.create(
+                model=model_name,
+                max_tokens=4096,
+                messages=[{"role": "user", "content": json_prompt}]
+            )
 
-    # Claude sometimes wraps JSON in markdown code blocks - strip them
-    if raw.strip().startswith("```"):
-        # Remove ```json or ``` from start and ``` from end
-        lines = raw.strip().split('\n')
-        if lines[0].startswith("```"):
-            lines = lines[1:]  # Remove first line (```json or ```)
-        if lines and lines[-1].strip() == "```":
-            lines = lines[:-1]  # Remove last line (```)
-        raw = '\n'.join(lines)
+            raw = response.content[0].text
 
-    try:
-        return json.loads(raw).get("picks", [])
-    except Exception:
-        return []
+            # Claude sometimes wraps JSON in markdown code blocks - strip them
+            if raw.strip().startswith("```"):
+                # Remove ```json or ``` from start and ``` from end
+                lines = raw.strip().split('\n')
+                if lines[0].startswith("```"):
+                    lines = lines[1:]  # Remove first line (```json or ```)
+                if lines and lines[-1].strip() == "```":
+                    lines = lines[:-1]  # Remove last line (```)
+                raw = '\n'.join(lines)
+
+            try:
+                return json.loads(raw).get("picks", [])
+            except Exception:
+                return []
+
+        except RateLimitError as e:
+            if attempt < max_retries:
+                import time
+                wait_time = retry_delay * (2 ** attempt)  # Exponential backoff
+                print(
+                    f"⏳ Rate limited. Retrying in {wait_time}s... (attempt {attempt + 1}/{max_retries})")
+                time.sleep(wait_time)
+            else:
+                raise  # Re-raise on final attempt
 
 # -------------------------
 # Generate AI Picks
@@ -564,9 +580,10 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
     """
 
     # Model priority order: Best reasoning → Fast fallback → Emergency fallback
+    # Note: Anthropic models require date suffixes (e.g., claude-sonnet-4-5-20250929)
     models = [
         # Tier 1: Best reasoning and analysis (Primary)
-        {'provider': 'anthropic', 'name': 'claude-sonnet-4-5'},
+        {'provider': 'anthropic', 'name': 'claude-sonnet-4-5-20250929'},
         {'provider': 'google', 'name': 'gemini-2.5-pro'},
         {'provider': 'openai', 'name': 'gpt-5'},
 
@@ -581,7 +598,7 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
     ]
 
     parsed = []
-    for m in models:
+    for idx, m in enumerate(models):
         try:
             # Call appropriate model based on provider
             if m['provider'] == 'google':
@@ -601,6 +618,10 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
         except Exception as e:
             st.warning(
                 f"⚠️ {m['provider']}:{m['name']} failed: {str(e)[:100]}")
+            # Add delay before trying next model to avoid rate limits
+            if idx < len(models) - 1:
+                import time
+                time.sleep(1)
             continue
 
     if not parsed:
