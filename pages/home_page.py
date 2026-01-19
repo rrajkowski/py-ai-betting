@@ -33,10 +33,9 @@ st.markdown("""
 # --- Helper Functions (defined before sidebar) ---
 
 
+@st.cache_data(ttl=300)  # Cache for 5 minutes
 def get_7day_stats():
     """Calculate last 7 days performance stats using same logic as rage_picks_page."""
-    from app.db import DB_PATH
-
     conn = get_db()
     cur = conn.cursor()
 
@@ -64,13 +63,7 @@ def get_7day_stats():
     row = cur.fetchone()
     conn.close()
 
-    print(f"\n🔍 [get_7day_stats] Debug Info:")
-    print(f"   DB Path: {DB_PATH}")
-    print(f"   Seven days ago: {seven_days_ago}")
-    print(f"   Query result: {row}")
-
     if not row or row[0] is None:
-        print(f"   ❌ No data found, returning defaults")
         return {"wins": 0, "losses": 0, "pushes": 0, "units": 0.0, "win_rate": 0, "roi": 0}
 
     wins = row[0] or 0
@@ -80,9 +73,6 @@ def get_7day_stats():
     total = wins + losses + pushes
     win_rate = (wins / total * 100) if total > 0 else 0
     roi = (units / total * 100) if total > 0 else 0
-
-    print(
-        f"   ✅ Stats calculated: {wins}W {losses}L {pushes}P | {units}u | {win_rate}% WR | {roi}% ROI")
 
     return {
         "wins": wins,
@@ -94,18 +84,13 @@ def get_7day_stats():
     }
 
 
+@st.cache_data(ttl=300)  # Cache for 5 minutes
 def get_todays_free_pick():
     """Get the best pick from upcoming games (highest confidence)."""
     conn = get_db()
     cur = conn.cursor()
 
-    now_utc = datetime.now(timezone.utc)
-    today = now_utc.date().isoformat()
-
-    print(f"\n🔍 [get_todays_free_pick] Looking for pending picks...")
-    print(f"   Current time: {now_utc.isoformat()}")
-
-    # Look for pending picks with games starting in the future (next 7 days)
+    # Look for pending picks with games starting in the future
     # Order by confidence (highest first), then by commence_time (soonest first)
     cur.execute("""
         SELECT * FROM ai_picks
@@ -117,27 +102,6 @@ def get_todays_free_pick():
     """)
 
     pick = cur.fetchone()
-
-    if pick:
-        pick_dict = dict(pick)
-        print(
-            f"   ✅ Found pick: {pick_dict.get('game')} - {pick_dict.get('pick')}")
-        print(f"      Confidence: {pick_dict.get('confidence')}")
-        print(f"      Game starts: {pick_dict.get('commence_time')}")
-    else:
-        print(f"   ❌ No pending picks found!")
-        # Debug: show all pending picks
-        cur.execute(
-            "SELECT id, date, game, pick, result, commence_time FROM ai_picks WHERE result = 'Pending' ORDER BY commence_time DESC LIMIT 5")
-        all_pending = cur.fetchall()
-        if all_pending:
-            print(f"   📋 Recent pending picks:")
-            for row in all_pending:
-                print(
-                    f"      - {row[1]}: {row[2]} ({row[3]}) - starts: {row[5]}")
-        else:
-            print(f"   📋 No pending picks in database at all!")
-
     conn.close()
 
     return dict(pick) if pick else None
