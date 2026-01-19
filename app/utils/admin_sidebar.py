@@ -15,14 +15,14 @@ from app.auth import is_admin
 def render_refresh_daily_pick_button(generate_pick_callback, insert_pick_callback):
     """
     Render the "Refresh Daily Pick" button for the home page.
-    
+
     Args:
         generate_pick_callback: Function to generate a random daily pick
         insert_pick_callback: Function to insert the pick into database
     """
     if not is_admin():
         return
-    
+
     if st.sidebar.button("🔄 Refresh Daily Pick", type="secondary"):
         print("\n" + "="*80)
         print("🔘 [Refresh Daily Pick Button] Clicked!")
@@ -33,10 +33,14 @@ def render_refresh_daily_pick_button(generate_pick_callback, insert_pick_callbac
         if pick_data:
             print(
                 f"\n📝 [insert_ai_pick] Inserting pick: {pick_data.get('game')}")
-            insert_pick_callback(pick_data)
-            print(f"✅ [insert_ai_pick] Pick inserted successfully")
-            st.sidebar.success("✅ Daily pick refreshed!")
-            st.rerun()
+            inserted = insert_pick_callback(pick_data)
+            if inserted:
+                print(f"✅ [insert_ai_pick] Pick inserted successfully")
+                st.sidebar.success("✅ Daily pick refreshed!")
+                st.rerun()
+            else:
+                print(f"⚠️ [insert_ai_pick] Pick already exists in database")
+                st.sidebar.warning("⚠️ This pick is already in the database!")
         else:
             print(f"❌ [Refresh Daily Pick] No pick data returned")
             st.sidebar.error("❌ Could not generate pick. No games available.")
@@ -45,15 +49,15 @@ def render_refresh_daily_pick_button(generate_pick_callback, insert_pick_callbac
 def render_maintenance_section(update_results_callback):
     """
     Render the maintenance section with update and cleanup buttons.
-    
+
     Args:
         update_results_callback: Function to update pick results
     """
     if not is_admin():
         return
-    
+
     st.sidebar.markdown("### ⚙️ Maintenance")
-    
+
     if st.sidebar.button("🔁 Update Pick Results"):
         update_results_callback()
         st.success("RAGE Sports Picks updated from live scores!")
@@ -88,7 +92,7 @@ def render_backup_restore_section():
     """
     if not is_admin():
         return
-    
+
     st.sidebar.markdown("---")
     st.sidebar.markdown("### 💾 Backup & Restore")
 
@@ -220,4 +224,3 @@ def _merge_backup_data(uploaded_file):
         # Clean up temp file on error
         if os.path.exists(backup_db_path):
             os.unlink(backup_db_path)
-

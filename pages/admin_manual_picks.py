@@ -171,14 +171,17 @@ with st.expander("🎰 Parlay Builder (Combine up to 6 picks)", expanded=False):
                 "source": "RAGE"
             }
 
-            insert_ai_pick(parlay_data)
-            st.success(
-                f"✅ Parlay saved! {len(st.session_state.parlay_picks)} picks @ {parlay_odds:+d}")
-            st.balloons()
+            inserted = insert_ai_pick(parlay_data)
+            if inserted:
+                st.success(
+                    f"✅ Parlay saved! {len(st.session_state.parlay_picks)} picks @ {parlay_odds:+d}")
+                st.balloons()
 
-            # Clear parlay
-            st.session_state.parlay_picks = []
-            st.rerun()
+                # Clear parlay
+                st.session_state.parlay_picks = []
+                st.rerun()
+            else:
+                st.warning("⚠️ This parlay already exists in the database!")
 
         if st.button("🗑️ Clear Parlay", type="secondary"):
             st.session_state.parlay_picks = []
@@ -398,15 +401,18 @@ if 'games_data' in st.session_state and st.session_state.games_data:
                 }
 
                 # Insert into database
-                insert_ai_pick(pick_data)
-                st.success(
-                    f"✅ Successfully added {sport_name} pick: {picked_outcome['name']}")
-                st.balloons()
+                inserted = insert_ai_pick(pick_data)
+                if inserted:
+                    st.success(
+                        f"✅ Successfully added {sport_name} pick: {picked_outcome['name']}")
+                    st.balloons()
 
-                # Clear session state
-                if 'games_data' in st.session_state:
-                    del st.session_state.games_data
-                st.rerun()
+                    # Clear session state
+                    if 'games_data' in st.session_state:
+                        del st.session_state.games_data
+                    st.rerun()
+                else:
+                    st.warning("⚠️ This pick already exists in the database!")
     else:
         st.warning(f"⚠️ No odds available for {market_key} market")
 else:

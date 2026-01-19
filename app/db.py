@@ -228,6 +228,7 @@ def insert_ai_picks(picks: list):
 def insert_ai_pick(pick: dict):
     """
     Insert a single AI pick, ensuring commence_time and source are saved correctly.
+    Checks for duplicates before inserting.
     """
     conn = get_db()
     cur = conn.cursor()
@@ -242,6 +243,24 @@ def insert_ai_pick(pick: dict):
     except (TypeError, ValueError):
         odds_value = None
 
+    game = pick.get("game", "").strip()
+    market = pick.get("market", "").strip()
+    pick_value = pick.get("pick", "").strip()
+
+    # Check if this exact pick already exists in database
+    cur.execute("""
+        SELECT id FROM ai_picks
+        WHERE game = ? AND market = ? AND pick = ? AND line = ?
+        LIMIT 1
+    """, (game, market, pick_value, line_value))
+
+    existing = cur.fetchone()
+    if existing:
+        print(
+            f"⚠️ [insert_ai_pick] Duplicate pick detected: {game} - {pick_value} ({market})")
+        conn.close()
+        return False
+
     commence_time = pick.get("commence_time")
     source = pick.get("source", "AI")  # Default to AI if not specified
 
@@ -249,10 +268,10 @@ def insert_ai_pick(pick: dict):
         INSERT INTO ai_picks (game, sport, pick, market, line, odds_american, confidence, reasoning, date, result, commence_time, source)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
-        pick.get("game"),
+        game,
         pick.get("sport"),
-        pick.get("pick"),
-        pick.get("market"),
+        pick_value,
+        market,
         line_value,
         odds_value,
         pick.get("confidence"),
@@ -265,6 +284,7 @@ def insert_ai_pick(pick: dict):
 
     conn.commit()
     conn.close()
+    return True
 
 
 def fetch_performance_summary(sport_name):
