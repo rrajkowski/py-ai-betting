@@ -20,7 +20,8 @@ class SportConfig:
         },
         "americanfootball_ncaaf": {
             "start": (8, 20),     # August 20
-            "end": (1, 15),       # January 15 (includes bowl games)
+            # January 31 (includes bowl games and championship games)
+            "end": (1, 31),
             "name": "NCAAF",
             "emoji": "🎓"
         },
