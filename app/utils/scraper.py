@@ -484,6 +484,7 @@ def scrape_cbs_expert_picks(target_date: str, sport: str):
         "americanfootball_ncaaf": "college-football/picks/experts/",
         "basketball_nba": "nba/expert-picks/",
         "icehockey_nhl": "nhl/expert-picks/",
+        "mma_mixed_martial_arts": "mma/expert-picks/",  # UFC expert picks
         # NCAAB doesn't have expert picks page yet on CBS
     }
 
@@ -689,12 +690,14 @@ def scrape_boydsbets_picks(target_date: str, sport: str):
 
     # 2. Map sport key to Boyd's Bets sport filter
     # Boyd's uses NCAA-F and NCAA-B for college sports (not CFB/CBB)
+    # Boyd's uses MMA for UFC fights
     sport_filter_map = {
         "americanfootball_nfl": "NFL",
         "americanfootball_ncaaf": "NCAA-F",  # College Football
         "basketball_nba": "NBA",
         "basketball_ncaab": "NCAA-B",  # College Basketball
         "icehockey_nhl": "NHL",
+        "mma_mixed_martial_arts": "MMA",  # UFC/MMA fights
     }
 
     sport_filter = sport_filter_map.get(sport)

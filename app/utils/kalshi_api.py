@@ -120,7 +120,8 @@ def extract_teams_from_kalshi_ticker(ticker: str, sport_key: str) -> Optional[Tu
         'americanfootball_nfl': 'NFL',
         'americanfootball_ncaaf': 'NCAAF',
         'icehockey_nhl': 'NHL',
-        'baseball_mlb': 'MLB'
+        'baseball_mlb': 'MLB',
+        'mma_mixed_martial_arts': 'UFC'
     }
     sport_name = sport_map.get(sport_key, 'NBA')
 
@@ -232,6 +233,10 @@ def fetch_kalshi_consensus(sport_key: str, target_date: str):
     # For NFL: extend to 2 days for Thu/Sun/Mon games
     if sport_key == "americanfootball_nfl":
         max_48h = now_utc + timedelta(days=2)
+
+    # For UFC/MMA: extend to 7 days (events are less frequent)
+    if sport_key == "mma_mixed_martial_arts":
+        max_48h = now_utc + timedelta(days=7)
 
     filtered_markets = []
     date_parse_failures = 0

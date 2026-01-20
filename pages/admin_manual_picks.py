@@ -199,10 +199,11 @@ st.header("Add New Manual Pick")
 # Sport Selection
 sports_map = {
     "NFL": "americanfootball_nfl",
-    "NCAAF": "americanfootball_ncaaf",
+    # "NCAAF": "americanfootball_ncaaf",  # Season over
     "NCAAB": "basketball_ncaab",
     "NBA": "basketball_nba",
     "NHL": "icehockey_nhl",
+    "UFC": "mma_mixed_martial_arts",
 }
 
 col1, col2 = st.columns(2)
@@ -249,8 +250,13 @@ if 'games_data' in st.session_state and st.session_state.games_data:
     selected_game = game_options[selected_game_label]
 
     # Market Selection
-    market_key = st.selectbox("4️⃣ Select Market", [
-                              "h2h", "spreads", "totals"])
+    # UFC only has h2h and totals (no spreads)
+    if sport_name == "UFC":
+        market_options = ["h2h", "totals"]
+    else:
+        market_options = ["h2h", "spreads", "totals"]
+
+    market_key = st.selectbox("4️⃣ Select Market", market_options)
 
     # Find odds data for selected market
     odds_data = None
@@ -283,7 +289,9 @@ if 'games_data' in st.session_state and st.session_state.games_data:
         adjusted_odds = picked_outcome['price']
         point_adjustment = 0
 
-        if market_key in ["spreads", "totals"]:
+        # Only show point buying for spreads and totals (not for h2h)
+        # For UFC, totals are rounds, not points, so no buying available
+        if market_key in ["spreads", "totals"] and sport_name != "UFC":
             st.markdown("---")
             st.subheader("🎯 Optional: Buy Points")
             st.caption(

@@ -426,7 +426,7 @@ with st.expander("Is this paid?"):
     st.markdown("Currently free. Advanced features coming later.")
 
 with st.expander("What sports?"):
-    st.markdown("NBA, NFL, MLB, NCAAF, NCAAB, NHL, more coming.")
+    st.markdown("NBA, NFL, NCAAB, NHL, UFC, more coming.")
 
 st.markdown("---")
 

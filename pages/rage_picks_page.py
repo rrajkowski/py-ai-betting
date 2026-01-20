@@ -26,11 +26,12 @@ from app.rage_picks import (
     update_ai_pick_results,
     generate_ai_picks,  # Make sure to import generate_ai_picks
     fetch_historical_nfl,
-    fetch_historical_ncaaf,
+    # fetch_historical_ncaaf,  # Season over
     # fetch_historical_mlb,  # Season over
     fetch_historical_ncaab,
     fetch_historical_nba,
-    fetch_historical_nhl
+    fetch_historical_nhl,
+    fetch_historical_ufc
 )
 
 # -----------------------------
@@ -157,8 +158,8 @@ def refresh_bet_results():
 
         if sport == 'NFL':
             sport_key = 'americanfootball_nfl'
-        elif sport == 'NCAAF':
-            sport_key = 'americanfootball_ncaaf'
+        # elif sport == 'NCAAF':  # Season over
+        #     sport_key = 'americanfootball_ncaaf'
         # elif sport == 'MLB':  # Season over
         #     sport_key = 'baseball_mlb'
         elif sport == 'NCAAB':
@@ -167,6 +168,8 @@ def refresh_bet_results():
             sport_key = 'basketball_nba'
         elif sport == 'NHL':
             sport_key = 'icehockey_nhl'
+        elif sport == 'UFC':
+            sport_key = 'mma_mixed_martial_arts'
         else:
             continue
 
@@ -457,6 +460,8 @@ def run_ai_picks(sport_key, sport_name):
             "americanfootball_nfl": [24, 48, 72],
             "americanfootball_ncaaf": [24, 48],    # NCAAF: 1 day, 2 days
             "icehockey_nhl": [12, 24],       # NHL: Try 12h first, then 24h
+            # UFC: Up to 7 days (typically Sat nights)
+            "mma_mixed_martial_arts": [24, 48, 72, 96, 120, 144, 168],
         }
 
         windows = time_windows.get(sport_key, [12, 24])  # Default: 12h, 24h
@@ -547,10 +552,11 @@ def run_ai_picks(sport_key, sport_name):
             f"📊 Found {filtered_markets} competitive {sport_name} markets from {games_in_window} games in next {time_window_used}h (filtered from {total_markets} total markets)")
 
         history_team = raw_odds[0]['home_team']
-        history_map = {"americanfootball_ncaaf": fetch_historical_ncaaf, "americanfootball_nfl": fetch_historical_nfl,
+        history_map = {"americanfootball_nfl": fetch_historical_nfl,
+                       # "americanfootball_ncaaf": fetch_historical_ncaaf,  # Season over
                        # "baseball_mlb": fetch_historical_mlb,  # Season over
                        "basketball_ncaab": fetch_historical_ncaab, "basketball_nba": fetch_historical_nba,
-                       "icehockey_nhl": fetch_historical_nhl}
+                       "icehockey_nhl": fetch_historical_nhl, "mma_mixed_martial_arts": fetch_historical_ufc}
         history = history_map.get(sport_key, lambda x: [])(history_team)
 
         odds_df = pd.DataFrame(normalized_odds)
@@ -571,12 +577,13 @@ if admin_user:
 
 # Get stats for each sport
 nfl_stats = get_sport_summary("NFL")
-ncaaf_stats = get_sport_summary("NCAAF")
+# ncaaf_stats = get_sport_summary("NCAAF")  # Season over
 ncaab_stats = get_sport_summary("NCAAB")
 nba_stats = get_sport_summary("NBA")
 nhl_stats = get_sport_summary("NHL")
+ufc_stats = get_sport_summary("UFC")
 
-col1, col2, col3, col4, col5 = st.columns(5)
+col1, col2, col3, col4, col5 = st.columns(5)  # NFL, NBA, NCAAB, NHL, UFC
 
 with col1:
     if admin_user and st.button("🏈 Generate NFL Picks", use_container_width=True):
@@ -596,23 +603,23 @@ with col1:
         unsafe_allow_html=True
     )
 
-with col2:
-    if admin_user and st.button("🎓 Generate NCAAF Picks", use_container_width=True):
-        st.session_state.generated_picks = None
-        run_ai_picks("americanfootball_ncaaf", "NCAAF")
-    # Column header label for everyone
-    st.markdown(
-        "<div style='text-align: center; font-size: 14px; font-weight: 600; margin: 2px 0 2px;'>🎓 NCAAF</div>",
-        unsafe_allow_html=True,
-    )
-    units_color = "#22c55e" if ncaaf_stats['units'] >= 0 else "#ef4444"
-    st.markdown(
-        f"<div style='text-align: center; font-size: 12px; color: #6b7280; margin-top: 0px;'>"
-        f"{ncaaf_stats['wins']}-{ncaaf_stats['losses']}-{ncaaf_stats['pushes']} • "
-        f"<span style='color: {units_color}; font-weight: 600;'>{ncaaf_stats['units']:+.1f}u</span>"
-        f"</div>",
-        unsafe_allow_html=True
-    )
+# with col2:  # NCAAF - Season over
+#     if admin_user and st.button("🎓 Generate NCAAF Picks", use_container_width=True):
+#         st.session_state.generated_picks = None
+#         run_ai_picks("americanfootball_ncaaf", "NCAAF")
+#     # Column header label for everyone
+#     st.markdown(
+#         "<div style='text-align: center; font-size: 14px; font-weight: 600; margin: 2px 0 2px;'>🎓 NCAAF</div>",
+#         unsafe_allow_html=True,
+#     )
+#     units_color = "#22c55e" if ncaaf_stats['units'] >= 0 else "#ef4444"
+#     st.markdown(
+#         f"<div style='text-align: center; font-size: 12px; color: #6b7280; margin-top: 0px;'>"
+#         f"{ncaaf_stats['wins']}-{ncaaf_stats['losses']}-{ncaaf_stats['pushes']} • "
+#         f"<span style='color: {units_color}; font-weight: 600;'>{ncaaf_stats['units']:+.1f}u</span>"
+#         f"</div>",
+#         unsafe_allow_html=True
+#     )
 
 with col3:
     if admin_user and st.button("🏀 Generate NBA Picks", use_container_width=True):
@@ -632,7 +639,7 @@ with col3:
         unsafe_allow_html=True
     )
 
-with col4:
+with col2:
     # Use graduation cap for NCAAB to distinguish it from NBA
     if admin_user and st.button("🎓 Generate NCAAB Picks", use_container_width=True):
         st.session_state.generated_picks = None
@@ -651,7 +658,7 @@ with col4:
         unsafe_allow_html=True
     )
 
-with col5:
+with col4:
     if admin_user and st.button("🏒 Generate NHL Picks", use_container_width=True):
         st.session_state.generated_picks = None
         run_ai_picks("icehockey_nhl", "NHL")
@@ -665,6 +672,24 @@ with col5:
         f"<div style='text-align: center; font-size: 12px; color: #6b7280; margin-top: 0px;'>"
         f"{nhl_stats['wins']}-{nhl_stats['losses']}-{nhl_stats['pushes']} • "
         f"<span style='color: {units_color}; font-weight: 600;'>{nhl_stats['units']:+.1f}u</span>"
+        f"</div>",
+        unsafe_allow_html=True
+    )
+
+with col5:
+    if admin_user and st.button("🥊 Generate UFC Picks", use_container_width=True):
+        st.session_state.generated_picks = None
+        run_ai_picks("mma_mixed_martial_arts", "UFC")
+    # Column header label for everyone
+    st.markdown(
+        "<div style='text-align: center; font-size: 14px; font-weight: 600; margin: 2px 0 2px;'>🥊 UFC/MMA</div>",
+        unsafe_allow_html=True,
+    )
+    units_color = "#22c55e" if ufc_stats['units'] >= 0 else "#ef4444"
+    st.markdown(
+        f"<div style='text-align: center; font-size: 12px; color: #6b7280; margin-top: 0px;'>"
+        f"{ufc_stats['wins']}-{ufc_stats['losses']}-{ufc_stats['pushes']} • "
+        f"<span style='color: {units_color}; font-weight: 600;'>{ufc_stats['units']:+.1f}u</span>"
         f"</div>",
         unsafe_allow_html=True
     )

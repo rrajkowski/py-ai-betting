@@ -119,13 +119,13 @@ migrate_historical_games()
 
 def fetch_odds(sport="americanfootball_ncaaf"):
     """
-    Fetch odds from RapidAPI with seasonal awareness and 3-day filtering.
+    Fetch odds from RapidAPI with seasonal awareness and time-based filtering.
 
     Args:
         sport: Sport key (e.g., 'americanfootball_nfl')
 
     Returns:
-        List of upcoming games with odds (next 3 days only)
+        List of upcoming games with odds (next 3-7 days depending on sport)
     """
     # Check if sport is in season
     if not SportConfig.is_in_season(sport):
@@ -157,12 +157,15 @@ def fetch_odds(sport="americanfootball_ncaaf"):
         return []
 
     now_utc = datetime.now(timezone.utc)
-    max_future_date = now_utc + timedelta(days=3)  # Only next 3 days
+    # UFC/MMA events are less frequent, so look 7 days ahead
+    # Other sports look 3 days ahead
+    days_ahead = 7 if sport == "mma_mixed_martial_arts" else 3
+    max_future_date = now_utc + timedelta(days=days_ahead)
     future_games = []
 
     for game in all_games:
         dt = _safe_parse_datetime(game.get('commence_time'))
-        if dt and now_utc < dt <= max_future_date:  # Filter to 3-day window
+        if dt and now_utc < dt <= max_future_date:  # Filter to appropriate window
             game['commence_time'] = dt.isoformat()
             future_games.append(game)
 
@@ -284,6 +287,14 @@ def fetch_historical_nhl(team_name, limit=None):
         limit = SportConfig.get_historical_limit("icehockey_nhl")
     days = SportConfig.get_historical_days("icehockey_nhl")
     return _fetch_and_cache_historical_scores("icehockey_nhl", "NHL", team_name, limit, days)
+
+
+def fetch_historical_ufc(fighter_name, limit=None):
+    """Fetch UFC historical fights with optimized limit."""
+    if limit is None:
+        limit = SportConfig.get_historical_limit("mma_mixed_martial_arts")
+    days = SportConfig.get_historical_days("mma_mixed_martial_arts")
+    return _fetch_and_cache_historical_scores("mma_mixed_martial_arts", "UFC", fighter_name, limit, days)
 
 
 def fetch_historical_other(team_name, limit=10):

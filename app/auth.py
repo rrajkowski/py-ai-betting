@@ -599,6 +599,17 @@ def is_admin():
     Returns:
         bool: True if user is admin, False otherwise
     """
+    # Check if we're running locally using IS_LOCAL flag in secrets
+    try:
+        is_localhost = st.secrets["IS_LOCAL"]
+    except (KeyError, FileNotFoundError):
+        is_localhost = False
+
+    # LOCALHOST: Enable admin for local development without auth
+    if is_localhost:
+        return True
+
+    # STREAMLIT CLOUD: Check if user is admin by email
     try:
         # Check if user is logged in
         if not st.user.is_logged_in:

@@ -61,14 +61,15 @@ def display_live_scores():
     # --- Fetch scores (pulls 1 day of history) ---
     sports_data = {
         "NFL": fetch_scores(sport="americanfootball_nfl", days_from=2),
-        "NCAAF": fetch_scores(sport="americanfootball_ncaaf", days_from=2),
+        # "NCAAF": fetch_scores(sport="americanfootball_ncaaf", days_from=2),  # Season over
         # "MLB": fetch_scores(sport="baseball_mlb", days_from=2),  # Season over
         "NCAAB": fetch_scores(sport="basketball_ncaab", days_from=2),
         "NBA": fetch_scores(sport="basketball_nba", days_from=2),
         "NHL": fetch_scores(sport="icehockey_nhl", days_from=2),
+        "UFC": fetch_scores(sport="mma_mixed_martial_arts", days_from=2),
     }
 
-    emojis = {"NFL": "🏈", "NCAAF": "🎓", "NCAAB": "🏀", "NBA": "🏀", "NHL": "🏒"}
+    emojis = {"NFL": "🏈", "NCAAB": "🏀", "NBA": "🏀", "NHL": "🏒", "UFC": "🥊"}
     cols = st.columns(5)
 
     # Current UTC for cutoff logic
@@ -121,8 +122,8 @@ def display_live_scores():
             # Prioritize: LIVE first, then upcoming, then completed
             final_games = live_games + upcoming_games + completed_games
 
-            # If no live games for NCAAF, show 5 upcoming
-            if sport == "NCAAF" and not live_games:
+            # If no live games for UFC, show 5 upcoming (UFC events are less frequent)
+            if sport == "UFC" and not live_games:
                 final_games = upcoming_games[:5]
 
             # --- Display games ---

@@ -48,6 +48,12 @@ class SportConfig:
             "end": (6, 15),       # June 15 (includes Stanley Cup Finals)
             "name": "NHL",
             "emoji": "🏒"
+        },
+        "mma_mixed_martial_arts": {
+            "start": (1, 1),      # January 1 (year-round)
+            "end": (12, 31),      # December 31 (year-round)
+            "name": "UFC",
+            "emoji": "🥊"
         }
     }
 
@@ -127,6 +133,21 @@ class SportConfig:
                 "monday": 6,      # Fewer games
                 "default": 8
             }
+        },
+        "mma_mixed_martial_arts": {
+            "ticker": "KXMMAGAME",  # Kalshi MMA ticker
+            "base_limit": 8,
+            "schedule": {
+                "tuesday": 4,     # Some events
+                "wednesday": 4,   # Some events
+                "thursday": 4,    # Some events
+                "friday": 6,      # More events
+                # Peak event day (UFC events typically Saturday)
+                "saturday": 8,
+                "sunday": 4,      # Some events
+                "monday": 2,      # Fewer events
+                "default": 4
+            }
         }
     }
 
@@ -139,7 +160,8 @@ class SportConfig:
         "basketball_ncaab": 10,
         "basketball_nba": 12,            # Last ~2 weeks of games
         "baseball_mlb": 10,              # Last ~2 weeks of games
-        "icehockey_nhl": 12              # Last ~2 weeks of games
+        "icehockey_nhl": 12,             # Last ~2 weeks of games
+        "mma_mixed_martial_arts": 10     # Last ~10 fights for fighter context
     }
 
     # Days to look back for historical scores
@@ -149,7 +171,8 @@ class SportConfig:
         "basketball_ncaab": 30,          # ~1 month
         "basketball_nba": 30,            # ~1 month
         "baseball_mlb": 30,              # ~1 month
-        "icehockey_nhl": 30              # ~1 month
+        "icehockey_nhl": 30,             # ~1 month
+        "mma_mixed_martial_arts": 365    # ~1 year (fighters have fewer fights)
     }
 
     @classmethod
