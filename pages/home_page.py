@@ -85,6 +85,53 @@ def get_7day_stats():
 
 
 @st.cache_data(ttl=300)  # Cache for 5 minutes
+def get_alltime_stats():
+    """Calculate all-time performance stats."""
+    conn = get_db()
+    cur = conn.cursor()
+
+    query = """
+    SELECT
+        SUM(CASE WHEN result = 'Win' THEN 1 ELSE 0 END) AS total_wins,
+        SUM(CASE WHEN result = 'Loss' THEN 1 ELSE 0 END) AS total_losses,
+        SUM(CASE WHEN result = 'Push' THEN 1 ELSE 0 END) AS total_pushes,
+        SUM(
+            CASE
+                WHEN result = 'Win' AND odds_american > 0 THEN (odds_american / 100.0)
+                WHEN result = 'Win' AND odds_american < 0 THEN (100.0 / ABS(odds_american))
+                WHEN result = 'Loss' THEN -1.0
+                ELSE 0
+            END
+        ) AS net_units
+    FROM ai_picks
+    WHERE result IN ('Win', 'Loss', 'Push');
+    """
+    cur.execute(query)
+    row = cur.fetchone()
+    conn.close()
+
+    if not row or row[0] is None:
+        return {"wins": 0, "losses": 0, "pushes": 0, "units": 0.0, "win_rate": 0, "roi": 0}
+
+    wins = row[0] or 0
+    losses = row[1] or 0
+    pushes = row[2] or 0
+    units = round(row[3] or 0.0, 2)
+    total = wins + losses + pushes
+    win_rate = (wins / total * 100) if total > 0 else 0
+    roi = (units / total * 100) if total > 0 else 0
+
+    return {
+        "wins": wins,
+        "losses": losses,
+        "pushes": pushes,
+        "units": units,
+        "win_rate": round(win_rate, 1),
+        "roi": round(roi, 1)
+    }
+
+
+@st.cache_data(ttl=300)  # Cache for 5 minutes
 def get_todays_free_pick():
     """Get the best pick from upcoming games (highest confidence)."""
     conn = get_db()
@@ -266,28 +313,45 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<div style="text-align: left;"><div class="hero-title">AI vs Vegas — Public Record</div></div>',
+st.markdown('<div style="text-align: left; margin-bottom: 0.5em;"><div class="hero-title">AI vs Vegas — Public Record</div></div>',
             unsafe_allow_html=True)
-st.markdown('<div class="hero-subtitle">No locks. No deletes. Just units.</div>',
+st.markdown('<div class="hero-subtitle" style="margin-bottom: 0.5em;">No locks. No deletes. Just units.</div>',
             unsafe_allow_html=True)
 
-# Get 7-day stats
-stats = get_7day_stats()
+# Get 7-day and all-time stats
+stats_7day = get_7day_stats()
+stats_alltime = get_alltime_stats()
 
 st.markdown(f"""
-<div style="border: 2px solid #ddd; border-radius: 12px; padding: 2em; margin: 1.5em 0;">
-    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 2em; text-align: center;">
+<div style="border: 2px solid #ddd; border-radius: 12px; padding: 1.2em; margin: 0.8em 0;">
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 2em; text-align: center; margin-bottom: 1.2em;">
         <div>
-            <div style="font-size: 0.9em; color: #666; margin-bottom: 0.5em;">Last 7 Days</div>
-            <div style="font-size: 2.2em; font-weight: bold; color: #1f77b4;">+{stats['units']}u</div>
+            <div style="font-size: 0.9em; color: #666; margin-bottom: 0.3em;">Last 7 Days</div>
+            <div style="font-size: 2.2em; font-weight: bold; color: #1f77b4;">+{stats_7day['units']}u</div>
         </div>
         <div>
-            <div style="font-size: 0.9em; color: #666; margin-bottom: 0.5em;">Win Rate</div>
-            <div style="font-size: 2.2em; font-weight: bold; color: #1f77b4;">{stats['win_rate']}%</div>
+            <div style="font-size: 0.9em; color: #666; margin-bottom: 0.3em;">Win Rate</div>
+            <div style="font-size: 2.2em; font-weight: bold; color: #1f77b4;">{stats_7day['win_rate']}%</div>
         </div>
         <div>
-            <div style="font-size: 0.9em; color: #666; margin-bottom: 0.5em;">ROI</div>
-            <div style="font-size: 2.2em; font-weight: bold; color: #1f77b4;">+{stats['roi']}%</div>
+            <div style="font-size: 0.9em; color: #666; margin-bottom: 0.3em;">ROI</div>
+            <div style="font-size: 2.2em; font-weight: bold; color: #1f77b4;">+{stats_7day['roi']}%</div>
+        </div>
+    </div>
+    <div style="border-top: 1px solid #eee; padding-top: 1.2em;">
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 2em; text-align: center;">
+            <div>
+                <div style="font-size: 0.9em; color: #666; margin-bottom: 0.3em;">All Time</div>
+                <div style="font-size: 2.2em; font-weight: bold; color: #1f77b4;">+{stats_alltime['units']}u</div>
+            </div>
+            <div>
+                <div style="font-size: 0.9em; color: #666; margin-bottom: 0.3em;">Win Rate</div>
+                <div style="font-size: 2.2em; font-weight: bold; color: #1f77b4;">{stats_alltime['win_rate']}%</div>
+            </div>
+            <div>
+                <div style="font-size: 0.9em; color: #666; margin-bottom: 0.3em;">ROI</div>
+                <div style="font-size: 2.2em; font-weight: bold; color: #1f77b4;">+{stats_alltime['roi']}%</div>
+            </div>
         </div>
     </div>
 </div>
@@ -301,10 +365,11 @@ with col2:
     if st.button("📊 View Today's Full Slate", type="primary", width="stretch"):
         st.switch_page("pages/rage_picks_page.py")
 
-st.markdown("---")
+st.markdown("<div style='margin: 0.5em 0;'>---</div>", unsafe_allow_html=True)
 
 # --- TODAY'S FREE PICK SECTION ---
-st.subheader("🎁 TODAY'S FREE PICK")
+st.markdown("<h3 style='margin-top: 0.5em; margin-bottom: 0.5em;'>🎁 TODAY'S FREE PICK</h3>",
+            unsafe_allow_html=True)
 
 free_pick = get_todays_free_pick()
 
@@ -327,10 +392,11 @@ if free_pick:
 else:
     st.info("No picks posted yet today. Check back soon!")
 
-st.markdown("---")
+st.markdown("<div style='margin: 0.5em 0;'>---</div>", unsafe_allow_html=True)
 
 # --- WHAT THIS IS SECTION ---
-st.subheader("❓ WHAT THIS IS")
+st.markdown("<h3 style='margin-top: 0.5em; margin-bottom: 0.5em;'>❓ WHAT THIS IS</h3>",
+            unsafe_allow_html=True)
 
 st.markdown("""
 <div style="font-size: 1.1em; line-height: 1.8;">
@@ -344,10 +410,11 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-st.markdown("---")
+st.markdown("<div style='margin: 0.5em 0;'>---</div>", unsafe_allow_html=True)
 
 # --- HOW IT WORKS SECTION ---
-st.subheader("⚙️ HOW IT WORKS")
+st.markdown("<h3 style='margin-top: 0.5em; margin-bottom: 0.5em;'>⚙️ HOW IT WORKS</h3>",
+            unsafe_allow_html=True)
 
 st.markdown("""
 <div style="font-size: 1.1em; line-height: 1.8;">
@@ -363,10 +430,11 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-st.markdown("---")
+st.markdown("<div style='margin: 0.5em 0;'>---</div>", unsafe_allow_html=True)
 
 # --- THE RECEIPTS SECTION ---
-st.subheader("📜 THE RECEIPTS")
+st.markdown("<h3 style='margin-top: 0.5em; margin-bottom: 0.5em;'>📜 THE RECEIPTS</h3>",
+            unsafe_allow_html=True)
 st.markdown("**Public Performance Log**")
 
 picks = list_ai_picks(limit=20)
@@ -397,10 +465,11 @@ with col2:
     if st.button("📋 View Full History", type="primary", width="stretch"):
         st.switch_page("pages/rage_picks_page.py")
 
-st.markdown("---")
+st.markdown("<div style='margin: 0.5em 0;'>---</div>", unsafe_allow_html=True)
 
 # --- WHY USE THIS SECTION ---
-st.subheader("✅ WHY USE THIS")
+st.markdown("<h3 style='margin-top: 0.5em; margin-bottom: 0.5em;'>✅ WHY USE THIS</h3>",
+            unsafe_allow_html=True)
 
 st.markdown("""
 - **✋ No "LOCK OF THE DAY"** — No hype, just data
@@ -411,10 +480,11 @@ st.markdown("""
 - **🎯 Built to beat closing lines** — Not designed to sell picks
 """)
 
-st.markdown("---")
+st.markdown("<div style='margin: 0.5em 0;'>---</div>", unsafe_allow_html=True)
 
 # --- FAQ SECTION ---
-st.subheader("❓ FAQ")
+st.markdown("<h3 style='margin-top: 0.5em; margin-bottom: 0.5em;'>❓ FAQ</h3>",
+            unsafe_allow_html=True)
 
 with st.expander("Is this gambling advice?"):
     st.markdown("No. It's data. You decide what to do with it.")
@@ -428,11 +498,11 @@ with st.expander("Is this paid?"):
 with st.expander("What sports?"):
     st.markdown("NBA, NFL, NCAAB, NHL, UFC, more coming.")
 
-st.markdown("---")
+st.markdown("<div style='margin: 0.5em 0;'>---</div>", unsafe_allow_html=True)
 
 # --- FINAL CTA SECTION ---
 st.markdown("""
-<div style="text-align: center; padding: 3em 0; background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%); border-radius: 8px; margin: 2em 0;">
+<div style="text-align: center; padding: 1.5em 0; background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%); border-radius: 8px; margin: 0.8em 0;">
     <h2 style="margin: 0; color: #1a1a1a;">The Picks Are Public.</h2>
     <h2 style="margin: 0.5em 0 0 0; color: #1f77b4;">The Results Don't Lie.</h2>
 </div>
@@ -443,13 +513,13 @@ with col2:
     if st.button("🎯 View Today's Full Slate", type="primary", width="stretch"):
         st.switch_page("pages/rage_picks_page.py")
 
-st.markdown("---")
+st.markdown("<div style='margin: 0.5em 0;'>---</div>", unsafe_allow_html=True)
 
 # --- FOOTER ---
 st.markdown("""
-<div style="text-align: center; color: #888; font-size: 0.9em; padding: 2em 0;">
-    <p><strong>For entertainment and informational purposes only.</strong></p>
-    <p>No guarantees. No financial advice. If you're mad about a loss, blame variance — not the model.</p>
-    <p>RAGE Picks &copy; 2025</p>
+<div style="text-align: center; color: #888; font-size: 0.9em; padding: 0.8em 0;">
+    <p style="margin: 0.3em 0;"><strong>For entertainment and informational purposes only.</strong></p>
+    <p style="margin: 0.3em 0;">No guarantees. No financial advice. If you're mad about a loss, blame variance — not the model.</p>
+    <p style="margin: 0.3em 0;">RAGE Picks &copy; 2025</p>
 </div>
 """, unsafe_allow_html=True)
