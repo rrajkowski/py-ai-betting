@@ -750,7 +750,6 @@ if st.session_state.generated_picks:
                         st.markdown(f"**Pick #{i+1}**\n- {str(pick)}")
 
 # --- AI Picks History Table ---
-st.header("📜 RAGE Sports Picks (bet these!)")
 ai_picks_history = list_ai_picks()
 
 if ai_picks_history:
@@ -822,8 +821,51 @@ if ai_picks_history:
 
     df["reasoning"] = df.apply(format_parlay_reasoning, axis=1)
 
-    # --- Define and reorder display columns ---
-    display_cols = [
+    # --- Format date to MM/DD/YYYY for non-admin table ---
+    def format_date_mmddyyyy(utc_str):
+        """Convert UTC datetime string to MM/DD/YYYY format."""
+        if not utc_str or pd.isna(utc_str):
+            return ""
+        try:
+            dt_utc = datetime.fromisoformat(
+                str(utc_str).replace('Z', '+00:00'))
+            if dt_utc.tzinfo is None:
+                dt_utc = dt_utc.replace(tzinfo=timezone.utc)
+            local_tz = ZoneInfo(LOCAL_TZ_NAME)
+            dt_local = dt_utc.astimezone(local_tz)
+            return dt_local.strftime('%m/%d/%Y')
+        except Exception:
+            return str(utc_str)
+
+    df["Date"] = df["date"].apply(format_date_mmddyyyy)
+
+    # --- Shorten pick names (e.g., "New Orleans Pelicans" -> "Pelicans") ---
+    def shorten_pick_name(pick_str):
+        """Extract the last word from a team name for shorter display."""
+        if not pick_str or pd.isna(pick_str):
+            return ""
+        pick_str = str(pick_str).strip()
+        # For Over/Under, keep as is
+        if pick_str.lower() in ['over', 'under']:
+            return pick_str
+        # For team names, take the last word
+        parts = pick_str.split()
+        return parts[-1] if parts else pick_str
+
+    df["Pick (Short)"] = df["pick"].apply(shorten_pick_name)
+
+    # --- Define and reorder display columns for public reference table ---
+    display_cols_public = [
+        "Date",
+        "sport",
+        "Pick (Short)",
+        "line",
+        "odds_american",
+        "Confidence (Stars)",
+    ]
+
+    # --- Define and reorder display columns for admin delete table ---
+    display_cols_admin = [
         "Game Time (PT)",
         "source",
         "sport",
@@ -837,8 +879,15 @@ if ai_picks_history:
         "reasoning",
     ]
 
-    df_display = df[display_cols].rename(
-        columns={"Confidence (Stars)": "confidence"}
+    # Create the public reference table (simplified, for all users)
+    df_display = df[display_cols_public].rename(
+        columns={
+            "Confidence (Stars)": "Confidence",
+            "sport": "Sport",
+            "Pick (Short)": "Pick",
+            "line": "Line",
+            "odds_american": "Odds"
+        }
     )
 
     # --- Admin Delete Functionality ---
@@ -923,7 +972,7 @@ if ai_picks_history:
             st.markdown('</div>', unsafe_allow_html=True)
 
         st.markdown("---")
-        st.markdown("### 📊 Reference: Full Picks Table")
+        st.markdown("### RAGE Sports Picks")
 
     # Add CSS for dataframe confidence column styling
     st.markdown("""
