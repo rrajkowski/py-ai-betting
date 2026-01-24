@@ -328,34 +328,38 @@ roi_7day_sign = "+" if stats_7day['roi'] >= 0 else ""
 units_alltime_sign = "+" if stats_alltime['units'] >= 0 else ""
 roi_alltime_sign = "+" if stats_alltime['roi'] >= 0 else ""
 
+# Format units to 1 decimal place
+units_7day_formatted = f"{stats_7day['units']:.1f}"
+units_alltime_formatted = f"{stats_alltime['units']:.1f}"
+
 st.markdown(f"""
 <div style="border: 2px solid #ddd; border-radius: 12px; padding: 1.2em; margin: 0.8em 0;">
-    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 2em; text-align: center; margin-bottom: 1.2em;">
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5em; text-align: center; margin-bottom: 1.2em;">
         <div>
-            <div style="font-size: 0.9em; color: #666; margin-bottom: 0.3em;">Last 7 Days</div>
-            <div style="font-size: 2.2em; font-weight: bold; color: #1f77b4;">{units_7day_sign}{stats_7day['units']}u</div>
+            <div style="font-size: 0.75em; color: #666; margin-bottom: 0.3em;">Last 7 Days</div>
+            <div style="font-size: 2.2em; font-weight: bold; color: #1f77b4;">{units_7day_sign}{units_7day_formatted}u</div>
         </div>
         <div>
-            <div style="font-size: 0.9em; color: #666; margin-bottom: 0.3em;">Win Rate</div>
+            <div style="font-size: 0.75em; color: #666; margin-bottom: 0.3em;">Win Rate</div>
             <div style="font-size: 2.2em; font-weight: bold; color: #1f77b4;">{stats_7day['win_rate']}%</div>
         </div>
         <div>
-            <div style="font-size: 0.9em; color: #666; margin-bottom: 0.3em;">ROI</div>
+            <div style="font-size: 0.75em; color: #666; margin-bottom: 0.3em;">ROI</div>
             <div style="font-size: 2.2em; font-weight: bold; color: #1f77b4;">{roi_7day_sign}{stats_7day['roi']}%</div>
         </div>
     </div>
     <div style="border-top: 1px solid #eee; padding-top: 1.2em;">
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 2em; text-align: center;">
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5em; text-align: center;">
             <div>
-                <div style="font-size: 0.9em; color: #666; margin-bottom: 0.3em;">All Time</div>
-                <div style="font-size: 2.2em; font-weight: bold; color: #1f77b4;">{units_alltime_sign}{stats_alltime['units']}u</div>
+                <div style="font-size: 0.75em; color: #666; margin-bottom: 0.3em;">All Time</div>
+                <div style="font-size: 2.2em; font-weight: bold; color: #1f77b4;">{units_alltime_sign}{units_alltime_formatted}u</div>
             </div>
             <div>
-                <div style="font-size: 0.9em; color: #666; margin-bottom: 0.3em;">Win Rate</div>
+                <div style="font-size: 0.75em; color: #666; margin-bottom: 0.3em;">Win Rate</div>
                 <div style="font-size: 2.2em; font-weight: bold; color: #1f77b4;">{stats_alltime['win_rate']}%</div>
             </div>
             <div>
-                <div style="font-size: 0.9em; color: #666; margin-bottom: 0.3em;">ROI</div>
+                <div style="font-size: 0.75em; color: #666; margin-bottom: 0.3em;">ROI</div>
                 <div style="font-size: 2.2em; font-weight: bold; color: #1f77b4;">{roi_alltime_sign}{stats_alltime['roi']}%</div>
             </div>
         </div>
