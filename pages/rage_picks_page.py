@@ -852,11 +852,9 @@ if ai_picks_history:
         parts = pick_str.split()
         return parts[-1] if parts else pick_str
 
-    df["Pick (Short)"] = df["pick"].apply(shorten_pick_name)
-
-    # --- Shorten game names (e.g., "Team A @ Team B" -> "A vs B") ---
+    # --- Shorten game names (e.g., "Team A @ Team B" -> "A @ B") ---
     def shorten_game_name(game_str):
-        """Shorten game names to show abbreviated team names."""
+        """Shorten game names to show last word of each team."""
         if not game_str or pd.isna(game_str):
             return ""
         game_str = str(game_str).strip()
@@ -869,14 +867,14 @@ if ai_picks_history:
                 return f"{away} @ {home}"
         return game_str
 
-    df["Game (Short)"] = df["game"].apply(shorten_game_name)
+    df["game_short"] = df["game"].apply(shorten_game_name)
 
     # --- Define and reorder display columns for public reference table ---
     display_cols_public = [
         "Date",
         "sport",
-        "Game (Short)",
-        "Pick (Short)",
+        "game_short",
+        "pick",
         "line",
         "odds_american",
         "Confidence (Stars)",
@@ -902,8 +900,8 @@ if ai_picks_history:
         columns={
             "Confidence (Stars)": "Confidence",
             "sport": "Sport",
-            "Game (Short)": "Game",
-            "Pick (Short)": "Pick",
+            "game_short": "Game",
+            "pick": "Pick",
             "line": "Line",
             "odds_american": "Odds"
         }
