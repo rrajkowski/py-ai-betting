@@ -518,14 +518,16 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
     5. **VALIDATION RULES** (CRITICAL - NO EXCEPTIONS):
        - Only select games where `commence_time` is in the future (not started)
 
-       - **ODDS RANGE REQUIREMENT** (ABSOLUTE - NO EXCEPTIONS):
-         * ❌ **REJECT ALL PICKS with odds outside +150 to -150 range**
-         * ❌ **DO NOT recommend picks with odds like -200, -300, -425, +200, etc.**
+       - **⚠️ ODDS RANGE REQUIREMENT** (ABSOLUTE - NO EXCEPTIONS - MANDATORY ENFORCEMENT):
+         * ❌ **REJECT ALL PICKS with odds outside +150 to -150 range** - THIS IS NON-NEGOTIABLE
+         * ❌ **DO NOT recommend picks with odds like -200, -300, -425, +200, etc.** - THESE WILL BE REJECTED
          * ✅ **ONLY accept odds between +150 and -150** (e.g., -110, -135, +120, +145)
          * **WHY**: Heavy favorites (-200+) and long underdogs (+200+) have poor risk/reward
-         * **ENFORCEMENT**: If a pick has odds outside this range, SKIP IT entirely
-         * Examples of INVALID odds: -175, -200, -425, +160, +200, +300
-         * Examples of VALID odds: -150, -135, -110, +100, +120, +150
+         * **ENFORCEMENT**: If a pick has odds outside this range, SKIP IT entirely - DO NOT INCLUDE IT
+         * **BEFORE RETURNING ANY PICK**: Check the odds value. If it's outside -150 to +150, DELETE IT
+         * Examples of INVALID odds (REJECT): -175, -200, -425, +160, +200, +300, -600, -300
+         * Examples of VALID odds (ACCEPT): -150, -135, -110, +100, +120, +150
+         * **MONEYLINE PICKS (h2h)**: These often have extreme odds - be especially careful to check and reject
 
        - **NO CONFLICTING PICKS**: Do NOT pick both sides of the same market for the same game
          * Example: Do NOT pick both "Over 43.5" AND "Under 43.5" for the same game
@@ -574,18 +576,21 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
          * 1 h2h (if only one 4-5 star pick exists)
          * 0 picks (if no picks meet 4+ star threshold)
 
-    8. **FINAL VALIDATION BEFORE RETURNING** (MANDATORY CHECKLIST):
+    8. **FINAL VALIDATION BEFORE RETURNING** (MANDATORY CHECKLIST - CRITICAL):
        - Review each pick's confidence rating
        - **PRIORITIZE 4-5 star picks** - if you have more than 2 picks, keep only the top 2 by confidence
        - **REMOVE any picks with confidence < 3**
-       - **REMOVE any picks with odds outside +150 to -150 range**
+       - **⚠️ REMOVE any picks with odds outside +150 to -150 range** (THIS IS MANDATORY)
          * Check EVERY pick: Is -150 ≤ odds ≤ +150?
-         * If NO, DELETE that pick immediately
-         * Examples to DELETE: -175, -200, -425, +160, +200, +300
+         * If NO, DELETE that pick immediately - NO EXCEPTIONS
+         * Examples to DELETE: -175, -200, -425, +160, +200, +300, -600, -300
+         * **SPECIAL ATTENTION**: Moneyline (h2h) picks often have extreme odds - check them carefully
+         * If a pick has odds like -600 or -300, it MUST be deleted
        - **REMOVE any conflicting picks** (both sides of same game/market)
        - **LIMIT TO 2 PICKS MAXIMUM** - if you have 3+ picks after filtering, keep only the top 2 by confidence
        - If this leaves you with 0 picks, return {{"picks": []}}
-       - Better to return no picks than picks that violate the rules
+       - **Better to return no picks than picks that violate the rules**
+       - **FINAL CHECK**: Before returning, verify EVERY pick has odds between -150 and +150
 
     Context: {json.dumps(context, indent=2)}
     """
@@ -826,6 +831,18 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
                 continue
         except (ValueError, TypeError):
             continue
+
+        # CRITICAL: Validate odds are within acceptable range (-150 to +150)
+        odds = pick.get("odds")
+        if odds is not None:
+            try:
+                odds_val = float(odds)
+                if odds_val < -150 or odds_val > 150:
+                    st.warning(
+                        f"⚠️ REJECTING {pick.get('game')} - {pick.get('pick')}: Odds {odds_val} outside acceptable range (-150 to +150)")
+                    continue
+            except (ValueError, TypeError):
+                pass
 
         # Validate pick against consensus direction
         is_valid, reason = validate_pick_against_consensus(
