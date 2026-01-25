@@ -989,7 +989,6 @@ if ai_picks_history:
             st.markdown('</div>', unsafe_allow_html=True)
 
         st.markdown("---")
-        st.markdown("### RAGE Sports Picks")
 
     # Add CSS for dataframe confidence column styling
     st.markdown("""
@@ -1004,6 +1003,7 @@ if ai_picks_history:
     """, unsafe_allow_html=True)
 
     # Show the full dataframe for all users
+    st.markdown("### RAGE Sports Picks")
     st.dataframe(df_display, width='stretch', hide_index=True)
 
 else:
