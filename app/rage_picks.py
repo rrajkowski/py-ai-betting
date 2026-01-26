@@ -909,9 +909,9 @@ def _check_pick_result(pick_dict, home_score, away_score):
     Returns 'Win', 'Loss', 'Push', or 'Pending'.
 
     Args:
-        pick_dict: Dictionary with keys: 'pick', 'market', 'line'
-        home_score: Integer home team score
-        away_score: Integer away team score
+        pick_dict: Dictionary with keys: 'pick', 'market', 'line', 'sport'
+        home_score: Integer home team/fighter score
+        away_score: Integer away team/fighter score
     """
     if home_score is None or away_score is None:
         return 'Pending'
@@ -926,6 +926,8 @@ def _check_pick_result(pick_dict, home_score, away_score):
 
         away_team, home_team = game.split(' @ ')
 
+        # For UFC/MMA, scores are 1 (winner) or 0 (loser)
+        # For other sports, scores are numeric (e.g., 10-5)
         if home_score > away_score:
             winner = home_team
         elif away_score > home_score:

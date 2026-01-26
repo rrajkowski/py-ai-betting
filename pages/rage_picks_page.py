@@ -75,6 +75,8 @@ def check_if_pick_won(pick, home_score, away_score):
     """
     Determines if a single pick (H2H, Spread, or Total) won, lost, or pushed.
     Returns 'Win', 'Loss', or 'Push'.
+
+    Handles both traditional sports (teams) and UFC/MMA (fighters).
     """
     # Helper function logic from previous step (included for completeness)
 
@@ -83,12 +85,24 @@ def check_if_pick_won(pick, home_score, away_score):
         return 'Pending'
 
     if pick['market'] == 'h2h':
-        if home_score > away_score:
-            winner = pick['game'].split(' @ ')[1]  # Home team
-        elif away_score > home_score:
-            winner = pick['game'].split(' @ ')[0]  # Away team
+        # For UFC/MMA, scores are 1 (winner) or 0 (loser)
+        # For other sports, scores are numeric (e.g., 10-5)
+        if pick['sport'] == 'UFC':
+            # UFC h2h: home_score=1 means home fighter won, away_score=1 means away fighter won
+            if home_score > away_score:
+                winner = pick['game'].split(' @ ')[1]  # Home fighter
+            elif away_score > home_score:
+                winner = pick['game'].split(' @ ')[0]  # Away fighter
+            else:
+                return 'Push'
         else:
-            return 'Push'
+            # Traditional sports
+            if home_score > away_score:
+                winner = pick['game'].split(' @ ')[1]  # Home team
+            elif away_score > home_score:
+                winner = pick['game'].split(' @ ')[0]  # Away team
+            else:
+                return 'Push'
 
         return 'Win' if pick['pick'] == winner else 'Loss'
 
