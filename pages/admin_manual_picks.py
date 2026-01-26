@@ -498,11 +498,43 @@ if rage_picks:
                     st.info(f"⏳ {result}")
 
             with col5:
-                if st.button("🗑️", key=f"delete_rage_{pick['id']}", help=f"Delete pick #{pick['id']}"):
-                    if delete_ai_pick(pick['id']):
-                        st.success(f"✅ Deleted pick #{pick['id']}")
+                col5a, col5b = st.columns(2)
+                with col5a:
+                    if st.button("✏️", key=f"edit_rage_{pick['id']}", help=f"Edit result for pick #{pick['id']}"):
+                        st.session_state[f"edit_pick_{pick['id']}"] = True
+                with col5b:
+                    if st.button("🗑️", key=f"delete_rage_{pick['id']}", help=f"Delete pick #{pick['id']}"):
+                        if delete_ai_pick(pick['id']):
+                            st.success(f"✅ Deleted pick #{pick['id']}")
+                            st.rerun()
+                        else:
+                            st.error(f"❌ Failed to delete pick #{pick['id']}")
+
+            # Show edit form if edit button was clicked
+            if st.session_state.get(f"edit_pick_{pick['id']}", False):
+                st.markdown("---")
+                st.subheader(f"Edit Result for Pick #{pick['id']}")
+
+                edit_col1, edit_col2, edit_col3 = st.columns(3)
+                with edit_col1:
+                    new_result = st.selectbox(
+                        "Set Result",
+                        ["Pending", "Win", "Loss", "Push"],
+                        index=["Pending", "Win", "Loss", "Push"].index(
+                            pick.get('result', 'Pending')),
+                        key=f"result_select_{pick['id']}"
+                    )
+                with edit_col2:
+                    if st.button("💾 Save", key=f"save_result_{pick['id']}", type="primary"):
+                        from app.db import update_pick_result
+                        update_pick_result(pick['id'], new_result)
+                        st.success(
+                            f"✅ Updated pick #{pick['id']} to {new_result}")
+                        st.session_state[f"edit_pick_{pick['id']}"] = False
                         st.rerun()
-                    else:
-                        st.error(f"❌ Failed to delete pick #{pick['id']}")
+                with edit_col3:
+                    if st.button("❌ Cancel", key=f"cancel_result_{pick['id']}"):
+                        st.session_state[f"edit_pick_{pick['id']}"] = False
+                        st.rerun()
 else:
     st.info("No manual picks found. Add your first pick above!")
