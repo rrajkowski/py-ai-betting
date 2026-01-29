@@ -173,10 +173,33 @@ def normalize_game_string(game_str):
     return (away_team, home_team)
 
 
+def team_names_match(team1, team2):
+    """
+    Check if two team names match, handling partial matches.
+    Examples:
+      - "butler" matches "butler bulldogs"
+      - "st. john's" matches "st. john's red storm"
+    """
+    team1 = team1.lower().strip()
+    team2 = team2.lower().strip()
+
+    # Exact match
+    if team1 == team2:
+        return True
+
+    # Check if one is contained in the other (handles "Butler" vs "Butler Bulldogs")
+    if team1 in team2 or team2 in team1:
+        return True
+
+    return False
+
+
 def games_match(game1_str, game2_str):
     """
     Check if two game strings represent the same matchup.
-    Handles cases where teams might be in different order (away/home reversed).
+    Handles cases where:
+    - Teams might be in different order (away/home reversed)
+    - Team names might have different lengths (e.g., "Butler" vs "Butler Bulldogs")
     """
     norm1 = normalize_game_string(game1_str)
     norm2 = normalize_game_string(game2_str)
@@ -188,11 +211,11 @@ def games_match(game1_str, game2_str):
     away2, home2 = norm2
 
     # Check if teams match in same order
-    if away1 == away2 and home1 == home2:
+    if team_names_match(away1, away2) and team_names_match(home1, home2):
         return True
 
     # Check if teams match in reversed order (away/home swapped)
-    if away1 == home2 and home1 == away2:
+    if team_names_match(away1, home2) and team_names_match(home1, away2):
         return True
 
     return False
@@ -312,7 +335,7 @@ def refresh_bet_results():
                         update_pick_result(pick['id'], result)
                         updated_count += 1
             else:
-                # Try flexible matching (handles reversed away/home)
+                # Try flexible matching (handles reversed away/home and partial team names)
                 for api_game_id, scores in game_score_map.items():
                     if scores['date'] == pick_date and games_match(game_id, api_game_id):
                         # Check if teams are in reversed order
@@ -320,7 +343,7 @@ def refresh_bet_results():
                         api_away, api_home = normalize_game_string(api_game_id)
 
                         # If reversed, swap the scores
-                        if pick_away == api_home and pick_home == api_away:
+                        if team_names_match(pick_away, api_home) and team_names_match(pick_home, api_away):
                             home_score = scores['away']
                             away_score = scores['home']
                         else:
