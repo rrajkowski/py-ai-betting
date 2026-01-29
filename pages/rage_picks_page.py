@@ -155,6 +155,49 @@ def check_if_pick_won(pick, home_score, away_score):
     return 'Pending'
 
 
+def normalize_game_string(game_str):
+    """
+    Normalize a game string by extracting and normalizing team names.
+    Returns a tuple of (away_team_normalized, home_team_normalized) for flexible matching.
+    """
+    if not game_str or ' @ ' not in game_str:
+        return None
+
+    parts = game_str.split(' @ ')
+    if len(parts) != 2:
+        return None
+
+    away_team = parts[0].strip().lower()
+    home_team = parts[1].strip().lower()
+
+    return (away_team, home_team)
+
+
+def games_match(game1_str, game2_str):
+    """
+    Check if two game strings represent the same matchup.
+    Handles cases where teams might be in different order (away/home reversed).
+    """
+    norm1 = normalize_game_string(game1_str)
+    norm2 = normalize_game_string(game2_str)
+
+    if not norm1 or not norm2:
+        return False
+
+    away1, home1 = norm1
+    away2, home2 = norm2
+
+    # Check if teams match in same order
+    if away1 == away2 and home1 == home2:
+        return True
+
+    # Check if teams match in reversed order (away/home swapped)
+    if away1 == home2 and home1 == away2:
+        return True
+
+    return False
+
+
 def refresh_bet_results():
     """
     Fetches unsettled picks, retrieves live scores for completed games,
@@ -242,7 +285,9 @@ def refresh_bet_results():
                         game_score_map[game_id] = {
                             'home': home_score,
                             'away': away_score,
-                            'date': game_date
+                            'date': game_date,
+                            'api_away': game.get('away_team'),
+                            'api_home': game.get('home_team')
                         }
                 except ValueError:
                     continue
@@ -257,6 +302,7 @@ def refresh_bet_results():
             game_id = pick['game']
             pick_date = pick['date'][:10]
 
+            # Try exact match first
             if game_id in game_score_map:
                 scores = game_score_map[game_id]
                 if scores['date'] == pick_date:
@@ -265,6 +311,28 @@ def refresh_bet_results():
                     if result != 'Pending':
                         update_pick_result(pick['id'], result)
                         updated_count += 1
+            else:
+                # Try flexible matching (handles reversed away/home)
+                for api_game_id, scores in game_score_map.items():
+                    if scores['date'] == pick_date and games_match(game_id, api_game_id):
+                        # Check if teams are in reversed order
+                        pick_away, pick_home = normalize_game_string(game_id)
+                        api_away, api_home = normalize_game_string(api_game_id)
+
+                        # If reversed, swap the scores
+                        if pick_away == api_home and pick_home == api_away:
+                            home_score = scores['away']
+                            away_score = scores['home']
+                        else:
+                            home_score = scores['home']
+                            away_score = scores['away']
+
+                        result = check_if_pick_won(
+                            pick, home_score, away_score)
+                        if result != 'Pending':
+                            update_pick_result(pick['id'], result)
+                            updated_count += 1
+                        break
 
     return updated_count, failed_count
 
