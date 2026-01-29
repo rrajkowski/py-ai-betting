@@ -457,6 +457,7 @@ if picks:
             display_data.append({
                 "Date": p.get('date', 'N/A')[:10],
                 "Sport": p.get('sport', 'N/A'),
+                "Game": p.get('game', 'N/A'),
                 "Pick": f"{p.get('pick', 'N/A')} ({p.get('market', 'N/A').upper()})",
                 "Odds": p.get('odds_american', '-'),
                 "Units": "1u",
