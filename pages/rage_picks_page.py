@@ -175,10 +175,11 @@ def normalize_game_string(game_str):
 
 def team_names_match(team1, team2):
     """
-    Check if two team names match, handling partial matches.
+    Check if two team names match, handling partial matches and abbreviations.
     Examples:
       - "butler" matches "butler bulldogs"
       - "st. john's" matches "st. john's red storm"
+      - "michigan st spartans" matches "michigan state spartans"
     """
     team1 = team1.lower().strip()
     team2 = team2.lower().strip()
@@ -187,8 +188,26 @@ def team_names_match(team1, team2):
     if team1 == team2:
         return True
 
+    # Normalize common abbreviations
+    def normalize_abbreviations(name):
+        """Normalize common team name abbreviations."""
+        # Replace common abbreviations
+        name = name.replace(' st ', ' state ')
+        name = name.replace(' st.', ' state')
+        # Handle "St" at the end (e.g., "Michigan St")
+        if name.endswith(' st'):
+            name = name[:-3] + ' state'
+        return name
+
+    team1_norm = normalize_abbreviations(team1)
+    team2_norm = normalize_abbreviations(team2)
+
+    # Check normalized exact match
+    if team1_norm == team2_norm:
+        return True
+
     # Check if one is contained in the other (handles "Butler" vs "Butler Bulldogs")
-    if team1 in team2 or team2 in team1:
+    if team1_norm in team2_norm or team2_norm in team1_norm:
         return True
 
     return False
