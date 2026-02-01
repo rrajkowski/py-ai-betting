@@ -340,15 +340,21 @@ def get_unsettled_picks():
 def update_pick_result(pick_id, result):
     """
     Updates the 'result' column for a specific pick ID.
+    Returns True if successful, False otherwise.
     """
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute(
-        "UPDATE ai_picks SET result = ? WHERE id = ?",
-        (result, pick_id)
-    )
-    conn.commit()
-    conn.close()
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE ai_picks SET result = ? WHERE id = ?",
+            (result, pick_id)
+        )
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"Error updating pick result: {e}")
+        return False
 
 
 def delete_ai_pick(pick_id):

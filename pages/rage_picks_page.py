@@ -1061,28 +1061,82 @@ if ai_picks_history:
         """, unsafe_allow_html=True)
 
         # Collapsible admin section (collapsed by default)
-        with st.expander("🗑️ Admin: Delete Picks", expanded=False):
+        with st.expander("🗑️ Admin: Delete Picks & Manual Grading", expanded=False):
             st.caption(
-                "Click the delete button in the rightmost column to remove a pick from the database.")
+                "Manually grade picks (Win/Loss/Push) or delete them from the database.")
 
             # Wrap table in a div with unique class
             st.markdown('<div class="admin-delete-table">',
                         unsafe_allow_html=True)
 
-            # Create header row
+            # Create header row - added Grade column
             header_cols = st.columns(
-                [1.2, 0.5, 0.6, 2, 1.5, 0.8, 0.6, 0.8, 0.8, 0.8, 2.5, 0.4])
+                [1.2, 0.5, 0.6, 2, 1.5, 0.8, 0.6, 0.8, 0.8, 1.5, 0.8, 2.5, 0.4])
             headers = ["Game Time (PT)", "Source", "Sport", "Game", "Pick", "Market",
-                       "Line", "Odds", "Result", "⭐", "Reasoning", "🗑️"]
+                       "Line", "Odds", "Result", "Grade", "⭐", "Reasoning", "🗑️"]
             for col, header in zip(header_cols, headers):
                 col.markdown(f"**{header}**")
 
             st.markdown("---")
 
-            # Add delete buttons for each row
-            for idx, row in df.iterrows():
+            # Create dataframe for admin table (shows PENDING picks from last 48 hours)
+            admin_df = pd.DataFrame(ai_picks_history).sort_values(
+                by=["date", "id"], ascending=False, na_position="last"
+            )
+
+            # Filter to only show PENDING picks from the last 48 hours
+            from zoneinfo import ZoneInfo
+            cutoff_time = datetime.now(timezone.utc) - timedelta(hours=48)
+
+            def is_within_48_hours(date_str):
+                """Check if pick date is within the last 48 hours."""
+                if not date_str or pd.isna(date_str):
+                    return False
+                try:
+                    dt = datetime.fromisoformat(
+                        date_str.replace('Z', '+00:00'))
+                    return dt >= cutoff_time
+                except Exception:
+                    return False
+
+            # Filter: only pending picks from last 48 hours
+            admin_df = admin_df[admin_df["date"].apply(is_within_48_hours)]
+            completed_statuses = {"win", "loss", "push"}
+            admin_df = admin_df[~admin_df["result"].astype(
+                str).str.lower().isin(completed_statuses)]
+
+            # Apply same formatting as main table
+            admin_df["confidence_numeric"] = pd.to_numeric(
+                admin_df["confidence"], errors="coerce").fillna(0)
+
+            def format_game_time_admin(utc_str):
+                """Convert UTC datetime string to local PT time."""
+                if not utc_str or pd.isna(utc_str):
+                    return ""
+                try:
+                    from zoneinfo import ZoneInfo
+                    dt_utc = datetime.fromisoformat(
+                        utc_str.replace('Z', '+00:00'))
+                    dt_local = dt_utc.astimezone(ZoneInfo(LOCAL_TZ_NAME))
+                    return dt_local.strftime("%a, %b %d, %I:%M %p")
+                except Exception:
+                    return utc_str[:10]
+
+            admin_df["Game Time (PT)"] = admin_df["date"].apply(
+                format_game_time_admin)
+
+            def format_confidence_stars_admin(conf_val):
+                if pd.isna(conf_val) or conf_val == 0:
+                    return "⭐"
+                return "⭐" * int(conf_val)
+
+            admin_df["Confidence (Stars)"] = admin_df["confidence_numeric"].apply(
+                format_confidence_stars_admin)
+
+            # Add grade and delete buttons for each row
+            for idx, row in admin_df.iterrows():
                 cols = st.columns(
-                    [1.2, 0.5, 0.6, 2, 1.5, 0.8, 0.6, 0.8, 0.8, 0.8, 2.5, 0.4])
+                    [1.2, 0.5, 0.6, 2, 1.5, 0.8, 0.6, 0.8, 0.8, 1.5, 0.8, 2.5, 0.4])
 
                 cols[0].write(row.get("Game Time (PT)", "N/A"))
                 cols[1].write(row.get("source", "AI"))
@@ -1093,16 +1147,53 @@ if ai_picks_history:
                 cols[6].write(str(row.get("line", "N/A")))
                 cols[7].write(str(row.get("odds_american", "N/A")))
                 cols[8].write(row.get("result", "Pending"))
-                cols[9].write(row.get("Confidence (Stars)", "⭐"))
+
+                # Manual grading buttons
+                pick_id = row.get("id")
+                current_result = row.get("result", "Pending")
+
+                # Create a container for the grade buttons
+                with cols[9]:
+                    grade_cols = st.columns(3)
+
+                    # Win button
+                    if grade_cols[0].button("W", key=f"win_{pick_id}",
+                                            help=f"Grade as Win",
+                                            disabled=(current_result == "Win"),
+                                            type="primary" if current_result == "Win" else "secondary"):
+                        if update_pick_result(pick_id, "Win"):
+                            st.success(f"✅ Graded pick #{pick_id} as Win")
+                            st.rerun()
+
+                    # Loss button
+                    if grade_cols[1].button("L", key=f"loss_{pick_id}",
+                                            help=f"Grade as Loss",
+                                            disabled=(
+                                                current_result == "Loss"),
+                                            type="primary" if current_result == "Loss" else "secondary"):
+                        if update_pick_result(pick_id, "Loss"):
+                            st.success(f"✅ Graded pick #{pick_id} as Loss")
+                            st.rerun()
+
+                    # Push button
+                    if grade_cols[2].button("P", key=f"push_{pick_id}",
+                                            help=f"Grade as Push",
+                                            disabled=(
+                                                current_result == "Push"),
+                                            type="primary" if current_result == "Push" else "secondary"):
+                        if update_pick_result(pick_id, "Push"):
+                            st.success(f"✅ Graded pick #{pick_id} as Push")
+                            st.rerun()
+
+                cols[10].write(row.get("Confidence (Stars)", "⭐"))
 
                 # Truncate reasoning to fit
                 reasoning = str(row.get("reasoning", ""))
-                cols[10].write(reasoning[:80] + "..." if len(reasoning)
+                cols[11].write(reasoning[:80] + "..." if len(reasoning)
                                > 80 else reasoning)
 
                 # Delete button
-                pick_id = row.get("id")
-                if cols[11].button("🗑️", key=f"delete_{pick_id}", help=f"Delete pick #{pick_id}"):
+                if cols[12].button("🗑️", key=f"delete_{pick_id}", help=f"Delete pick #{pick_id}"):
                     if delete_ai_pick(pick_id):
                         st.success(f"✅ Deleted pick #{pick_id}")
                         st.rerun()
