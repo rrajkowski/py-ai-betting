@@ -454,11 +454,27 @@ if picks:
     display_data = []
     for p in picks:
         if p.get('result') in ['Win', 'Loss', 'Push']:
+            # Format pick with line for spreads and totals
+            market = p.get('market', 'N/A').upper()
+            pick_text = p.get('pick', 'N/A')
+            line = p.get('line')
+
+            if market == 'SPREADS' and line is not None:
+                # Show spread with +/- sign
+                sign = '+' if line > 0 else ''
+                pick_display = f"{pick_text} {sign}{line} ({market})"
+            elif market == 'TOTALS' and line is not None:
+                # Show total line
+                pick_display = f"{pick_text} {line} ({market})"
+            else:
+                # H2H or other markets
+                pick_display = f"{pick_text} ({market})"
+
             display_data.append({
                 "Date": p.get('date', 'N/A')[:10],
                 "Sport": p.get('sport', 'N/A'),
                 "Game": p.get('game', 'N/A'),
-                "Pick": f"{p.get('pick', 'N/A')} ({p.get('market', 'N/A').upper()})",
+                "Pick": pick_display,
                 "Odds": p.get('odds_american', '-'),
                 "Units": "1u",
                 "Result": p.get('result', 'Pending')
