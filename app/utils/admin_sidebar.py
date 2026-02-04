@@ -183,8 +183,8 @@ def _merge_backup_data(uploaded_file):
             existing = current_cur.fetchone()
 
             if existing:
-                # Pick exists - update result if it changed from Pending
-                if existing['result'].lower() == 'pending' and pick['result'].lower() != 'pending':
+                # Pick exists - update result if it's different (allows overriding any result)
+                if existing['result'].lower() != pick['result'].lower():
                     current_cur.execute("""
                         UPDATE ai_picks SET result = ? WHERE id = ?
                     """, (pick['result'], existing['id']))
