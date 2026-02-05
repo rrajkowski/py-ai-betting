@@ -833,7 +833,7 @@ def generate_ai_picks(odds_df, history_data, sport="unknown", context_payload=No
             continue
 
         # CRITICAL: Validate odds are within acceptable range (-150 to +150)
-        odds = pick.get("odds")
+        odds = pick.get("odds_american")
         if odds is not None:
             try:
                 odds_val = float(odds)
