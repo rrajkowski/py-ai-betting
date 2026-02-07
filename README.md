@@ -92,7 +92,7 @@ This app is configured for deployment on **Railway** with persistent SQLite stor
 ### Quick Deploy
 
 1. **Push to GitHub** (Railway auto-deploys from `main` branch)
-2. **Configure Railway** (see [RAILWAY_SETUP.md](RAILWAY_SETUP.md) for detailed instructions):
+2. **Configure Railway** (see [RAILWAY_SETUP.md](docs/RAILWAY_SETUP.md) for detailed instructions):
    - Create persistent volume: `sqlite_data` mounted at `/app/data`
    - Set environment variables (all API keys + `RAILWAY_ENVIRONMENT=production`)
    - Upload existing database (optional)
@@ -100,7 +100,7 @@ This app is configured for deployment on **Railway** with persistent SQLite stor
 
 ### Detailed Setup Guide
 
-See **[RAILWAY_SETUP.md](RAILWAY_SETUP.md)** for complete step-by-step instructions including:
+See **[RAILWAY_SETUP.md](docs/RAILWAY_SETUP.md)** for complete step-by-step instructions including:
 - Volume configuration
 - Environment variable setup
 - Database migration
@@ -218,9 +218,9 @@ Contributions welcome! Please open an issue or PR.
 
 ## 📞 Support
 
-- **Documentation**: See [RAILWAY_SETUP.md](RAILWAY_SETUP.md) for deployment
+- **Documentation**: See [RAILWAY_SETUP.md](docs/RAILWAY_SETUP.md) for deployment
 - **Issues**: Open a GitHub issue
-- **Live App**: https://rage-sports-picks.up.railway.app
+- **Live App**: https://ragepicks.com
 
 ---
 

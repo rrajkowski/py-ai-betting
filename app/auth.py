@@ -545,7 +545,7 @@ def check_authentication():
             # Create Stripe Customer Portal session for managing subscription
             try:
                 # Get the return URL (current page)
-                return_url = "https://rage-sports-picks.streamlit.app/"
+                return_url = "https://ragepicks.com/"
 
                 # Create a customer portal session
                 portal_session = stripe.billing_portal.Session.create(
