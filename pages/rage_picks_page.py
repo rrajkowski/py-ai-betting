@@ -983,7 +983,7 @@ if ai_picks_history:
 
     # --- Shorten game names (e.g., "Team A @ Team B" -> "A @ B") ---
     def shorten_game_name(game_str):
-        """Shorten game names to show last word of each team."""
+        """Shorten game names to show last word of each team, preserving important prefixes."""
         if not game_str or pd.isna(game_str):
             return ""
         game_str = str(game_str).strip()
@@ -991,8 +991,19 @@ if ai_picks_history:
         if " @ " in game_str:
             parts = game_str.split(" @ ")
             if len(parts) == 2:
-                away = parts[0].split()[-1]  # Last word of away team
-                home = parts[1].split()[-1]  # Last word of home team
+                def shorten_team(team_name):
+                    """Shorten a team name while preserving important words like 'State'."""
+                    words = team_name.split()
+                    if len(words) <= 1:
+                        return team_name
+                    # If last word is "State", keep the word before it too
+                    if words[-1].lower() == "state":
+                        return " ".join(words[-2:]) if len(words) >= 2 else team_name
+                    # Otherwise just return the last word
+                    return words[-1]
+
+                away = shorten_team(parts[0])
+                home = shorten_team(parts[1])
                 return f"{away} @ {home}"
         return game_str
 
