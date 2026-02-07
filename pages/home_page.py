@@ -317,8 +317,8 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<div style="text-align: left; margin-bottom: 0.5em;"><div class="hero-title">AI vs Vegas — Public Record</div></div>',
-            unsafe_allow_html=True)
+# Display logo instead of text header
+st.image("img/logo.png", width=400)
 st.markdown('<div class="hero-subtitle" style="margin-bottom: 0.5em;">No locks. No deletes. Just units.</div>',
             unsafe_allow_html=True)
 
