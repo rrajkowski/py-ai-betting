@@ -20,13 +20,30 @@ load_dotenv()
 def get_oauth_config():
     """Get OAuth configuration from environment variables or secrets."""
     try:
-        # Try environment variables first (Railway)
-        client_id = os.getenv("GOOGLE_CLIENT_ID") or st.secrets.get(
-            "GOOGLE_CLIENT_ID")
-        client_secret = os.getenv("GOOGLE_CLIENT_SECRET") or st.secrets.get(
-            "GOOGLE_CLIENT_SECRET")
-        redirect_uri = os.getenv("GOOGLE_REDIRECT_URI") or st.secrets.get(
-            "GOOGLE_REDIRECT_URI", "https://ragepicks.com/oauth2callback")
+        # Try environment variables first (Railway), then secrets.toml (local)
+        client_id = os.getenv("GOOGLE_CLIENT_ID")
+        client_secret = os.getenv("GOOGLE_CLIENT_SECRET")
+        redirect_uri = os.getenv("GOOGLE_REDIRECT_URI")
+
+        # Fallback to secrets.toml if env vars not set (local development)
+        if not client_id:
+            try:
+                client_id = st.secrets.get("GOOGLE_CLIENT_ID")
+            except (KeyError, FileNotFoundError):
+                pass
+
+        if not client_secret:
+            try:
+                client_secret = st.secrets.get("GOOGLE_CLIENT_SECRET")
+            except (KeyError, FileNotFoundError):
+                pass
+
+        if not redirect_uri:
+            try:
+                redirect_uri = st.secrets.get(
+                    "GOOGLE_REDIRECT_URI", "https://ragepicks.com/oauth2callback")
+            except (KeyError, FileNotFoundError):
+                redirect_uri = "https://ragepicks.com/oauth2callback"
 
         return {
             "client_id": client_id,
@@ -123,11 +140,12 @@ def check_authentication():
     """
 
     # Check if we're running locally using IS_LOCAL flag
-    try:
-        is_localhost = st.secrets.get("IS_LOCAL") or os.getenv(
-            "IS_LOCAL", "").lower() == "true"
-    except (KeyError, FileNotFoundError):
-        is_localhost = False
+    is_localhost = os.getenv("IS_LOCAL", "").lower() == "true"
+    if not is_localhost:
+        try:
+            is_localhost = st.secrets.get("IS_LOCAL", False)
+        except (KeyError, FileNotFoundError, AttributeError):
+            is_localhost = False
 
     # LOCALHOST: Skip authentication for development
     if is_localhost:
@@ -202,11 +220,12 @@ def check_authentication():
         return True
 
     # Check if we're running locally - skip Stripe check for localhost
-    try:
-        is_localhost = st.secrets.get("IS_LOCAL") or os.getenv(
-            "IS_LOCAL", "").lower() == "true"
-    except (KeyError, FileNotFoundError):
-        is_localhost = False
+    is_localhost = os.getenv("IS_LOCAL", "").lower() == "true"
+    if not is_localhost:
+        try:
+            is_localhost = st.secrets.get("IS_LOCAL", False)
+        except (KeyError, FileNotFoundError, AttributeError):
+            is_localhost = False
 
     # LOCALHOST: Skip Stripe subscription check for development
     if is_localhost:
@@ -218,50 +237,77 @@ def check_authentication():
     try:
         import stripe
 
-        # Get configuration from st.secrets (Streamlit Cloud) or environment variables (fallback)
-        try:
-            testing_mode_str = st.secrets["TESTING_MODE"]
-        except (KeyError, FileNotFoundError):
-            testing_mode_str = os.getenv('TESTING_MODE', 'false')
+        # Get configuration from environment variables first, then secrets.toml
+        testing_mode_str = os.getenv('TESTING_MODE')
+        if not testing_mode_str:
+            try:
+                testing_mode_str = st.secrets.get("TESTING_MODE", 'false')
+            except (KeyError, FileNotFoundError, AttributeError):
+                testing_mode_str = 'false'
         testing_mode = str(testing_mode_str).lower() == 'true'
 
-        # Get Stripe API key based on mode
+        # Get Stripe API key based on mode (env vars first, then secrets.toml)
         if testing_mode:
-            try:
-                stripe_api_key = st.secrets["STRIPE_API_KEY_TEST"]
-            except (KeyError, FileNotFoundError):
-                stripe_api_key = os.getenv('STRIPE_API_KEY_TEST')
+            stripe_api_key = os.getenv('STRIPE_API_KEY_TEST')
+            if not stripe_api_key:
+                try:
+                    stripe_api_key = st.secrets.get("STRIPE_API_KEY_TEST")
+                except (KeyError, FileNotFoundError, AttributeError):
+                    pass
+
             # Get all 3 pricing tier links
-            try:
-                stripe_1_month_link = st.secrets["STRIPE_1_MONTH_LINK_TEST"]
-            except (KeyError, FileNotFoundError):
-                stripe_1_month_link = os.getenv('STRIPE_1_MONTH_LINK_TEST')
-            try:
-                stripe_3_month_link = st.secrets["STRIPE_3_MONTH_LINK_TEST"]
-            except (KeyError, FileNotFoundError):
-                stripe_3_month_link = os.getenv('STRIPE_3_MONTH_LINK_TEST')
-            try:
-                stripe_1_year_link = st.secrets["STRIPE_1_YEAR_LINK_TEST"]
-            except (KeyError, FileNotFoundError):
-                stripe_1_year_link = os.getenv('STRIPE_1_YEAR_LINK_TEST')
+            stripe_1_month_link = os.getenv('STRIPE_1_MONTH_LINK_TEST')
+            if not stripe_1_month_link:
+                try:
+                    stripe_1_month_link = st.secrets.get(
+                        "STRIPE_1_MONTH_LINK_TEST")
+                except (KeyError, FileNotFoundError, AttributeError):
+                    pass
+
+            stripe_3_month_link = os.getenv('STRIPE_3_MONTH_LINK_TEST')
+            if not stripe_3_month_link:
+                try:
+                    stripe_3_month_link = st.secrets.get(
+                        "STRIPE_3_MONTH_LINK_TEST")
+                except (KeyError, FileNotFoundError, AttributeError):
+                    pass
+
+            stripe_1_year_link = os.getenv('STRIPE_1_YEAR_LINK_TEST')
+            if not stripe_1_year_link:
+                try:
+                    stripe_1_year_link = st.secrets.get(
+                        "STRIPE_1_YEAR_LINK_TEST")
+                except (KeyError, FileNotFoundError, AttributeError):
+                    pass
         else:
-            try:
-                stripe_api_key = st.secrets["STRIPE_API_KEY"]
-            except (KeyError, FileNotFoundError):
-                stripe_api_key = os.getenv('STRIPE_API_KEY')
+            stripe_api_key = os.getenv('STRIPE_API_KEY')
+            if not stripe_api_key:
+                try:
+                    stripe_api_key = st.secrets.get("STRIPE_API_KEY")
+                except (KeyError, FileNotFoundError, AttributeError):
+                    pass
+
             # Get all 3 pricing tier links
-            try:
-                stripe_1_month_link = st.secrets["STRIPE_1_MONTH_LINK"]
-            except (KeyError, FileNotFoundError):
-                stripe_1_month_link = os.getenv('STRIPE_1_MONTH_LINK')
-            try:
-                stripe_3_month_link = st.secrets["STRIPE_3_MONTH_LINK"]
-            except (KeyError, FileNotFoundError):
-                stripe_3_month_link = os.getenv('STRIPE_3_MONTH_LINK')
-            try:
-                stripe_1_year_link = st.secrets["STRIPE_1_YEAR_LINK"]
-            except (KeyError, FileNotFoundError):
-                stripe_1_year_link = os.getenv('STRIPE_1_YEAR_LINK')
+            stripe_1_month_link = os.getenv('STRIPE_1_MONTH_LINK')
+            if not stripe_1_month_link:
+                try:
+                    stripe_1_month_link = st.secrets.get("STRIPE_1_MONTH_LINK")
+                except (KeyError, FileNotFoundError, AttributeError):
+                    pass
+
+            stripe_3_month_link = os.getenv('STRIPE_3_MONTH_LINK')
+            if not stripe_3_month_link:
+                try:
+                    stripe_3_month_link = st.secrets.get("STRIPE_3_MONTH_LINK")
+                except (KeyError, FileNotFoundError, AttributeError):
+                    pass
+
+            stripe_1_year_link = os.getenv('STRIPE_1_YEAR_LINK')
+            if not stripe_1_year_link:
+                try:
+                    stripe_1_year_link = st.secrets.get("STRIPE_1_YEAR_LINK")
+                except (KeyError, FileNotFoundError, AttributeError):
+                    pass
 
         if not stripe_api_key:
             st.error("⚠️ Stripe API key not configured")
@@ -694,11 +740,12 @@ def is_admin():
         bool: True if user is admin, False otherwise
     """
     # Check if we're running locally using IS_LOCAL flag
-    try:
-        is_localhost = st.secrets.get("IS_LOCAL") or os.getenv(
-            "IS_LOCAL", "").lower() == "true"
-    except (KeyError, FileNotFoundError):
-        is_localhost = False
+    is_localhost = os.getenv("IS_LOCAL", "").lower() == "true"
+    if not is_localhost:
+        try:
+            is_localhost = st.secrets.get("IS_LOCAL", False)
+        except (KeyError, FileNotFoundError, AttributeError):
+            is_localhost = False
 
     # LOCALHOST: Enable admin for local development without auth
     if is_localhost:

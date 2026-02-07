@@ -14,19 +14,29 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Load API keys from Streamlit secrets (cloud) or environment variables (local)
-try:
-    GEMINI_API_KEY = st.secrets.get(
-        "GEMINI_API_KEY", os.getenv("GEMINI_API_KEY"))
-    OPENAI_API_KEY = st.secrets.get(
-        "OPENAI_API_KEY", os.getenv("OPENAI_API_KEY"))
-    ANTHROPIC_API_KEY = st.secrets.get(
-        "ANTHROPIC_API_KEY", os.getenv("ANTHROPIC_API_KEY"))
-except (KeyError, FileNotFoundError):
-    # Fallback to environment variables if secrets not available
-    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-    ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+# Load API keys from environment variables first (Railway), then secrets.toml (local)
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+
+# Fallback to secrets.toml if env vars not set (local development)
+if not GEMINI_API_KEY:
+    try:
+        GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY")
+    except (KeyError, FileNotFoundError, AttributeError):
+        pass
+
+if not OPENAI_API_KEY:
+    try:
+        OPENAI_API_KEY = st.secrets.get("OPENAI_API_KEY")
+    except (KeyError, FileNotFoundError, AttributeError):
+        pass
+
+if not ANTHROPIC_API_KEY:
+    try:
+        ANTHROPIC_API_KEY = st.secrets.get("ANTHROPIC_API_KEY")
+    except (KeyError, FileNotFoundError, AttributeError):
+        pass
 
 # --- Configure Gemini ---
 if GEMINI_API_KEY:
