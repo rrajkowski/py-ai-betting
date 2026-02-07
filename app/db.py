@@ -4,10 +4,18 @@ import os
 from app.odds import american_to_probability
 
 
+# Railway-aware database path configuration
+# Railway uses /app for code; we mount the volume to /app/data for persistence
+PERSISTENT_DIR = "/app/data" if os.getenv("RAILWAY_ENVIRONMENT") else "."
+
+# Ensure the directory exists (important for local development)
+if not os.path.exists(PERSISTENT_DIR):
+    os.makedirs(PERSISTENT_DIR)
+
 # Default DB path (persistent file)
 DB_PATH = os.getenv(
     "SQLITE_DB_PATH",
-    os.path.join(os.path.dirname(__file__), "..", "bets.db")
+    os.path.join(PERSISTENT_DIR, "bets.db")
 )
 
 

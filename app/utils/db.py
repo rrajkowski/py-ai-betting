@@ -3,10 +3,18 @@ import os
 import json
 from typing import Optional
 
-# NOTE: Assumes bets.db lives in the root directory (two levels up from /app/utils/)
+# Railway-aware database path configuration
+# Railway uses /app for code; we mount the volume to /app/data for persistence
+PERSISTENT_DIR = "/app/data" if os.getenv("RAILWAY_ENVIRONMENT") else "."
+
+# Ensure the directory exists (important for local development)
+if not os.path.exists(PERSISTENT_DIR):
+    os.makedirs(PERSISTENT_DIR)
+
+# NOTE: Database path now uses PERSISTENT_DIR for Railway compatibility
 DB_PATH = os.getenv(
     "SQLITE_DB_PATH",
-    os.path.join(os.path.dirname(__file__), "..", "..", "bets.db")
+    os.path.join(PERSISTENT_DIR, "bets.db")
 )
 CONTEXT_TABLE = "prompt_context"
 
