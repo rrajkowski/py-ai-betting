@@ -2,7 +2,15 @@
 import streamlit as st
 from app.live_scores import display_live_scores
 from app.utils.sidebar import render_sidebar_navigation, render_admin_section
+from app.utils.branding import render_logo_in_sidebar
 from app.db import init_ai_picks
+
+# --- Page Configuration ---
+st.set_page_config(
+    page_title="Live Scores - RAGE Sports Picks",
+    page_icon="img/favicon.png",
+    layout="wide"
+)
 
 # --- INITIALIZATION ---
 # Ensure database tables exist
@@ -16,6 +24,9 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
+
+# --- Sidebar Logo ---
+render_logo_in_sidebar()
 
 # --- Sidebar Navigation ---
 render_sidebar_navigation()

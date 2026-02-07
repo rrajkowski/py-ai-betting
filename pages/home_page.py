@@ -5,6 +5,7 @@ No authentication required - fully public.
 """
 from app.utils.sidebar import render_sidebar_navigation, render_admin_section
 from app.utils.admin_sidebar import render_refresh_daily_pick_button
+from app.utils.branding import render_logo_in_sidebar
 import streamlit as st
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
@@ -13,7 +14,7 @@ from app.db import get_db, list_ai_picks, insert_ai_pick, init_ai_picks
 # --- Page Configuration ---
 st.set_page_config(
     page_title="RAGE Sports Picks - AI vs Vegas",
-    page_icon="🏆",
+    page_icon="img/favicon.png",
     layout="wide"
 )
 
@@ -224,6 +225,9 @@ def generate_random_daily_pick():
     print("="*80 + "\n")
     return None
 
+
+# --- Sidebar Logo ---
+render_logo_in_sidebar()
 
 # --- Sidebar Navigation ---
 render_sidebar_navigation()

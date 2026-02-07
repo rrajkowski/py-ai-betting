@@ -7,6 +7,7 @@ from app.auth import add_auth_to_page, is_admin
 from app.db import insert_ai_pick, list_ai_picks, delete_ai_pick, init_ai_picks
 from app.rage_picks import fetch_odds
 from app.utils.sidebar import render_sidebar_navigation, render_admin_section
+from app.utils.branding import render_logo_in_sidebar
 
 # --- INITIALIZATION ---
 # Ensure database tables exist
@@ -68,6 +69,9 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# --- Sidebar Logo ---
+render_logo_in_sidebar()
+
 # --- Sidebar Navigation ---
 render_sidebar_navigation()
 
@@ -77,7 +81,8 @@ render_admin_section()
 # -----------------------------
 # Page Configuration
 # -----------------------------
-st.set_page_config(page_title="🔧 Admin: Manual Picks", layout="wide")
+st.set_page_config(page_title="🔧 Admin: Manual Picks",
+                   page_icon="img/favicon.png", layout="wide")
 st.title("🔧 Admin: Manual Picks Entry")
 st.markdown(
     "Add manual picks from other cappers and sources. These will appear alongside AI picks.")

@@ -9,7 +9,7 @@ from app.utils.db import init_prompt_context_db
 # -----------------------------
 st.set_page_config(
     page_title="RAGE Sports Picks - AI vs Vegas",
-    page_icon="🏆",
+    page_icon="img/favicon.png",
     layout="wide"
 )
 
