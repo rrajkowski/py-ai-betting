@@ -27,11 +27,8 @@ else:
     st.error(f"❌ is_admin() returned: {admin_status}")
     st.warning("Admin features will NOT be visible")
 
-# Display st.user info
-st.subheader("st.user Information")
-try:
-    st.write(f"st.user.is_logged_in: {st.user.is_logged_in}")
-    st.write(f"st.user.email: {st.user.email}")
-except AttributeError as e:
-    st.info(f"st.user not available (expected locally): {e}")
-
+# Display session state auth info
+st.subheader("Session State Auth Information")
+st.write(f"is_logged_in: {st.session_state.get('is_logged_in', False)}")
+st.write(f"user_email: {st.session_state.get('user_email', 'Not logged in')}")
+st.write(f"user_name: {st.session_state.get('user_name', 'N/A')}")

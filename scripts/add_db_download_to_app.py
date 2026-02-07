@@ -8,7 +8,7 @@ SIDEBAR_CODE = '''
 # Add to streamlit_app.py sidebar (after login check)
 
 # Database download feature (admin only)
-if st.session_state.get("logged_in") and st.user.email in ["your-admin-email@gmail.com"]:
+if st.session_state.get("is_logged_in") and st.session_state.get("user_email") in ["your-admin-email@gmail.com"]:
     st.sidebar.markdown("---")
     st.sidebar.markdown("### 🔧 Admin Tools")
     
@@ -74,4 +74,3 @@ print("""
 
 This allows you to download the production database without SSH access!
 """)
-

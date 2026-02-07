@@ -48,10 +48,15 @@ Your local `bets.db` is **1.6MB** and contains all your historical data.
 
 ### Step 4: Test OAuth Login
 Your redirect URLs are configured for:
-- `https://rage-sports-picks.up.railway.app`
-- `https://rage-sports-picks.up.railway.app/oauth2callback`
+- `https://ragepicks.com`
+- `https://ragepicks.com/oauth2callback`
 
 Make sure these are set in **Google Cloud Console** → Credentials → OAuth 2.0 Client ID
+
+Also ensure these Railway environment variables are set:
+- `GOOGLE_CLIENT_ID`
+- `GOOGLE_CLIENT_SECRET`
+- `GOOGLE_REDIRECT_URI=https://ragepicks.com/oauth2callback`
 
 ### Step 5: Enable Auto-Deploy
 Once the first deployment works:

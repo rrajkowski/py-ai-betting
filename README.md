@@ -56,20 +56,37 @@ GOOGLE_CLIENT_SECRET=your-google-oauth-secret
 
 ## 🔐 Authentication & Paywall Setup
 
-To enable Google OAuth authentication and Stripe payment integration:
+The app uses custom Google OAuth (via Authlib) and Stripe for authentication and payments.
+
+### Local Development
 
 1. Copy the secrets template:
    ```bash
    cp .streamlit/secrets.toml.example .streamlit/secrets.toml
    ```
 
-2. Follow the detailed setup guide in [PAYWALL_SETUP.md](PAYWALL_SETUP.md) to:
-   - Configure Google OAuth credentials
-   - Set up Stripe subscription products
-   - Create discount codes (optional)
-   - Test the integration
+2. Add your Google OAuth credentials:
+   ```toml
+   GOOGLE_CLIENT_ID = "your-client-id.apps.googleusercontent.com"
+   GOOGLE_CLIENT_SECRET = "your-client-secret"
+   GOOGLE_REDIRECT_URI = "http://localhost:8501/oauth2callback"
+   IS_LOCAL = true  # Disables auth for local development
+   ```
 
-**Note**: The app requires authentication by default. To disable it for development, comment out the `add_auth(required=True)` lines in the app files.
+3. Get Google OAuth credentials from [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
+
+### Production (Railway)
+
+Set these environment variables in Railway:
+```bash
+GOOGLE_CLIENT_ID=your-client-id
+GOOGLE_CLIENT_SECRET=your-client-secret
+GOOGLE_REDIRECT_URI=https://ragepicks.com/oauth2callback
+STRIPE_API_KEY=your-stripe-key
+STRIPE_1_MONTH_LINK=your-stripe-link
+```
+
+**Note**: Set `IS_LOCAL=true` in secrets.toml to disable authentication for local development.
 
 ## ▶️ Run Locally
 
