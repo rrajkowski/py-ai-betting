@@ -118,9 +118,15 @@ def handle_oauth_callback():
             st.session_state["user_picture"] = user_info.get("picture")
             st.session_state["is_logged_in"] = True
 
-            # Clear query params and rerun
+            # Get the intended page to redirect to after login
+            intended_page = st.session_state.get(
+                "intended_page", "pages/rage_picks_page.py")
+
+            # Clear query params and OAuth state
             st.query_params.clear()
-            st.rerun()
+
+            # Redirect to intended page
+            st.switch_page(intended_page)
             return True
 
         except Exception as e:
@@ -162,6 +168,17 @@ def check_authentication():
 
     # Check if user is logged in
     if not st.session_state.get("is_logged_in", False):
+        # Store the current page as the intended destination after login
+        # This allows us to redirect back to the page the user was trying to access
+        import inspect
+        frame = inspect.currentframe()
+        if frame and frame.f_back:
+            caller_file = frame.f_back.f_code.co_filename
+            # Extract just the page name (e.g., "pages/rage_picks_page.py")
+            if "pages/" in caller_file:
+                page_name = "pages/" + caller_file.split("pages/")[-1]
+                st.session_state["intended_page"] = page_name
+
         # Show login UI
         st.info("🔐 **Please log in to access this app**")
 
