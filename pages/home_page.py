@@ -317,9 +317,11 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Display logo instead of text header
-st.image("img/logo.png", width=400)
-st.markdown('<div class="hero-subtitle" style="margin-bottom: 0.5em;">No locks. No deletes. Just units.</div>',
+# Display logo instead of text header (centered)
+col1, col2, col3 = st.columns([1, 2, 1])
+with col2:
+    st.image("img/logo.png", use_container_width=True)
+st.markdown('<div class="hero-subtitle" style="margin-bottom: 0.5em;">No locks. No deletes. Just picks.</div>',
             unsafe_allow_html=True)
 
 # Get 7-day and all-time stats
