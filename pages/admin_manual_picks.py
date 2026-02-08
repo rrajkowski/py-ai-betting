@@ -7,7 +7,7 @@ from app.auth import add_auth_to_page, is_admin
 from app.db import insert_ai_pick, list_ai_picks, delete_ai_pick, init_ai_picks
 from app.rage_picks import fetch_odds
 from app.utils.sidebar import render_sidebar_navigation, render_admin_section
-from app.utils.branding import render_logo_in_sidebar, render_mobile_web_app_meta_tags
+from app.utils.branding import render_logo_in_sidebar, render_mobile_web_app_meta_tags, render_global_css_overrides
 
 # --- INITIALIZATION ---
 # Ensure database tables exist
@@ -59,6 +59,9 @@ add_auth_to_page()
 if not is_admin():
     st.error("🚫 Access Denied: Admin only")
     st.stop()
+
+# --- Global CSS Overrides ---
+render_global_css_overrides()
 
 # --- Mobile Web App Meta Tags ---
 render_mobile_web_app_meta_tags()

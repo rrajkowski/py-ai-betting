@@ -19,18 +19,50 @@ def render_logo_in_sidebar():
 
     # Check if logo exists
     if Path(logo_path).exists():
-        st.sidebar.markdown("""
-        <style>
-            [data-testid="stSidebarContent"] > div:first-child {
-                margin-top: 0 !important;
-                padding-top: 0 !important;
-            }
-        </style>
-        """, unsafe_allow_html=True)
         st.sidebar.image(logo_path, use_container_width=True)
     else:
         # Fallback to text if logo doesn't exist
         st.sidebar.markdown("### 🏆 RAGE Sports Picks")
+
+
+def render_global_css_overrides():
+    """
+    Render global CSS overrides to fix spacing issues.
+    Should be called early in the page, after st.set_page_config()
+    """
+    st.markdown("""
+    <style>
+        /* Remove gap from vertical block containers */
+        .st-emotion-cache-tn0cau {
+            gap: 0 !important;
+        }
+
+        /* Force padding for main block container */
+        .stMainBlockContainer {
+            padding: 2rem 1rem 10rem !important;
+        }
+
+        /* Remove padding from sidebar user content */
+        [data-testid="stSidebarUserContent"] {
+            padding-top: 0 !important;
+        }
+
+        /* Remove margin from sidebar header */
+        [data-testid="stSidebarHeader"] {
+            margin-bottom: 0 !important;
+        }
+
+        /* Add padding to sidebar navigation */
+        [data-testid="stSidebarNav"] {
+            padding-top: 1.5rem !important;
+        }
+
+        /* Add padding to sidebar content sections */
+        [data-testid="stSidebar"] > div {
+            padding-top: 1rem !important;
+        }
+    </style>
+    """, unsafe_allow_html=True)
 
 
 def render_mobile_web_app_meta_tags():

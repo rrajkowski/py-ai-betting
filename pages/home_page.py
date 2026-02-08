@@ -5,7 +5,7 @@ No authentication required - fully public.
 """
 from app.utils.sidebar import render_sidebar_navigation, render_admin_section
 from app.utils.admin_sidebar import render_refresh_daily_pick_button, render_backup_restore_section
-from app.utils.branding import render_logo_in_sidebar, render_mobile_web_app_meta_tags
+from app.utils.branding import render_logo_in_sidebar, render_mobile_web_app_meta_tags, render_global_css_overrides
 import streamlit as st
 from datetime import datetime, timedelta, timezone
 from app.db import get_db, list_ai_picks, insert_ai_pick, init_ai_picks
@@ -20,6 +20,9 @@ st.set_page_config(
 # --- INITIALIZATION ---
 # Ensure database tables exist
 init_ai_picks()
+
+# --- Global CSS Overrides ---
+render_global_css_overrides()
 
 # --- Mobile Web App Meta Tags ---
 render_mobile_web_app_meta_tags()
@@ -250,12 +253,6 @@ st.markdown("""
     /* Global Styling */
     body {
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    }
-
-    /* Remove negative space above logo */
-    [data-testid="stMainBlockContainer"] > div:first-child {
-        margin-top: 0 !important;
-        padding-top: 0 !important;
     }
 
     /* Hero Section */

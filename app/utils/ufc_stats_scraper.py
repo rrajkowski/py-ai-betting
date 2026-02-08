@@ -72,7 +72,6 @@ def scrape_ufc_event(event_url: str) -> dict:
                         # If win is in the second cell, it's for fighter2
                         # But we need to check position - if it's before fighter2, it's fighter1
                         cell_text = cells[1].get_text()
-                        fighter1_pos = cell_text.find(fighter1)
                         fighter2_pos = cell_text.find(fighter2)
                         win_pos = cell_text.lower().find("win")
 

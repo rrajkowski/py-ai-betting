@@ -6,20 +6,20 @@ Usage:
     python3 scripts/generate_nba_picks.py
 """
 
-import sys
 import os
+import sys
+from datetime import datetime, timedelta, timezone
 
 # Add parent directory to path BEFORE imports
 script_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(script_dir)
 sys.path.insert(0, parent_dir)
 
-from datetime import datetime, timezone, timedelta
-from app.rage_picks import fetch_odds, generate_ai_picks, fetch_historical_nba
-from app.db import get_most_recent_pick_timestamp
-from app.utils.context_builder import create_super_prompt_payload
-from app.utils.scraper import run_scrapers
-from app.utils.kalshi_api import fetch_kalshi_consensus
+from app.db import get_most_recent_pick_timestamp  # noqa: E402
+from app.rage_picks import fetch_odds, generate_ai_picks, fetch_historical_nba  # noqa: E402
+from app.utils.context_builder import create_super_prompt_payload  # noqa: E402
+from app.utils.kalshi_api import fetch_kalshi_consensus  # noqa: E402
+from app.utils.scraper import run_scrapers  # noqa: E402
 
 
 def generate_nba_picks():
