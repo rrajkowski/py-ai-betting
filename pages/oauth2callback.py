@@ -25,6 +25,15 @@ st.markdown("""
 # Show loading message
 st.info("🔄 Completing login... Please wait.")
 
+# Debug: Show what we have in session state
+with st.expander("🔍 Debug Info (will be removed after testing)"):
+    st.write("Query params:", dict(st.query_params))
+    st.write("Session state keys:", list(st.session_state.keys()))
+    st.write("Is logged in:", st.session_state.get("is_logged_in", False))
+    st.write("User email:", st.session_state.get("user_email", "Not set"))
+    st.write("Intended page:", st.session_state.get(
+        "intended_page", "Not set"))
+
 # Handle OAuth callback
 if "code" in st.query_params:
     # handle_oauth_callback() will process the login and redirect to intended page

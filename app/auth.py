@@ -262,10 +262,13 @@ def check_authentication():
 
         # Get Stripe API key based on mode (env vars first, then secrets.toml)
         if testing_mode:
-            stripe_api_key = os.getenv('STRIPE_API_KEY_TEST')
+            # Try STRIPE_SECRET_KEY_TEST first, then STRIPE_API_KEY_TEST (legacy)
+            stripe_api_key = os.getenv(
+                'STRIPE_SECRET_KEY_TEST') or os.getenv('STRIPE_API_KEY_TEST')
             if not stripe_api_key:
                 try:
-                    stripe_api_key = st.secrets.get("STRIPE_API_KEY_TEST")
+                    stripe_api_key = st.secrets.get(
+                        "STRIPE_SECRET_KEY_TEST") or st.secrets.get("STRIPE_API_KEY_TEST")
                 except (KeyError, FileNotFoundError, AttributeError):
                     pass
 
@@ -294,10 +297,13 @@ def check_authentication():
                 except (KeyError, FileNotFoundError, AttributeError):
                     pass
         else:
-            stripe_api_key = os.getenv('STRIPE_API_KEY')
+            # Try STRIPE_SECRET_KEY first (Railway), then STRIPE_API_KEY (legacy)
+            stripe_api_key = os.getenv(
+                'STRIPE_SECRET_KEY') or os.getenv('STRIPE_API_KEY')
             if not stripe_api_key:
                 try:
-                    stripe_api_key = st.secrets.get("STRIPE_API_KEY")
+                    stripe_api_key = st.secrets.get(
+                        "STRIPE_SECRET_KEY") or st.secrets.get("STRIPE_API_KEY")
                 except (KeyError, FileNotFoundError, AttributeError):
                     pass
 
