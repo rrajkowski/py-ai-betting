@@ -33,7 +33,8 @@ st.markdown("""
 # --- Helper Functions (defined before sidebar) ---
 
 
-@st.cache_data(ttl=300)  # Cache for 5 minutes
+# Cache for 1 minute (reduced from 5 to refresh stats more frequently)
+@st.cache_data(ttl=60)
 def get_7day_stats():
     """Calculate last 7 days performance stats using same logic as rage_picks_page."""
     conn = get_db()
@@ -84,7 +85,8 @@ def get_7day_stats():
     }
 
 
-@st.cache_data(ttl=300)  # Cache for 5 minutes
+# Cache for 1 minute (reduced from 5 to refresh stats more frequently)
+@st.cache_data(ttl=60)
 def get_alltime_stats():
     """Calculate all-time performance stats."""
     conn = get_db()
@@ -131,7 +133,8 @@ def get_alltime_stats():
     }
 
 
-@st.cache_data(ttl=300)  # Cache for 5 minutes
+# Cache for 1 minute (reduced from 5 to refresh picks more frequently)
+@st.cache_data(ttl=60)
 def get_todays_free_pick():
     """Get the best pick from upcoming games (highest confidence)."""
     conn = get_db()
