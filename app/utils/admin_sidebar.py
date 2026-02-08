@@ -10,6 +10,7 @@ import tempfile
 import shutil
 from datetime import datetime
 from app.auth import is_admin
+from app.db import DB_PATH
 
 
 def render_refresh_daily_pick_button(generate_pick_callback, insert_pick_callback):
@@ -98,9 +99,8 @@ def render_backup_restore_section():
 
     # Download backup button
     if st.sidebar.button("⬇️ Download Backup"):
-        db_path = "bets.db"
-        if os.path.exists(db_path):
-            with open(db_path, "rb") as f:
+        if os.path.exists(DB_PATH):
+            with open(DB_PATH, "rb") as f:
                 db_bytes = f.read()
 
             # Get current timestamp for filename
@@ -135,17 +135,26 @@ def _merge_backup_data(uploaded_file):
     """
     Merge backup database with current database.
     Only adds new picks and updates results - no duplicates.
+    Works on both local development (./bets.db) and Railway (/app/data/bets.db).
     """
     # Save uploaded file to temp location
     with tempfile.NamedTemporaryFile(delete=False, suffix='.db') as tmp_file:
         tmp_file.write(uploaded_file.getbuffer())
         backup_db_path = tmp_file.name
 
-    current_db = "bets.db"
+    # Use the correct database path (Railway or local)
+    current_db = DB_PATH
 
     # Create safety backup of current database
     if os.path.exists(current_db):
-        backup_dir = "backups"
+        # Determine backup directory based on environment
+        if os.getenv("RAILWAY_ENVIRONMENT"):
+            # Railway: use /app/data/backups
+            backup_dir = "/app/data/backups"
+        else:
+            # Local: use ./backups
+            backup_dir = "backups"
+
         os.makedirs(backup_dir, exist_ok=True)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         safety_backup = f"{backup_dir}/bets_before_merge_{timestamp}.db"
