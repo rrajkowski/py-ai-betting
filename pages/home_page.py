@@ -4,7 +4,7 @@ Public-facing home page with hero section, results, and free daily pick.
 No authentication required - fully public.
 """
 from app.utils.sidebar import render_sidebar_navigation, render_admin_section
-from app.utils.admin_sidebar import render_refresh_daily_pick_button
+from app.utils.admin_sidebar import render_refresh_daily_pick_button, render_backup_restore_section
 from app.utils.branding import render_logo_in_sidebar
 import streamlit as st
 from datetime import datetime, timedelta, timezone
@@ -237,6 +237,7 @@ render_admin_section()
 
 # --- Admin Utilities ---
 render_refresh_daily_pick_button(generate_random_daily_pick, insert_ai_pick)
+render_backup_restore_section()
 
 # --- HERO SECTION ---
 st.markdown("""
