@@ -29,6 +29,5 @@ def render_admin_section():
     """
     if is_admin():
         st.sidebar.markdown("### ⚙️ Admin")
-        st.sidebar.page_link("pages/admin_manual_picks.py",
-                             label="Manual Picks", icon="🔧")
-
+        if st.sidebar.button("🔧 Manual Picks", use_container_width=True):
+            st.switch_page("pages/admin_manual_picks.py")

@@ -32,11 +32,6 @@ def check_authentication():
 
     # LOCALHOST: Skip authentication for development
     if is_localhost:
-        if st.session_state.get('show_auth_warning', True):
-            st.warning("""
-            ⚠️ **Development Mode**: Authentication is disabled for local testing.
-            """)
-            st.session_state.show_auth_warning = False
         return True
 
     # Check if user is logged in using Streamlit native auth

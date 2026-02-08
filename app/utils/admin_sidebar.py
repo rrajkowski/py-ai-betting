@@ -94,7 +94,7 @@ def render_backup_restore_section():
     if not is_admin():
         return
 
-    st.sidebar.markdown("---")
+    # st.sidebar.markdown("---")
     st.sidebar.markdown("### 💾 Backup & Restore")
 
     # Download backup button
