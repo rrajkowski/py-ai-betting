@@ -1,13 +1,14 @@
 # pages/admin_manual_picks.py
-import streamlit as st
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from zoneinfo import ZoneInfo
 
+import streamlit as st
+
 from app.auth import add_auth_to_page, is_admin
-from app.db import insert_ai_pick, list_ai_picks, delete_ai_pick, init_ai_picks
+from app.db import delete_ai_pick, init_ai_picks, insert_ai_pick, list_ai_picks
 from app.rage_picks import fetch_odds
-from app.utils.sidebar import render_sidebar_navigation, render_admin_section
-from app.utils.branding import render_logo_in_sidebar, render_mobile_web_app_meta_tags, render_global_css_overrides
+from app.utils.branding import render_global_css_overrides, render_logo_in_sidebar, render_mobile_web_app_meta_tags
+from app.utils.sidebar import render_admin_section, render_sidebar_navigation
 
 # --- INITIALIZATION ---
 # Ensure database tables exist
@@ -50,16 +51,6 @@ def calculate_parlay_odds(picks_odds_list):
     return decimal_to_american(decimal_odds)
 
 
-# -----------------------------
-# Authentication & Admin Check
-# -----------------------------
-add_auth_to_page()
-
-# Check if user is admin
-if not is_admin():
-    st.error("🚫 Access Denied: Admin only")
-    st.stop()
-
 # --- Global CSS Overrides ---
 render_global_css_overrides()
 
@@ -75,11 +66,19 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- Sidebar Logo ---
+# --- Sidebar Logo & Navigation (always on top) ---
 render_logo_in_sidebar()
-
-# --- Sidebar Navigation ---
 render_sidebar_navigation()
+
+# -----------------------------
+# Authentication & Admin Check
+# -----------------------------
+add_auth_to_page()
+
+# Check if user is admin
+if not is_admin():
+    st.error("🚫 Access Denied: Admin only")
+    st.stop()
 
 # --- Admin Section ---
 render_admin_section()
@@ -248,7 +247,7 @@ if 'games_data' in st.session_state and st.session_state.games_data:
             dt_utc = datetime.fromisoformat(
                 game['commence_time'].replace('Z', '+00:00'))
             if dt_utc.tzinfo is None:
-                dt_utc = dt_utc.replace(tzinfo=timezone.utc)
+                dt_utc = dt_utc.replace(tzinfo=UTC)
             local_tz = ZoneInfo("America/Los_Angeles")
             dt_local = dt_utc.astimezone(local_tz)
             game_label += f" - {dt_local.strftime('%a %b %d, %I:%M %p')}"
@@ -481,7 +480,7 @@ if rage_picks:
                     dt_utc = datetime.fromisoformat(
                         pick.get('date', '').replace('Z', '+00:00'))
                     if dt_utc.tzinfo is None:
-                        dt_utc = dt_utc.replace(tzinfo=timezone.utc)
+                        dt_utc = dt_utc.replace(tzinfo=UTC)
                     local_tz = ZoneInfo("America/Los_Angeles")
                     dt_local = dt_utc.astimezone(local_tz)
                     st.caption(dt_local.strftime('%a, %b %d, %I:%M %p PT'))

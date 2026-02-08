@@ -1,45 +1,41 @@
 import os
+from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
+
 import pandas as pd
-import streamlit as st
 import requests
-from datetime import datetime, timedelta, timezone
+import streamlit as st
+
+from app.auth import add_auth_to_page, is_admin
 
 # Updated imports to include all necessary functions for metrics and auto-refresh
 from app.db import (
-    get_most_recent_pick_timestamp,
-    list_ai_picks,
-    init_ai_picks,
-    get_unsettled_picks,
-    update_pick_result,
     delete_ai_pick,
+    get_most_recent_pick_timestamp,
+    get_unsettled_picks,
+    init_ai_picks,
+    list_ai_picks,
+    update_pick_result,
 )
-from app.utils.db import get_db, init_prompt_context_db
-from app.utils.context_builder import create_super_prompt_payload
-from app.utils.scraper import run_scrapers
-from app.utils.kalshi_api import fetch_kalshi_consensus
-from app.utils.sidebar import render_sidebar_navigation, render_admin_section
-from app.utils.admin_sidebar import render_maintenance_section, render_backup_restore_section
-from app.utils.branding import render_logo_in_sidebar, render_mobile_web_app_meta_tags, render_global_css_overrides
-from app.auth import add_auth_to_page, is_admin
 from app.rage_picks import (
-    fetch_scores,
-    update_ai_pick_results,
-    generate_ai_picks,  # Make sure to import generate_ai_picks
-    fetch_historical_nfl,
+    fetch_historical_nba,
     # fetch_historical_ncaaf,  # Season over
     # fetch_historical_mlb,  # Season over
     fetch_historical_ncaab,
-    fetch_historical_nba,
+    fetch_historical_nfl,
     fetch_historical_nhl,
-    fetch_historical_ufc
+    fetch_historical_ufc,
+    fetch_scores,
+    generate_ai_picks,  # Make sure to import generate_ai_picks
+    update_ai_pick_results,
 )
-
-# -----------------------------
-# Authentication & Paywall
-# -----------------------------
-# Protect this page with authentication and subscription check
-add_auth_to_page()
+from app.utils.admin_sidebar import render_backup_restore_section, render_maintenance_section
+from app.utils.branding import render_global_css_overrides, render_logo_in_sidebar, render_mobile_web_app_meta_tags
+from app.utils.context_builder import create_super_prompt_payload
+from app.utils.db import get_db, init_prompt_context_db
+from app.utils.kalshi_api import fetch_kalshi_consensus
+from app.utils.scraper import run_scrapers
+from app.utils.sidebar import render_admin_section, render_sidebar_navigation
 
 # --- INITIALIZATION ---
 # Run at import to guarantee schemas are correct
@@ -61,11 +57,15 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- Sidebar Logo ---
+# --- Sidebar Logo & Navigation (always on top) ---
 render_logo_in_sidebar()
-
-# --- Sidebar Navigation ---
 render_sidebar_navigation()
+
+# -----------------------------
+# Authentication & Paywall
+# -----------------------------
+# Protect this page with authentication and subscription check
+add_auth_to_page()
 
 # --- Admin Section ---
 render_admin_section()
@@ -291,7 +291,7 @@ def refresh_bet_results():
     failed_count = 0
 
     # 1. Fetch scores for each required sport
-    for sport_key in sports_to_fetch.keys():
+    for sport_key in sports_to_fetch:
         scores_data = []
         try:
             # Enforce the daysFrom=2 limit due to API constraints.
@@ -522,7 +522,7 @@ def run_ai_picks(sport_key, sport_name):
     Main function to generate AI picks, with corrected timezone and time-limit handling.
     """
     # Use today's date as starting point - context builder will fetch games for next 3 days
-    now_utc = datetime.now(timezone.utc)
+    now_utc = datetime.now(UTC)
     target_date = now_utc.strftime('%Y-%m-%d')
     last_pick_time = get_most_recent_pick_timestamp(sport_name)
 
@@ -532,7 +532,7 @@ def run_ai_picks(sport_key, sport_name):
                 "Future-dated pick found. Ignoring time limit for this run.")
         else:
             if last_pick_time.tzinfo is None:
-                last_pick_time = last_pick_time.replace(tzinfo=timezone.utc)
+                last_pick_time = last_pick_time.replace(tzinfo=UTC)
 
             # --- Use an environment variable for reliable local detection ---
             environment = os.getenv("ENVIRONMENT", "production")
@@ -585,7 +585,7 @@ def run_ai_picks(sport_key, sport_name):
 
         # Time-based filtering with progressive expansion
         # Start with 12 hours, expand to 24h, then sport-specific limits
-        now_utc = datetime.now(timezone.utc)
+        now_utc = datetime.now(UTC)
 
         # Sport-specific time windows (in hours)
         time_windows = {
@@ -843,34 +843,33 @@ if st.session_state.generated_picks:
         cols = st.columns(num_cols)
 
         for i, pick in enumerate(picks):
-            with cols[i % 2]:
-                with st.container(border=True):
-                    # --- Check if 'pick' is a dictionary before processing ---
-                    if isinstance(pick, dict):
+            with cols[i % 2], st.container(border=True):
+                # --- Check if 'pick' is a dictionary before processing ---
+                if isinstance(pick, dict):
+                    try:
+                        score = int(pick.get('confidence', 1))
+                        stars = "⭐" * max(1, min(5, score))
+                    except (ValueError, TypeError):
+                        stars = "⭐"
+
+                    # Format game time in PST/PDT
+                    game_time_str = ""
+                    if pick.get('commence_time'):
                         try:
-                            score = int(pick.get('confidence', 1))
-                            stars = "⭐" * max(1, min(5, score))
-                        except (ValueError, TypeError):
-                            stars = "⭐"
+                            dt_utc = datetime.fromisoformat(
+                                str(pick['commence_time']).replace('Z', '+00:00'))
+                            if dt_utc.tzinfo is None:
+                                dt_utc = dt_utc.replace(
+                                    tzinfo=UTC)
+                            local_tz = ZoneInfo(LOCAL_TZ_NAME)
+                            dt_local = dt_utc.astimezone(local_tz)
+                            game_time_str = dt_local.strftime(
+                                '%a, %b %d, %I:%M %p %Z')
+                        except Exception:
+                            game_time_str = str(
+                                pick.get('commence_time', ''))
 
-                        # Format game time in PST/PDT
-                        game_time_str = ""
-                        if pick.get('commence_time'):
-                            try:
-                                dt_utc = datetime.fromisoformat(
-                                    str(pick['commence_time']).replace('Z', '+00:00'))
-                                if dt_utc.tzinfo is None:
-                                    dt_utc = dt_utc.replace(
-                                        tzinfo=timezone.utc)
-                                local_tz = ZoneInfo(LOCAL_TZ_NAME)
-                                dt_local = dt_utc.astimezone(local_tz)
-                                game_time_str = dt_local.strftime(
-                                    '%a, %b %d, %I:%M %p %Z')
-                            except Exception:
-                                game_time_str = str(
-                                    pick.get('commence_time', ''))
-
-                        st.markdown(f"""
+                    st.markdown(f"""
                         **Pick #{i+1}**
                         - 🏟️ **Game:** *{pick.get('game','?')}*
                         - 🕐 **Time:** {game_time_str}
@@ -880,9 +879,9 @@ if st.session_state.generated_picks:
                         - ⭐ **Confidence:** {stars}
                         - 💡 **Reasoning:** {pick.get('reasoning','')}
                         """)
-                    else:
-                        # If 'pick' is just a string, display it directly
-                        st.markdown(f"**Pick #{i+1}**\n- {str(pick)}")
+                else:
+                    # If 'pick' is just a string, display it directly
+                    st.markdown(f"**Pick #{i+1}**\n- {pick!s}")
 
 # --- AI Picks History Table ---
 ai_picks_history = list_ai_picks()
@@ -923,7 +922,7 @@ if ai_picks_history:
             dt_utc = datetime.fromisoformat(
                 str(utc_str).replace('Z', '+00:00'))
             if dt_utc.tzinfo is None:
-                dt_utc = dt_utc.replace(tzinfo=timezone.utc)
+                dt_utc = dt_utc.replace(tzinfo=UTC)
 
             # Convert to Pacific time
             local_tz = ZoneInfo(LOCAL_TZ_NAME)
@@ -965,7 +964,7 @@ if ai_picks_history:
             dt_utc = datetime.fromisoformat(
                 str(utc_str).replace('Z', '+00:00'))
             if dt_utc.tzinfo is None:
-                dt_utc = dt_utc.replace(tzinfo=timezone.utc)
+                dt_utc = dt_utc.replace(tzinfo=UTC)
             local_tz = ZoneInfo(LOCAL_TZ_NAME)
             dt_local = dt_utc.astimezone(local_tz)
             return dt_local.strftime('%m/%d/%Y')
@@ -1096,7 +1095,7 @@ if ai_picks_history:
                 [1.2, 0.5, 0.6, 2, 1.5, 0.8, 0.6, 0.8, 0.8, 1.5, 0.8, 2.5, 0.4])
             headers = ["Game Time (PT)", "Source", "Sport", "Game", "Pick", "Market",
                        "Line", "Odds", "Result", "Grade", "⭐", "Reasoning", "🗑️"]
-            for col, header in zip(header_cols, headers):
+            for col, header in zip(header_cols, headers, strict=False):
                 col.markdown(f"**{header}**")
 
             st.markdown("---")
@@ -1108,7 +1107,7 @@ if ai_picks_history:
 
             # Filter to only show PENDING picks from the last 48 hours
             from zoneinfo import ZoneInfo
-            cutoff_time = datetime.now(timezone.utc) - timedelta(hours=48)
+            cutoff_time = datetime.now(UTC) - timedelta(hours=48)
 
             def is_within_48_hours(date_str):
                 """Check if pick date is within the last 48 hours."""
