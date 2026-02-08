@@ -61,6 +61,17 @@ def render_global_css_overrides():
         [data-testid="stSidebar"] > div {
             padding-top: 1rem !important;
         }
+
+        /* Add margin between main content sections */
+        .stMarkdown {
+            margin-top: 1.5rem !important;
+        }
+
+        /* Add spacing between section headers and content */
+        h2 {
+            margin-top: 2rem !important;
+            margin-bottom: 1rem !important;
+        }
     </style>
     """, unsafe_allow_html=True)
 
