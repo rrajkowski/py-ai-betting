@@ -16,7 +16,7 @@ sys.path.insert(0, parent_dir)
 
 from datetime import datetime, timezone, timedelta
 from app.rage_picks import fetch_odds, generate_ai_picks, fetch_historical_nba
-from app.db import get_db, insert_ai_picks, get_most_recent_pick_timestamp
+from app.db import get_most_recent_pick_timestamp
 from app.utils.context_builder import create_super_prompt_payload
 from app.utils.scraper import run_scrapers
 from app.utils.kalshi_api import fetch_kalshi_consensus
@@ -123,7 +123,7 @@ def generate_nba_picks():
         print(f"   ✅ Loaded {len(history_data)} historical games")
     else:
         history_data = []
-        print(f"   ⚠️ No team found for historical data")
+        print("   ⚠️ No team found for historical data")
 
     # Step 7: Generate AI picks
     print("\n🤖 Step 7: Generating AI Picks...")

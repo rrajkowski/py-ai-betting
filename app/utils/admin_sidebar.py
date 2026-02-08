@@ -35,14 +35,14 @@ def render_refresh_daily_pick_button(generate_pick_callback, insert_pick_callbac
                 f"\n📝 [insert_ai_pick] Inserting pick: {pick_data.get('game')}")
             inserted = insert_pick_callback(pick_data)
             if inserted:
-                print(f"✅ [insert_ai_pick] Pick inserted successfully")
+                print("✅ [insert_ai_pick] Pick inserted successfully")
                 st.sidebar.success("✅ Daily pick refreshed!")
                 st.rerun()
             else:
-                print(f"⚠️ [insert_ai_pick] Pick already exists in database")
+                print("⚠️ [insert_ai_pick] Pick already exists in database")
                 st.sidebar.warning("⚠️ This pick is already in the database!")
         else:
-            print(f"❌ [Refresh Daily Pick] No pick data returned")
+            print("❌ [Refresh Daily Pick] No pick data returned")
             st.sidebar.error("❌ Could not generate pick. No games available.")
 
 

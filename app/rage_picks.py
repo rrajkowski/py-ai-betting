@@ -398,7 +398,7 @@ def _call_claude_model(model_name, prompt):
             except Exception:
                 return []
 
-        except RateLimitError as e:
+        except RateLimitError:
             if attempt < max_retries:
                 import time
                 wait_time = retry_delay * (2 ** attempt)  # Exponential backoff

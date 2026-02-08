@@ -1,1 +1,1 @@
-web: streamlit run streamlit_app.py --server.port $PORT --server.address 0.0.0.0 --server.headless true
+web: python scripts/generate_secrets.py && streamlit run streamlit_app.py --server.port $PORT --server.address 0.0.0.0 --server.headless true

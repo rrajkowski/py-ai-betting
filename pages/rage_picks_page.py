@@ -1174,7 +1174,7 @@ if ai_picks_history:
 
                     # Win button
                     if grade_cols[0].button("W", key=f"win_{pick_id}",
-                                            help=f"Grade as Win",
+                                            help="Grade as Win",
                                             disabled=(current_result == "Win"),
                                             type="primary" if current_result == "Win" else "secondary"):
                         if update_pick_result(pick_id, "Win"):
@@ -1183,7 +1183,7 @@ if ai_picks_history:
 
                     # Loss button
                     if grade_cols[1].button("L", key=f"loss_{pick_id}",
-                                            help=f"Grade as Loss",
+                                            help="Grade as Loss",
                                             disabled=(
                                                 current_result == "Loss"),
                                             type="primary" if current_result == "Loss" else "secondary"):
@@ -1193,7 +1193,7 @@ if ai_picks_history:
 
                     # Push button
                     if grade_cols[2].button("P", key=f"push_{pick_id}",
-                                            help=f"Grade as Push",
+                                            help="Grade as Push",
                                             disabled=(
                                                 current_result == "Push"),
                                             type="primary" if current_result == "Push" else "secondary"):

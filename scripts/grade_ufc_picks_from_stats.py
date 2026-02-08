@@ -14,7 +14,6 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from app.utils.ufc_stats_scraper import (
-    process_ufc_event,
     scrape_ufc_event,
     find_pending_ufc_picks,
     match_fight_to_pick,

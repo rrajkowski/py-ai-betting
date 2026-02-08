@@ -43,7 +43,7 @@ def manual_update_pick(pick_id: int, result: str):
     pick_dict = dict(pick)
     old_result = pick_dict['result']
     
-    print(f"\n📋 Pick Details:")
+    print("\n📋 Pick Details:")
     print(f"   ID: {pick_id}")
     print(f"   Sport: {pick_dict['sport']}")
     print(f"   Game: {pick_dict['game']}")

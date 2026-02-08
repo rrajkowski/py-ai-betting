@@ -8,7 +8,6 @@ from app.utils.admin_sidebar import render_refresh_daily_pick_button, render_bac
 from app.utils.branding import render_logo_in_sidebar
 import streamlit as st
 from datetime import datetime, timedelta, timezone
-from zoneinfo import ZoneInfo
 from app.db import get_db, list_ai_picks, insert_ai_pick, init_ai_picks
 
 # --- Page Configuration ---
@@ -204,7 +203,7 @@ def generate_random_daily_pick():
         print("="*80 + "\n")
         return pick_dict
     else:
-        print(f"   ❌ No pending picks with confidence found!")
+        print("   ❌ No pending picks with confidence found!")
         # Debug: show what we have
         cur.execute("""
             SELECT id, game, pick, confidence, result
@@ -214,12 +213,12 @@ def generate_random_daily_pick():
         """)
         debug_picks = cur.fetchall()
         if debug_picks:
-            print(f"   📋 Sample pending picks (checking confidence field):")
+            print("   📋 Sample pending picks (checking confidence field):")
             for row in debug_picks:
                 print(
                     f"      - {row[1]} ({row[2]}) - confidence: '{row[3]}' - result: {row[4]}")
         else:
-            print(f"   📋 No pending picks at all!")
+            print("   📋 No pending picks at all!")
 
     conn.close()
     print("="*80 + "\n")

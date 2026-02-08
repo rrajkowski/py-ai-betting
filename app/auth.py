@@ -1,145 +1,22 @@
 # app/auth.py
 """
-Authentication wrapper with custom Google OAuth and Stripe integration.
-Uses environment variables instead of Streamlit's native auth for Railway compatibility.
+Authentication wrapper with Streamlit native OIDC and Stripe integration.
+Uses st.login(), st.user, and st.logout() for authentication.
 """
 import streamlit as st
 import os
 from dotenv import load_dotenv
-from authlib.integrations.requests_client import OAuth2Session
-import secrets
-import hashlib
-import base64
 
 # Load environment variables
 load_dotenv()
 
-# Force deployment refresh - v4
-
-
-def get_oauth_config():
-    """Get OAuth configuration from environment variables or secrets."""
-    try:
-        # Try environment variables first (Railway), then secrets.toml (local)
-        client_id = os.getenv("GOOGLE_CLIENT_ID")
-        client_secret = os.getenv("GOOGLE_CLIENT_SECRET")
-        redirect_uri = os.getenv("GOOGLE_REDIRECT_URI")
-
-        # Fallback to secrets.toml if env vars not set (local development)
-        if not client_id:
-            try:
-                client_id = st.secrets.get("GOOGLE_CLIENT_ID")
-            except (KeyError, FileNotFoundError):
-                pass
-
-        if not client_secret:
-            try:
-                client_secret = st.secrets.get("GOOGLE_CLIENT_SECRET")
-            except (KeyError, FileNotFoundError):
-                pass
-
-        if not redirect_uri:
-            try:
-                redirect_uri = st.secrets.get(
-                    "GOOGLE_REDIRECT_URI", "https://ragepicks.com/oauth2callback")
-            except (KeyError, FileNotFoundError):
-                redirect_uri = "https://ragepicks.com/oauth2callback"
-
-        return {
-            "client_id": client_id,
-            "client_secret": client_secret,
-            "redirect_uri": redirect_uri,
-            "scope": "openid email profile",
-            "authorization_endpoint": "https://accounts.google.com/o/oauth2/v2/auth",
-            "token_endpoint": "https://oauth2.googleapis.com/token",
-            "userinfo_endpoint": "https://openidconnect.googleapis.com/v1/userinfo"
-        }
-    except Exception as e:
-        st.error(f"OAuth configuration error: {e}")
-        return None
-
-
-def generate_state_token():
-    """Generate a secure random state token for CSRF protection."""
-    return secrets.token_urlsafe(32)
-
-
-def init_oauth_session():
-    """Initialize OAuth session with Google."""
-    config = get_oauth_config()
-    if not config or not config["client_id"] or not config["client_secret"]:
-        return None
-
-    return OAuth2Session(
-        client_id=config["client_id"],
-        client_secret=config["client_secret"],
-        redirect_uri=config["redirect_uri"],
-        scope=config["scope"]
-    )
-
-
-def handle_oauth_callback():
-    """Handle OAuth callback from Google."""
-    # Get authorization code from URL params
-    query_params = st.query_params
-
-    if "code" in query_params:
-        code = query_params["code"]
-        state = query_params.get("state", "")
-
-        # Verify state token (CSRF protection)
-        if state != st.session_state.get("oauth_state", ""):
-            st.error("Invalid state token. Please try logging in again.")
-            st.session_state.clear()
-            st.rerun()
-            return False
-
-        # Exchange code for token
-        oauth = init_oauth_session()
-        if not oauth:
-            st.error("OAuth configuration error")
-            return False
-
-        try:
-            config = get_oauth_config()
-            token = oauth.fetch_token(
-                config["token_endpoint"],
-                code=code,
-                grant_type="authorization_code"
-            )
-
-            # Get user info
-            resp = oauth.get(config["userinfo_endpoint"])
-            user_info = resp.json()
-
-            # Store user info in session
-            st.session_state["user_email"] = user_info.get("email")
-            st.session_state["user_name"] = user_info.get("name")
-            st.session_state["user_picture"] = user_info.get("picture")
-            st.session_state["is_logged_in"] = True
-
-            # Get the intended page to redirect to after login
-            intended_page = st.session_state.get(
-                "intended_page", "pages/rage_picks_page.py")
-
-            # Clear query params and OAuth state
-            st.query_params.clear()
-
-            # Redirect to intended page
-            st.switch_page(intended_page)
-            return True
-
-        except Exception as e:
-            st.error(f"Authentication failed: {e}")
-            st.session_state.clear()
-            return False
-
-    return False
-
 
 def check_authentication():
     """
-    Check if user is authenticated and subscribed using custom Google OAuth + Stripe.
+    Check if user is authenticated and subscribed using Streamlit native OIDC + Stripe.
+
+    Uses st.login(), st.user, and st.logout() for authentication.
+    Stripe subscription check is performed after authentication.
 
     Returns:
         bool: True if user is authenticated and subscribed, False otherwise
@@ -162,49 +39,20 @@ def check_authentication():
             st.session_state.show_auth_warning = False
         return True
 
-    # Check if user is logged in
-    if not st.session_state.get("is_logged_in", False):
-        # Store the current page as the intended destination after login
-        # Get the current page from Streamlit's script path
-        try:
-            import __main__
-            current_file = __main__.__file__
-            if "pages/" in current_file:
-                page_name = "pages/" + current_file.split("pages/")[-1]
-                st.session_state["intended_page"] = page_name
-        except:
-            # Fallback to default page
-            st.session_state["intended_page"] = "pages/rage_picks_page.py"
-
+    # Check if user is logged in using Streamlit native auth
+    if not st.user.is_logged_in:
         # Show login UI
         st.info("🔐 **Please log in to access this app**")
 
         # Create a centered login button
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
-            if st.button("🔑 Log in with Google", type="primary", use_container_width=True):
-                # Generate state token for CSRF protection
-                state = generate_state_token()
-                st.session_state["oauth_state"] = state
-
-                # Initialize OAuth session
-                oauth = init_oauth_session()
-                if not oauth:
-                    st.error(
-                        "OAuth configuration error. Please check environment variables.")
-                    st.stop()
-
-                # Get authorization URL
-                config = get_oauth_config()
-                authorization_url, _ = oauth.create_authorization_url(
-                    config["authorization_endpoint"],
-                    state=state
-                )
-
-                # Redirect to Google login
-                st.markdown(
-                    f'<meta http-equiv="refresh" content="0;url={authorization_url}">', unsafe_allow_html=True)
-                st.stop()
+            st.button(
+                "🔑 Log in with Google",
+                type="primary",
+                use_container_width=True,
+                on_click=st.login
+            )
 
         st.markdown("---")
         st.markdown("""
@@ -216,19 +64,16 @@ def check_authentication():
 
     # User is logged in - show logout button in sidebar
     st.sidebar.markdown("---")
-    user_email = st.session_state.get("user_email", "Unknown")
-    st.sidebar.markdown(f"👤 **Logged in as:**  \n{user_email}")
+    st.sidebar.markdown(f"👤 **Logged in as:**  \n{st.user.email}")
 
     if st.sidebar.button("🚪 Logout", type="secondary", use_container_width=True):
-        st.session_state.clear()
-        st.rerun()
+        st.logout()
 
     st.sidebar.markdown("---")
 
     # ADMIN: Skip subscription check for admin users
     ADMIN_EMAILS = ["ruben.rajkowski@gmail.com"]
-    user_email = st.session_state.get("user_email", "")
-    if user_email in ADMIN_EMAILS:
+    if st.user.email in ADMIN_EMAILS:
         st.sidebar.success("✅ **Admin Access**")
         st.sidebar.caption("Subscription check bypassed")
         return True
@@ -352,7 +197,7 @@ def check_authentication():
 
         # Check if user has active subscription
         stripe.api_key = stripe_api_key
-        user_email = st.session_state.get("user_email", "")
+        user_email = st.user.email
 
         customers = stripe.Customer.list(email=user_email)
 
@@ -771,17 +616,15 @@ def is_admin():
     if is_localhost:
         return True
 
-    # Check if user is logged in
-    if not st.session_state.get("is_logged_in", False):
+    # Check if user is logged in using native auth
+    try:
+        if not st.user.is_logged_in:
+            return False
+
+        ADMIN_EMAILS = ["ruben.rajkowski@gmail.com"]
+        return st.user.email in ADMIN_EMAILS
+    except AttributeError:
         return False
-
-    # List of admin emails
-    ADMIN_EMAILS = [
-        "ruben.rajkowski@gmail.com"
-    ]
-
-    user_email = st.session_state.get("user_email", "")
-    return user_email in ADMIN_EMAILS
 
 
 def add_auth_to_page():

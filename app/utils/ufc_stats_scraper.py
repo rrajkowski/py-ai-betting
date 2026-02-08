@@ -8,8 +8,7 @@ Scrapes completed UFC fights from ufcstats.com and matches them with pending pic
 from app.db import get_db, update_pick_result
 import requests
 from bs4 import BeautifulSoup
-from datetime import datetime, timezone
-import sqlite3
+from datetime import datetime
 import sys
 import os
 
