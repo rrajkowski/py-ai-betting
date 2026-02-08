@@ -3,15 +3,19 @@
 import streamlit as st
 from app.db import init_db, init_ai_picks
 from app.utils.db import init_prompt_context_db
+from app.utils.branding import render_mobile_web_app_meta_tags
 
 # -----------------------------
 # Page Configuration (MUST be first Streamlit command)
 # -----------------------------
 st.set_page_config(
     page_title="RAGE Sports Picks - AI vs Vegas",
-    page_icon="img/favicon.png",
+    page_icon="img/favicon.ico",
     layout="wide"
 )
+
+# --- Mobile Web App Meta Tags ---
+render_mobile_web_app_meta_tags()
 
 # --- DBs init ---
 init_db()

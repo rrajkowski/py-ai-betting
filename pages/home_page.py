@@ -5,7 +5,7 @@ No authentication required - fully public.
 """
 from app.utils.sidebar import render_sidebar_navigation, render_admin_section
 from app.utils.admin_sidebar import render_refresh_daily_pick_button, render_backup_restore_section
-from app.utils.branding import render_logo_in_sidebar
+from app.utils.branding import render_logo_in_sidebar, render_mobile_web_app_meta_tags
 import streamlit as st
 from datetime import datetime, timedelta, timezone
 from app.db import get_db, list_ai_picks, insert_ai_pick, init_ai_picks
@@ -13,13 +13,16 @@ from app.db import get_db, list_ai_picks, insert_ai_pick, init_ai_picks
 # --- Page Configuration ---
 st.set_page_config(
     page_title="RAGE Sports Picks - AI vs Vegas",
-    page_icon="img/favicon.png",
+    page_icon="img/favicon.ico",
     layout="wide"
 )
 
 # --- INITIALIZATION ---
 # Ensure database tables exist
 init_ai_picks()
+
+# --- Mobile Web App Meta Tags ---
+render_mobile_web_app_meta_tags()
 
 # --- Hide Streamlit's default page navigation ---
 st.markdown("""
@@ -247,6 +250,12 @@ st.markdown("""
     /* Global Styling */
     body {
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    /* Remove negative space above logo */
+    [data-testid="stMainBlockContainer"] > div:first-child {
+        margin-top: 0 !important;
+        padding-top: 0 !important;
     }
 
     /* Hero Section */
@@ -556,6 +565,6 @@ st.markdown("""
 <div style="text-align: center; color: #888; font-size: 0.9em; padding: 0.8em 0;">
     <p style="margin: 0.3em 0;"><strong>For entertainment and informational purposes only.</strong></p>
     <p style="margin: 0.3em 0;">No guarantees. No financial advice. If you're mad about a loss, blame variance — not the model.</p>
-    <p style="margin: 0.3em 0;">RAGE Picks &copy; 2025</p>
+    <p style="margin: 0.3em 0;">RAGE Picks &copy; 2026</p>
 </div>
 """, unsafe_allow_html=True)

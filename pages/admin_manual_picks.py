@@ -7,7 +7,7 @@ from app.auth import add_auth_to_page, is_admin
 from app.db import insert_ai_pick, list_ai_picks, delete_ai_pick, init_ai_picks
 from app.rage_picks import fetch_odds
 from app.utils.sidebar import render_sidebar_navigation, render_admin_section
-from app.utils.branding import render_logo_in_sidebar
+from app.utils.branding import render_logo_in_sidebar, render_mobile_web_app_meta_tags
 
 # --- INITIALIZATION ---
 # Ensure database tables exist
@@ -60,6 +60,9 @@ if not is_admin():
     st.error("🚫 Access Denied: Admin only")
     st.stop()
 
+# --- Mobile Web App Meta Tags ---
+render_mobile_web_app_meta_tags()
+
 # --- Hide Streamlit's default page navigation ---
 st.markdown("""
 <style>
@@ -82,7 +85,7 @@ render_admin_section()
 # Page Configuration
 # -----------------------------
 st.set_page_config(page_title="🔧 Admin: Manual Picks",
-                   page_icon="img/favicon.png", layout="wide")
+                   page_icon="img/favicon.ico", layout="wide")
 st.title("🔧 Admin: Manual Picks Entry")
 st.markdown(
     "Add manual picks from other cappers and sources. These will appear alongside AI picks.")

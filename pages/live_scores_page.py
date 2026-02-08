@@ -2,19 +2,22 @@
 import streamlit as st
 from app.live_scores import display_live_scores
 from app.utils.sidebar import render_sidebar_navigation, render_admin_section
-from app.utils.branding import render_logo_in_sidebar
+from app.utils.branding import render_logo_in_sidebar, render_mobile_web_app_meta_tags
 from app.db import init_ai_picks
 
 # --- Page Configuration ---
 st.set_page_config(
     page_title="Live Scores - RAGE Sports Picks",
-    page_icon="img/favicon.png",
+    page_icon="img/favicon.ico",
     layout="wide"
 )
 
 # --- INITIALIZATION ---
 # Ensure database tables exist
 init_ai_picks()
+
+# --- Mobile Web App Meta Tags ---
+render_mobile_web_app_meta_tags()
 
 # --- Hide Streamlit's default page navigation ---
 st.markdown("""

@@ -20,7 +20,7 @@ from app.utils.scraper import run_scrapers
 from app.utils.kalshi_api import fetch_kalshi_consensus
 from app.utils.sidebar import render_sidebar_navigation, render_admin_section
 from app.utils.admin_sidebar import render_maintenance_section, render_backup_restore_section
-from app.utils.branding import render_logo_in_sidebar
+from app.utils.branding import render_logo_in_sidebar, render_mobile_web_app_meta_tags
 from app.auth import add_auth_to_page, is_admin
 from app.rage_picks import (
     fetch_scores,
@@ -45,6 +45,9 @@ add_auth_to_page()
 # Run at import to guarantee schemas are correct
 init_ai_picks()
 init_prompt_context_db()  # NEW: Initialize the new prompt context table
+
+# --- Mobile Web App Meta Tags ---
+render_mobile_web_app_meta_tags()
 
 # --- Hide Streamlit's default page navigation ---
 st.markdown("""
@@ -390,7 +393,7 @@ if updated_on_load > 0:
 
 # --- Page Configuration & Title ---
 st.set_page_config(page_title="🤖 RAGE's Daily Picks",
-                   page_icon="img/favicon.png", layout="wide")
+                   page_icon="img/favicon.ico", layout="wide")
 st.title("🤖 RAGE's Daily Picks")
 st.markdown(
     "High confidence picks from RAGE Sports. Picks are created once per day.")
