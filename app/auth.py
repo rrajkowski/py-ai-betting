@@ -162,22 +162,19 @@ def check_authentication():
             st.session_state.show_auth_warning = False
         return True
 
-    # Handle OAuth callback if present
-    if "code" in st.query_params:
-        handle_oauth_callback()
-
     # Check if user is logged in
     if not st.session_state.get("is_logged_in", False):
         # Store the current page as the intended destination after login
-        # This allows us to redirect back to the page the user was trying to access
-        import inspect
-        frame = inspect.currentframe()
-        if frame and frame.f_back:
-            caller_file = frame.f_back.f_code.co_filename
-            # Extract just the page name (e.g., "pages/rage_picks_page.py")
-            if "pages/" in caller_file:
-                page_name = "pages/" + caller_file.split("pages/")[-1]
+        # Get the current page from Streamlit's script path
+        try:
+            import __main__
+            current_file = __main__.__file__
+            if "pages/" in current_file:
+                page_name = "pages/" + current_file.split("pages/")[-1]
                 st.session_state["intended_page"] = page_name
+        except:
+            # Fallback to default page
+            st.session_state["intended_page"] = "pages/rage_picks_page.py"
 
         # Show login UI
         st.info("🔐 **Please log in to access this app**")

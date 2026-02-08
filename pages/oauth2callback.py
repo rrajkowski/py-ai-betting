@@ -27,22 +27,9 @@ st.info("🔄 Completing login... Please wait.")
 
 # Handle OAuth callback
 if "code" in st.query_params:
-    success = handle_oauth_callback()
-    
-    if success:
-        # Get the intended destination page from session state
-        intended_page = st.session_state.get("intended_page", "pages/rage_picks_page.py")
-        
-        st.success("✅ Login successful! Redirecting...")
-        
-        # Redirect to intended page
-        st.switch_page(intended_page)
-    else:
-        st.error("❌ Login failed. Please try again.")
-        if st.button("Return to Home"):
-            st.switch_page("pages/home_page.py")
+    # handle_oauth_callback() will process the login and redirect to intended page
+    handle_oauth_callback()
 else:
     # No code in query params - redirect to home
     st.warning("⚠️ No authentication code found.")
     st.switch_page("pages/home_page.py")
-
