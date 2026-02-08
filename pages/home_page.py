@@ -39,7 +39,7 @@ def get_7day_stats():
     conn = get_db()
     cur = conn.cursor()
 
-    # Get picks from last 7 days
+    # Get picks from last 7 days using commence_time (which is the actual timestamp)
     seven_days_ago = (datetime.now(timezone.utc) -
                       timedelta(days=7)).isoformat()
 
@@ -57,7 +57,7 @@ def get_7day_stats():
             END
         ) AS net_units
     FROM ai_picks
-    WHERE date >= ? AND result IN ('Win', 'Loss', 'Push');
+    WHERE commence_time >= ? AND result IN ('Win', 'Loss', 'Push');
     """
     cur.execute(query, (seven_days_ago,))
     row = cur.fetchone()
