@@ -3,12 +3,18 @@
 Public-facing home page with hero section, results, and free daily pick.
 No authentication required - fully public.
 """
-from app.utils.sidebar import render_sidebar_navigation, render_admin_section
-from app.utils.admin_sidebar import render_refresh_daily_pick_button, render_backup_restore_section
-from app.utils.branding import render_logo_in_sidebar, render_mobile_web_app_meta_tags, render_global_css_overrides
+import logging
+from datetime import UTC, datetime, timedelta
+
 import streamlit as st
-from datetime import datetime, timedelta, timezone
-from app.db import get_db, list_ai_picks, insert_ai_pick, init_ai_picks
+
+from app.db import get_db, init_ai_picks, insert_ai_pick, list_ai_picks
+from app.utils.admin_sidebar import render_backup_restore_section, render_refresh_daily_pick_button
+from app.utils.branding import render_global_css_overrides, render_logo_in_sidebar, render_mobile_web_app_meta_tags
+from app.utils.sidebar import render_admin_section, render_sidebar_navigation
+
+logger = logging.getLogger(__name__)
+
 
 # --- Page Configuration ---
 st.set_page_config(
@@ -43,32 +49,31 @@ st.markdown("""
 @st.cache_data(ttl=60)
 def get_7day_stats():
     """Calculate last 7 days performance stats using same logic as rage_picks_page."""
-    conn = get_db()
-    cur = conn.cursor()
+    with get_db() as conn:
+        cur = conn.cursor()
 
-    # Get picks from last 7 days using commence_time (which is the actual timestamp)
-    seven_days_ago = (datetime.now(timezone.utc) -
-                      timedelta(days=7)).isoformat()
+        # Get picks from last 7 days using commence_time (which is the actual timestamp)
+        seven_days_ago = (datetime.now(UTC) -
+                          timedelta(days=7)).isoformat()
 
-    query = """
-    SELECT
-        SUM(CASE WHEN result = 'Win' THEN 1 ELSE 0 END) AS total_wins,
-        SUM(CASE WHEN result = 'Loss' THEN 1 ELSE 0 END) AS total_losses,
-        SUM(CASE WHEN result = 'Push' THEN 1 ELSE 0 END) AS total_pushes,
-        SUM(
-            CASE
-                WHEN result = 'Win' AND odds_american > 0 THEN (odds_american / 100.0)
-                WHEN result = 'Win' AND odds_american < 0 THEN (100.0 / ABS(odds_american))
-                WHEN result = 'Loss' THEN -1.0
-                ELSE 0
-            END
-        ) AS net_units
-    FROM ai_picks
-    WHERE commence_time >= ? AND result IN ('Win', 'Loss', 'Push');
-    """
-    cur.execute(query, (seven_days_ago,))
-    row = cur.fetchone()
-    conn.close()
+        query = """
+        SELECT
+            SUM(CASE WHEN result = 'Win' THEN 1 ELSE 0 END) AS total_wins,
+            SUM(CASE WHEN result = 'Loss' THEN 1 ELSE 0 END) AS total_losses,
+            SUM(CASE WHEN result = 'Push' THEN 1 ELSE 0 END) AS total_pushes,
+            SUM(
+                CASE
+                    WHEN result = 'Win' AND odds_american > 0 THEN (odds_american / 100.0)
+                    WHEN result = 'Win' AND odds_american < 0 THEN (100.0 / ABS(odds_american))
+                    WHEN result = 'Loss' THEN -1.0
+                    ELSE 0
+                END
+            ) AS net_units
+        FROM ai_picks
+        WHERE commence_time >= ? AND result IN ('Win', 'Loss', 'Push');
+        """
+        cur.execute(query, (seven_days_ago,))
+        row = cur.fetchone()
 
     if not row or row[0] is None:
         return {"wins": 0, "losses": 0, "pushes": 0, "units": 0.0, "win_rate": 0, "roi": 0}
@@ -95,28 +100,27 @@ def get_7day_stats():
 @st.cache_data(ttl=60)
 def get_alltime_stats():
     """Calculate all-time performance stats."""
-    conn = get_db()
-    cur = conn.cursor()
+    with get_db() as conn:
+        cur = conn.cursor()
 
-    query = """
-    SELECT
-        SUM(CASE WHEN result = 'Win' THEN 1 ELSE 0 END) AS total_wins,
-        SUM(CASE WHEN result = 'Loss' THEN 1 ELSE 0 END) AS total_losses,
-        SUM(CASE WHEN result = 'Push' THEN 1 ELSE 0 END) AS total_pushes,
-        SUM(
-            CASE
-                WHEN result = 'Win' AND odds_american > 0 THEN (odds_american / 100.0)
-                WHEN result = 'Win' AND odds_american < 0 THEN (100.0 / ABS(odds_american))
-                WHEN result = 'Loss' THEN -1.0
-                ELSE 0
-            END
-        ) AS net_units
-    FROM ai_picks
-    WHERE result IN ('Win', 'Loss', 'Push');
-    """
-    cur.execute(query)
-    row = cur.fetchone()
-    conn.close()
+        query = """
+        SELECT
+            SUM(CASE WHEN result = 'Win' THEN 1 ELSE 0 END) AS total_wins,
+            SUM(CASE WHEN result = 'Loss' THEN 1 ELSE 0 END) AS total_losses,
+            SUM(CASE WHEN result = 'Push' THEN 1 ELSE 0 END) AS total_pushes,
+            SUM(
+                CASE
+                    WHEN result = 'Win' AND odds_american > 0 THEN (odds_american / 100.0)
+                    WHEN result = 'Win' AND odds_american < 0 THEN (100.0 / ABS(odds_american))
+                    WHEN result = 'Loss' THEN -1.0
+                    ELSE 0
+                END
+            ) AS net_units
+        FROM ai_picks
+        WHERE result IN ('Win', 'Loss', 'Push');
+        """
+        cur.execute(query)
+        row = cur.fetchone()
 
     if not row or row[0] is None:
         return {"wins": 0, "losses": 0, "pushes": 0, "units": 0.0, "win_rate": 0, "roi": 0}
@@ -143,22 +147,21 @@ def get_alltime_stats():
 @st.cache_data(ttl=60)
 def get_todays_free_pick():
     """Get the best pick from upcoming games (highest confidence)."""
-    conn = get_db()
-    cur = conn.cursor()
+    with get_db() as conn:
+        cur = conn.cursor()
 
-    # Look for pending picks with games starting in the future
-    # Order by confidence (highest first), then by commence_time (soonest first)
-    cur.execute("""
-        SELECT * FROM ai_picks
-        WHERE result = 'Pending'
-        AND commence_time IS NOT NULL
-        AND datetime(commence_time) > datetime('now')
-        ORDER BY confidence DESC, commence_time ASC
-        LIMIT 1
-    """)
+        # Look for pending picks with games starting in the future
+        # Order by confidence (highest first), then by commence_time (soonest first)
+        cur.execute("""
+            SELECT * FROM ai_picks
+            WHERE result = 'Pending'
+            AND commence_time IS NOT NULL
+            AND datetime(commence_time) > datetime('now')
+            ORDER BY confidence DESC, commence_time ASC
+            LIMIT 1
+        """)
 
-    pick = cur.fetchone()
-    conn.close()
+        pick = cur.fetchone()
 
     return dict(pick) if pick else None
 
@@ -176,61 +179,54 @@ def format_confidence_stars(confidence_str):
 
 def generate_random_daily_pick():
     """Generate a random daily pick from existing pending picks with stars."""
-    print("\n" + "="*80)
-    print("🎲 [generate_random_daily_pick] Starting...")
+    logger.info("[generate_random_daily_pick] Starting...")
 
-    conn = get_db()
-    cur = conn.cursor()
+    with get_db() as conn:
+        cur = conn.cursor()
 
-    # First, check how many pending picks exist
-    cur.execute("SELECT COUNT(*) FROM ai_picks WHERE result = 'Pending'")
-    total_pending = cur.fetchone()[0]
-    print(f"   📊 Total pending picks in database: {total_pending}")
+        # First, check how many pending picks exist
+        cur.execute("SELECT COUNT(*) FROM ai_picks WHERE result = 'Pending'")
+        total_pending = cur.fetchone()[0]
+        logger.info(f"Total pending picks in database: {total_pending}")
 
-    # Get all pending picks that have a star rating (confidence)
-    cur.execute("""
-        SELECT * FROM ai_picks
-        WHERE result = 'Pending'
-        AND confidence IS NOT NULL
-        AND confidence != ''
-        ORDER BY RANDOM()
-        LIMIT 1
-    """)
-
-    pick = cur.fetchone()
-
-    if pick:
-        pick_dict = dict(pick)
-        print(
-            f"   ✅ Selected pick: {pick_dict.get('game')} - {pick_dict.get('pick')}")
-        print(f"      Sport: {pick_dict.get('sport')}")
-        print(f"      Market: {pick_dict.get('market')}")
-        print(f"      Confidence: {pick_dict.get('confidence')}")
-        print(f"      Date: {pick_dict.get('date')}")
-        print(f"      Commence Time: {pick_dict.get('commence_time')}")
-        conn.close()
-        print("="*80 + "\n")
-        return pick_dict
-    else:
-        print("   ❌ No pending picks with confidence found!")
-        # Debug: show what we have
+        # Get all pending picks that have a star rating (confidence)
         cur.execute("""
-            SELECT id, game, pick, confidence, result
-            FROM ai_picks
+            SELECT * FROM ai_picks
             WHERE result = 'Pending'
-            LIMIT 5
+            AND confidence IS NOT NULL
+            AND confidence != ''
+            ORDER BY RANDOM()
+            LIMIT 1
         """)
-        debug_picks = cur.fetchall()
-        if debug_picks:
-            print("   📋 Sample pending picks (checking confidence field):")
-            for row in debug_picks:
-                print(
-                    f"      - {row[1]} ({row[2]}) - confidence: '{row[3]}' - result: {row[4]}")
-        else:
-            print("   📋 No pending picks at all!")
 
-    conn.close()
-    print("="*80 + "\n")
+        pick = cur.fetchone()
+
+        if pick:
+            pick_dict = dict(pick)
+            logger.info(
+                f"Selected pick: {pick_dict.get('game')} - {pick_dict.get('pick')} | "
+                f"Sport: {pick_dict.get('sport')} | Market: {pick_dict.get('market')} | "
+                f"Confidence: {pick_dict.get('confidence')} | Date: {pick_dict.get('date')}")
+            return pick_dict
+        else:
+            logger.warning("No pending picks with confidence found!")
+            # Debug: show what we have
+            cur.execute("""
+                SELECT id, game, pick, confidence, result
+                FROM ai_picks
+                WHERE result = 'Pending'
+                LIMIT 5
+            """)
+            debug_picks = cur.fetchall()
+            if debug_picks:
+                logger.debug(
+                    "Sample pending picks (checking confidence field):")
+                for row in debug_picks:
+                    logger.debug(
+                        f"  - {row[1]} ({row[2]}) - confidence: '{row[3]}' - result: {row[4]}")
+            else:
+                logger.debug("No pending picks at all!")
+
     return None
 
 

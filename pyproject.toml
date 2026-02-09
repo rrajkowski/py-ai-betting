@@ -1,6 +1,38 @@
 [tool.ruff]
-# Only check these directories
-src = ["app", "pages"]
+# Target Python 3.11+ (match your Railway runtime)
+target-version = "py311"
+line-length = 120
+src = ["app", "pages", "scripts"]
+extend-exclude = ["tests", ".venv", "__pycache__"]
 
-# Exclude the test folder specifically
-extend-exclude = ["tests"]
+[tool.ruff.lint]
+# Enable these rule sets:
+# F = Pyflakes (unused imports, undefined names)
+# E = pycodestyle errors
+# W = pycodestyle warnings
+# I = isort (import sorting)
+# N = pep8-naming
+# UP = pyupgrade (modernize syntax)
+# B = flake8-bugbear (common bugs)
+# SIM = flake8-simplify
+# RUF = Ruff-specific rules
+select = ["F", "E", "W", "I", "N", "UP", "B", "SIM", "RUF"]
+
+# Ignore rules that conflict with your codebase style
+ignore = [
+    "E501",    # Line too long (handled by formatter)
+    "E722",    # Bare except (you use these intentionally for LLM fallbacks)
+    "B008",    # Function call in default arg (Streamlit uses this pattern)
+    "SIM108",  # Ternary operator (readability preference)
+    "RUF012",  # Mutable class attributes (dataclass-like patterns)
+    "N802",    # Function name should be lowercase (some API-matching names)
+    "N806",    # Variable in function should be lowercase (HEADERS, DB_PATH etc.)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"

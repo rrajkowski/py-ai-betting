@@ -4,12 +4,12 @@ Complete UFC scoring workflow test.
 Demonstrates all three tiers of the grading system.
 """
 
+from app.utils.ufc_stats_scraper import process_ufc_event
+from app.db import get_db, update_pick_result
 import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from app.db import get_db, update_pick_result
-from app.utils.ufc_stats_scraper import process_ufc_event
 
 print("\n" + "=" * 70)
 print("COMPLETE UFC SCORING WORKFLOW TEST")
@@ -19,11 +19,10 @@ print("=" * 70)
 print("\n[STEP 1] Check initial pick state")
 print("-" * 70)
 
-conn = get_db()
-cur = conn.cursor()
-cur.execute("SELECT id, game, pick, result FROM ai_picks WHERE id=448")
-pick = cur.fetchone()
-conn.close()
+with get_db() as conn:
+    cur = conn.cursor()
+    cur.execute("SELECT id, game, pick, result FROM ai_picks WHERE id=448")
+    pick = cur.fetchone()
 
 if pick:
     pick_dict = dict(pick)
@@ -55,11 +54,10 @@ print(f"✅ Graded {result['graded']} picks")
 print("\n[STEP 4] Verify Database Update")
 print("-" * 70)
 
-conn = get_db()
-cur = conn.cursor()
-cur.execute("SELECT id, game, pick, result FROM ai_picks WHERE id=448")
-pick = cur.fetchone()
-conn.close()
+with get_db() as conn:
+    cur = conn.cursor()
+    cur.execute("SELECT id, game, pick, result FROM ai_picks WHERE id=448")
+    pick = cur.fetchone()
 
 if pick:
     pick_dict = dict(pick)
@@ -67,7 +65,7 @@ if pick:
     print(f"  Game: {pick_dict['game']}")
     print(f"  Pick: {pick_dict['pick']}")
     print(f"  New Result: {pick_dict['result']}")
-    
+
     if pick_dict['result'] == 'Win':
         print("\n✅ SUCCESS! Pick correctly graded as Win")
     else:
@@ -85,4 +83,3 @@ print("  Option B: CLI - python3 scripts/update_ufc_pick_result.py 448 Win")
 print("\n" + "=" * 70)
 print("WORKFLOW TEST COMPLETE")
 print("=" * 70)
-

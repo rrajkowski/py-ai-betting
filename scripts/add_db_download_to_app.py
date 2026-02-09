@@ -11,19 +11,19 @@ SIDEBAR_CODE = '''
 if st.session_state.get("is_logged_in") and st.session_state.get("user_email") in ["your-admin-email@gmail.com"]:
     st.sidebar.markdown("---")
     st.sidebar.markdown("### 🔧 Admin Tools")
-    
+
     if st.sidebar.button("📥 Download Database", help="Download production database"):
         import os
         from datetime import datetime
-        
+
         db_path = "bets.db"
         if os.path.exists(db_path):
             with open(db_path, "rb") as f:
                 db_data = f.read()
-            
+
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"bets_production_{timestamp}.db"
-            
+
             st.sidebar.download_button(
                 label="⬇️ Download bets.db",
                 data=db_data,
@@ -31,20 +31,20 @@ if st.session_state.get("is_logged_in") and st.session_state.get("user_email") i
                 mime="application/octet-stream",
                 help="Download the production database"
             )
-            
+
             # Show database stats
             import sqlite3
             conn = sqlite3.connect(db_path)
             cursor = conn.cursor()
-            
+
             cursor.execute("SELECT COUNT(*) FROM ai_picks")
             total_picks = cursor.fetchone()[0]
-            
+
             cursor.execute("SELECT COUNT(*) FROM ai_picks WHERE result = 'Pending'")
             pending_picks = cursor.fetchone()[0]
-            
+
             conn.close()
-            
+
             st.sidebar.info(f"""
             **Database Stats:**
             - Total picks: {total_picks}

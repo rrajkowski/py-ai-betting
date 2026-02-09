@@ -11,9 +11,9 @@ cur = conn.cursor()
 # Find parlays from Jan 2nd
 print("Looking for parlays from Jan 2nd...")
 cur.execute("""
-    SELECT id, game, pick, odds_american, result, commence_time 
-    FROM ai_picks 
-    WHERE sport = 'PARLAY' 
+    SELECT id, game, pick, odds_american, result, commence_time
+    FROM ai_picks
+    WHERE sport = 'PARLAY'
     AND date(commence_time) = '2026-01-02'
     ORDER BY id DESC
 """)
@@ -24,9 +24,9 @@ if not parlays:
     print("No parlays found from Jan 2nd, 2026")
     # Try without year
     cur.execute("""
-        SELECT id, game, pick, odds_american, result, commence_time 
-        FROM ai_picks 
-        WHERE sport = 'PARLAY' 
+        SELECT id, game, pick, odds_american, result, commence_time
+        FROM ai_picks
+        WHERE sport = 'PARLAY'
         AND commence_time LIKE '%01-02%'
         ORDER BY id DESC
     """)
@@ -42,18 +42,19 @@ if parlays:
         print(f"  Odds: {p_dict['odds_american']:+d}")
         print(f"  Time: {p_dict['commence_time']}")
         print(f"  Current Result: {p_dict['result']}")
-        
+
         # Update to Loss if pending
         if p_dict['result'].lower() == 'pending':
             print("\n  Updating to Loss...")
-            cur.execute("UPDATE ai_picks SET result = 'Loss' WHERE id = ?", (p_dict['id'],))
+            cur.execute(
+                "UPDATE ai_picks SET result = 'Loss' WHERE id = ?", (p_dict['id'],))
             conn.commit()
             print("  ✅ Updated!")
 else:
     print("No parlays found. Showing all parlays:")
     cur.execute("""
-        SELECT id, game, pick, odds_american, result, commence_time 
-        FROM ai_picks 
+        SELECT id, game, pick, odds_american, result, commence_time
+        FROM ai_picks
         WHERE sport = 'PARLAY'
         ORDER BY id DESC
         LIMIT 10
@@ -61,8 +62,8 @@ else:
     all_parlays = cur.fetchall()
     for p in all_parlays:
         p_dict = dict(p)
-        print(f"\nID: {p_dict['id']} | Time: {p_dict['commence_time']} | Result: {p_dict['result']}")
+        print(
+            f"\nID: {p_dict['id']} | Time: {p_dict['commence_time']} | Result: {p_dict['result']}")
 
 conn.close()
 print("\nDone!")
-

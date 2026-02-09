@@ -1,9 +1,10 @@
 # pages/live_scores_page.py
 import streamlit as st
-from app.live_scores import display_live_scores
-from app.utils.sidebar import render_sidebar_navigation, render_admin_section
-from app.utils.branding import render_logo_in_sidebar, render_mobile_web_app_meta_tags, render_global_css_overrides
+
 from app.db import init_ai_picks
+from app.live_scores import display_live_scores
+from app.utils.branding import render_global_css_overrides, render_logo_in_sidebar, render_mobile_web_app_meta_tags
+from app.utils.sidebar import render_admin_section, render_sidebar_navigation
 
 # --- Page Configuration ---
 st.set_page_config(

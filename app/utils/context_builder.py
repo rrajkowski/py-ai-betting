@@ -1,6 +1,10 @@
-from datetime import datetime, timezone, timedelta
-from app.utils.db import fetch_context_by_date  # Assumed to take (date, sport)
+import logging
+from datetime import UTC, datetime, timedelta
+
+from app.db import fetch_context_by_date
 from app.utils.team_mapper import enrich_game_with_rankings
+
+logger = logging.getLogger(__name__)
 
 # Define the canonical structure for the AI super-prompt
 CANONICAL_CONTEXT_STRUCTURE = {
@@ -29,17 +33,17 @@ def build_merged_context(target_date: str, sport: str):
     # Fetch all context from database
     raw_context = fetch_context_by_date(target_date, sport)
 
-    print(
-        f"🔍 Context Builder: Found {len(raw_context)} raw context records for {sport} on {target_date}")
+    logger.info(
+        f"Context Builder: Found {len(raw_context)} raw context records for {sport} on {target_date}")
 
     if not raw_context:
-        print(
-            f"⚠️ Context Builder: No context data found for {sport}. Check if scrapers/API ran successfully.")
+        logger.warning(
+            f"Context Builder: No context data found for {sport}. Check if scrapers/API ran successfully.")
         return []
 
     # Group data by game_id
     games_map = {}
-    now_utc = datetime.now(timezone.utc)
+    now_utc = datetime.now(UTC)
     max_future_date = now_utc + timedelta(days=3)
 
     skipped_count = 0
@@ -63,18 +67,18 @@ def build_merged_context(target_date: str, sport: str):
                     # Date-only string - treat as end of day (23:59:59 UTC)
                     match_dt = datetime.strptime(match_date_str, '%Y-%m-%d')
                     match_dt = match_dt.replace(
-                        hour=23, minute=59, second=59, tzinfo=timezone.utc)
+                        hour=23, minute=59, second=59, tzinfo=UTC)
 
                 if match_dt.tzinfo is None:
-                    match_dt = match_dt.replace(tzinfo=timezone.utc)
+                    match_dt = match_dt.replace(tzinfo=UTC)
 
                 # Skip past games or games too far in future
                 if match_dt < now_utc or match_dt > max_future_date:
                     skipped_count += 1
                     continue
             except Exception as e:
-                print(
-                    f"⚠️ Context Builder: Invalid date format for {game_id}: {match_date_str} ({e})")
+                logger.warning(
+                    f"Context Builder: Invalid date format for {game_id}: {match_date_str} ({e})")
                 continue
 
         if game_id not in games_map:
@@ -116,8 +120,8 @@ def build_merged_context(target_date: str, sport: str):
 
     # Enrich games with ranking data for NCAAB and NCAAF
     if sport.upper() in ['NCAAB', 'NCAAF']:
-        print(
-            f"🏆 Context Builder: Enriching {len(games_list)} games with {sport} rankings...")
+        logger.info(
+            f"Context Builder: Enriching {len(games_list)} games with {sport} rankings...")
         for game in games_list:
             game_id = game.get('game_id', '')
             if game_id:
@@ -136,8 +140,8 @@ def build_merged_context(target_date: str, sport: str):
                             'rank_differential': matchup.get('rank_differential')
                         }
 
-    print(
-        f"✅ Context Builder: Built context for {len(games_list)} games ({skipped_count} filtered out)")
+    logger.info(
+        f"Context Builder: Built context for {len(games_list)} games ({skipped_count} filtered out)")
 
     return games_list
 

@@ -108,9 +108,9 @@ print("\n3. CHECKING APP CODE:")
 print("-" * 80)
 
 try:
-    # Import the function from app/rage_picks.py
+    # Import the function from app/llm.py
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-    from app.rage_picks import _call_claude_model
+    from app.llm import _call_claude_model
 
     print("✅ _call_claude_model imported successfully")
 

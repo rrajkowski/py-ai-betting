@@ -1,7 +1,6 @@
-import sqlite3
 import os
-from datetime import datetime, timezone
-
+import sqlite3
+from datetime import UTC, datetime
 
 # Define the path to your database file
 DB_PATH = os.path.join(
@@ -90,7 +89,7 @@ def delete_spread_duplicates_same_team(conn):
 
     import re
 
-    for pick_id, game, market, pick, line, date in picks:
+    for pick_id, game, _market, pick, line, _date in picks:
         if not game or not pick or line is None:
             continue
 
@@ -177,7 +176,7 @@ def delete_stuck_pending_picks(conn):
 
     # Calculate cutoff time (1 day ago)
     from datetime import timedelta
-    cutoff_time = datetime.now(timezone.utc) - timedelta(days=1)
+    cutoff_time = datetime.now(UTC) - timedelta(days=1)
     cutoff_str = cutoff_time.strftime('%Y-%m-%dT%H:%M:%SZ')
 
     query = f"""

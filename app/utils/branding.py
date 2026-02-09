@@ -1,6 +1,7 @@
 """Branding utilities for consistent logo and favicon across all pages."""
-import streamlit as st
 from pathlib import Path
+
+import streamlit as st
 
 
 def get_favicon_path():

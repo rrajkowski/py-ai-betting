@@ -4,7 +4,7 @@ Test script to verify Boyd's Bets NCAA-B and NCAA-F picks are being scraped corr
 """
 from datetime import datetime
 from app.utils.scraper import scrape_boydsbets_picks
-from app.utils.db import get_db
+from app.db import get_db
 
 
 def test_boyds_ncaa_picks():
@@ -36,61 +36,59 @@ def test_boyds_ncaa_picks():
     # Check database for results
     print("🔍 Checking database for Boyd's Bets NCAA picks...")
     print("-" * 80)
-    conn = get_db()
-    cur = conn.cursor()
+    with get_db() as conn:
+        cur = conn.cursor()
 
-    # Check NCAA Football picks
-    cur.execute("""
-        SELECT COUNT(*) FROM prompt_context
-        WHERE context_type = 'boydsbets_pick'
-        AND source = 'boydsbets'
-        AND sport = 'NCAAF'
-        AND date(created_at) = date('now')
-    """)
-    ncaaf_count = cur.fetchone()[0]
-
-    # Check NCAA Basketball picks
-    cur.execute("""
-        SELECT COUNT(*) FROM prompt_context
-        WHERE context_type = 'boydsbets_pick'
-        AND source = 'boydsbets'
-        AND sport = 'NCAAB'
-        AND date(created_at) = date('now')
-    """)
-    ncaab_count = cur.fetchone()[0]
-
-    # Show sample picks
-    print("\n📊 Results:")
-    print(f"   NCAA Football (NCAAF): {ncaaf_count} picks")
-    print(f"   NCAA Basketball (NCAAB): {ncaab_count} picks")
-
-    if ncaaf_count > 0:
-        print("\n🏈 Sample NCAA Football picks:")
+        # Check NCAA Football picks
         cur.execute("""
-            SELECT game_id, team_pick, data FROM prompt_context
+            SELECT COUNT(*) FROM prompt_context
             WHERE context_type = 'boydsbets_pick'
             AND source = 'boydsbets'
             AND sport = 'NCAAF'
             AND date(created_at) = date('now')
-            LIMIT 5
         """)
-        for row in cur.fetchall():
-            print(f"   - {row[0]}: {row[1]} ({row[2]})")
+        ncaaf_count = cur.fetchone()[0]
 
-    if ncaab_count > 0:
-        print("\n🏀 Sample NCAA Basketball picks:")
+        # Check NCAA Basketball picks
         cur.execute("""
-            SELECT game_id, team_pick, data FROM prompt_context
+            SELECT COUNT(*) FROM prompt_context
             WHERE context_type = 'boydsbets_pick'
             AND source = 'boydsbets'
             AND sport = 'NCAAB'
             AND date(created_at) = date('now')
-            LIMIT 5
         """)
-        for row in cur.fetchall():
-            print(f"   - {row[0]}: {row[1]} ({row[2]})")
+        ncaab_count = cur.fetchone()[0]
 
-    conn.close()
+        # Show sample picks
+        print("\n📊 Results:")
+        print(f"   NCAA Football (NCAAF): {ncaaf_count} picks")
+        print(f"   NCAA Basketball (NCAAB): {ncaab_count} picks")
+
+        if ncaaf_count > 0:
+            print("\n🏈 Sample NCAA Football picks:")
+            cur.execute("""
+                SELECT game_id, team_pick, data FROM prompt_context
+                WHERE context_type = 'boydsbets_pick'
+                AND source = 'boydsbets'
+                AND sport = 'NCAAF'
+                AND date(created_at) = date('now')
+                LIMIT 5
+            """)
+            for row in cur.fetchall():
+                print(f"   - {row[0]}: {row[1]} ({row[2]})")
+
+        if ncaab_count > 0:
+            print("\n🏀 Sample NCAA Basketball picks:")
+            cur.execute("""
+                SELECT game_id, team_pick, data FROM prompt_context
+                WHERE context_type = 'boydsbets_pick'
+                AND source = 'boydsbets'
+                AND sport = 'NCAAB'
+                AND date(created_at) = date('now')
+                LIMIT 5
+            """)
+            for row in cur.fetchall():
+                print(f"   - {row[0]}: {row[1]} ({row[2]})")
 
     # Summary
     print(f"\n{'='*80}")

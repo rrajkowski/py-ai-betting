@@ -1,12 +1,12 @@
-from mangum import Mangum  # allows ASGI on serverless
-from fastapi import FastAPI
-import sqlite3
-from fastapi import HTTPException
-from pydantic import BaseModel
-from typing import Optional, Dict
-from app.db import DB_PATH, init_db, get_db
-import sys
 import os
+import sys
+
+from fastapi import FastAPI, HTTPException
+from mangum import Mangum  # allows ASGI on serverless
+from pydantic import BaseModel
+
+from app.db import get_db, init_db
+
 sys.path.append(os.path.dirname(__file__))
 
 app = FastAPI(title="AI Betting API", version="0.1.0")
@@ -22,12 +22,10 @@ async def health():
 
 @app.get("/bets")
 def list_bets():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    cur = conn.cursor()
-    cur.execute("SELECT * FROM bets ORDER BY date DESC")
-    rows = [dict(row) for row in cur.fetchall()]
-    conn.close()
+    with get_db() as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM bets ORDER BY date DESC")
+        rows = [dict(row) for row in cur.fetchall()]
     return {"bets": rows}
 
 
@@ -39,14 +37,13 @@ class Bet(BaseModel):
 
 @app.post("/bets")
 def create_bet(bet: Bet):
-    conn = sqlite3.connect(DB_PATH)
-    cur = conn.cursor()
-    cur.execute(
-        "INSERT INTO bets (team, opponent, market, date) VALUES (?, ?, ?, CURRENT_TIMESTAMP)",
-        (bet.team, bet.opponent, bet.market),
-    )
-    conn.commit()
-    conn.close()
+    with get_db() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO bets (team, opponent, market, date) VALUES (?, ?, ?, CURRENT_TIMESTAMP)",
+            (bet.team, bet.opponent, bet.market),
+        )
+        conn.commit()
     return {"message": "Bet saved", "bet": bet.dict()}
 
 
@@ -65,9 +62,9 @@ class BetRequest(BaseModel):
     side: str          # e.g. "home_team", "away_team", or team name
     bet_type: str
     odds: float        # required to calculate EV
-    odds_american: Optional[float] = None  # ✅ optional, American
-    stake: Optional[float] = 1.0
-    stats: Optional[Dict] = None  # ✅ optional, defaults to {}
+    odds_american: float | None = None  # ✅ optional, American
+    stake: float | None = 1.0
+    stats: dict | None = None  # ✅ optional, defaults to {}
 
 
 class BetResult(BaseModel):

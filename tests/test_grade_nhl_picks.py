@@ -4,7 +4,8 @@ Test grading the imported NHL picks against actual game results.
 """
 
 from app.db import get_db, update_pick_result
-from app.rage_picks import fetch_scores, _check_pick_result
+from app.grading import _check_pick_result
+from app.rage_picks import fetch_scores
 import sys
 import os
 sys.path.insert(0, os.path.dirname(__file__))
@@ -46,15 +47,15 @@ def grade_nhl_picks():
     print(f"✅ Found {len(game_score_map)} completed games")
 
     # Get pending NHL picks
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("""
-        SELECT id, game, pick, market, line, date 
-        FROM ai_picks 
-        WHERE sport = 'NHL' AND result = 'Pending'
-        ORDER BY date
-    """)
-    pending_picks = cur.fetchall()
+    with get_db() as conn:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT id, game, pick, market, line, date
+            FROM ai_picks
+            WHERE sport = 'NHL' AND result = 'Pending'
+            ORDER BY date
+        """)
+        pending_picks = cur.fetchall()
 
     print(f"\n🔍 Found {len(pending_picks)} pending NHL picks")
     print("="*60)
@@ -106,8 +107,6 @@ def grade_nhl_picks():
             print("   ⏳ Game not completed yet")
             not_completed += 1
 
-    conn.close()
-
     print("\n" + "="*60)
     print("GRADING COMPLETE")
     print("="*60)
@@ -117,20 +116,20 @@ def grade_nhl_picks():
     # Show final results
     if graded > 0:
         print("\n📊 Final Results:")
-        conn = get_db()
-        cur = conn.cursor()
-        cur.execute("""
-            SELECT game, pick, market, result, confidence 
-            FROM ai_picks 
-            WHERE sport = 'NHL' AND result != 'Pending'
-            ORDER BY date
-        """)
-        for game, pick, market, result, confidence in cur.fetchall():
-            emoji = "✅" if result == "Win" else "❌" if result == "Loss" else "➖"
-            print(f"   {emoji} {game}")
-            print(f"      Pick: {pick} ({market}) - {'⭐' * int(confidence)}")
-            print(f"      Result: {result}")
-        conn.close()
+        with get_db() as conn:
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT game, pick, market, result, confidence
+                FROM ai_picks
+                WHERE sport = 'NHL' AND result != 'Pending'
+                ORDER BY date
+            """)
+            for game, pick, market, result, confidence in cur.fetchall():
+                emoji = "✅" if result == "Win" else "❌" if result == "Loss" else "➖"
+                print(f"   {emoji} {game}")
+                print(
+                    f"      Pick: {pick} ({market}) - {'⭐' * int(confidence)}")
+                print(f"      Result: {result}")
 
 
 if __name__ == "__main__":

@@ -12,11 +12,10 @@ init_ai_picks()
 print("✅ Database initialized")
 
 # Check if source column exists
-conn = get_db()
-cur = conn.cursor()
-cur.execute("PRAGMA table_info(ai_picks)")
-columns = [row['name'] for row in cur.fetchall()]
-conn.close()
+with get_db() as conn:
+    cur = conn.cursor()
+    cur.execute("PRAGMA table_info(ai_picks)")
+    columns = [row['name'] for row in cur.fetchall()]
 
 print(f"\n📋 Columns in ai_picks table:")
 for col in columns:
@@ -33,4 +32,3 @@ else:
     print("❌ ERROR: 'commence_time' column is missing!")
 
 print("\n🎉 Database migration test complete!")
-

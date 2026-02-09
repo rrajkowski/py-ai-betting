@@ -208,8 +208,9 @@ st.header("Add New Manual Pick")
 
 # Sport Selection
 sports_map = {
-    "NFL": "americanfootball_nfl",
+    # "NFL": "americanfootball_nfl",  # Season over
     # "NCAAF": "americanfootball_ncaaf",  # Season over
+    "MLB": "baseball_mlb",
     "NCAAB": "basketball_ncaab",
     "NBA": "basketball_nba",
     "NHL": "icehockey_nhl",
@@ -453,7 +454,7 @@ if rage_picks:
     filter_col1, filter_col2 = st.columns(2)
     with filter_col1:
         filter_sport = st.selectbox(
-            "Filter by Sport", ["All"] + list(sports_map.keys()), key="filter_sport")
+            "Filter by Sport", ["All", *list(sports_map.keys())], key="filter_sport")
     with filter_col2:
         filter_result = st.selectbox("Filter by Result", [
                                      "All", "Pending", "Win", "Loss", "Push"], key="filter_result")

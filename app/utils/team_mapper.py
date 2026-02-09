@@ -5,8 +5,10 @@ Also provides team ranking data from CSV files.
 """
 
 import csv
+import logging
 import os
-from typing import Optional, Dict
+
+logger = logging.getLogger(__name__)
 
 # NFL Team Mappings
 NFL_TEAMS = {
@@ -297,7 +299,7 @@ NHL_TEAMS = {
 }
 
 
-def normalize_team_name(team_input: str, sport: str = None) -> str:
+def normalize_team_name(team_input: str, sport: str | None = None) -> str:
     """
     Normalize team name to canonical form.
 
@@ -320,7 +322,7 @@ def normalize_team_name(team_input: str, sport: str = None) -> str:
         if clean_input in NFL_TEAMS:
             return NFL_TEAMS[clean_input]
         # Try full name match
-        for key, value in NFL_TEAMS.items():
+        for _key, value in NFL_TEAMS.items():
             if value.lower() == clean_input:
                 return value
 
@@ -328,7 +330,7 @@ def normalize_team_name(team_input: str, sport: str = None) -> str:
         if clean_input in NBA_TEAMS:
             return NBA_TEAMS[clean_input]
         # Try full name match
-        for key, value in NBA_TEAMS.items():
+        for _key, value in NBA_TEAMS.items():
             if value.lower() == clean_input:
                 return value
 
@@ -336,7 +338,7 @@ def normalize_team_name(team_input: str, sport: str = None) -> str:
         if clean_input in NHL_TEAMS:
             return NHL_TEAMS[clean_input]
         # Try full name match
-        for key, value in NHL_TEAMS.items():
+        for _key, value in NHL_TEAMS.items():
             if value.lower() == clean_input:
                 return value
 
@@ -352,7 +354,7 @@ def normalize_team_name(team_input: str, sport: str = None) -> str:
     return team_input
 
 
-def match_teams(team1: str, team2: str, sport: str = None) -> bool:
+def match_teams(team1: str, team2: str, sport: str | None = None) -> bool:
     """
     Check if two team names refer to the same team.
 
@@ -369,7 +371,7 @@ def match_teams(team1: str, team2: str, sport: str = None) -> bool:
     return norm1.lower() == norm2.lower()
 
 
-def extract_team_from_game_title(game_title: str, sport: str = None) -> tuple:
+def extract_team_from_game_title(game_title: str, sport: str | None = None) -> tuple:
     """
     Extract both teams from a game title like "Team A @ Team B" or "Team A vs Team B".
 
@@ -403,7 +405,7 @@ _NCAAB_RANKINGS_CACHE = None
 _NCAAF_RANKINGS_CACHE = None
 
 
-def _load_ncaab_rankings() -> Dict[str, Dict]:
+def _load_ncaab_rankings() -> dict[str, dict]:
     """Load NCAAB rankings from CSV file."""
     global _NCAAB_RANKINGS_CACHE
 
@@ -415,7 +417,7 @@ def _load_ncaab_rankings() -> Dict[str, Dict]:
                             '../../data/ncaab_teams.csv')
 
     try:
-        with open(csv_path, 'r') as f:
+        with open(csv_path) as f:
             reader = csv.DictReader(f)
             for row in reader:
                 team_name = row['Team'].strip()
@@ -431,20 +433,20 @@ def _load_ncaab_rankings() -> Dict[str, Dict]:
                     }
 
         _NCAAB_RANKINGS_CACHE = rankings
-        print(f"✅ Loaded {len(rankings)} NCAAB team rankings")
+        logger.info(f"Loaded {len(rankings)} NCAAB team rankings")
         return rankings
 
     except FileNotFoundError:
-        print(f"⚠️ NCAAB rankings file not found: {csv_path}")
+        logger.warning(f"NCAAB rankings file not found: {csv_path}")
         _NCAAB_RANKINGS_CACHE = {}
         return {}
     except Exception as e:
-        print(f"❌ Error loading NCAAB rankings: {e}")
+        logger.error(f"Error loading NCAAB rankings: {e}")
         _NCAAB_RANKINGS_CACHE = {}
         return {}
 
 
-def _load_ncaaf_rankings() -> Dict[str, Dict]:
+def _load_ncaaf_rankings() -> dict[str, dict]:
     """Load NCAAF rankings from CSV file."""
     global _NCAAF_RANKINGS_CACHE
 
@@ -456,7 +458,7 @@ def _load_ncaaf_rankings() -> Dict[str, Dict]:
                             '../../data/ncaaf_teams.csv')
 
     try:
-        with open(csv_path, 'r') as f:
+        with open(csv_path) as f:
             reader = csv.DictReader(f)
             for row in reader:
                 team_name = row['Team'].strip()
@@ -471,20 +473,20 @@ def _load_ncaaf_rankings() -> Dict[str, Dict]:
                     }
 
         _NCAAF_RANKINGS_CACHE = rankings
-        print(f"✅ Loaded {len(rankings)} NCAAF team rankings")
+        logger.info(f"Loaded {len(rankings)} NCAAF team rankings")
         return rankings
 
     except FileNotFoundError:
-        print(f"⚠️ NCAAF rankings file not found: {csv_path}")
+        logger.warning(f"NCAAF rankings file not found: {csv_path}")
         _NCAAF_RANKINGS_CACHE = {}
         return {}
     except Exception as e:
-        print(f"❌ Error loading NCAAF rankings: {e}")
+        logger.error(f"Error loading NCAAF rankings: {e}")
         _NCAAF_RANKINGS_CACHE = {}
         return {}
 
 
-def get_team_rank(team_name: str, sport: str) -> Optional[int]:
+def get_team_rank(team_name: str, sport: str) -> int | None:
     """
     Get the ranking for a team.
 
@@ -514,7 +516,7 @@ def get_team_rank(team_name: str, sport: str) -> Optional[int]:
     return None
 
 
-def get_team_ranking_info(team_name: str, sport: str) -> Optional[Dict]:
+def get_team_ranking_info(team_name: str, sport: str) -> dict | None:
     """
     Get full ranking information for a team.
 
@@ -542,7 +544,7 @@ def get_team_ranking_info(team_name: str, sport: str) -> Optional[Dict]:
     return None
 
 
-def get_matchup_quality(away_team: str, home_team: str, sport: str) -> Dict:
+def get_matchup_quality(away_team: str, home_team: str, sport: str) -> dict:
     """
     Analyze matchup quality based on team rankings.
 
@@ -589,17 +591,14 @@ def get_matchup_quality(away_team: str, home_team: str, sport: str) -> Dict:
         result['matchup_type'] = 'ranked_vs_unranked'
         result['quality_score'] = 4
 
-        if away_rank and away_rank <= 10:
-            result['matchup_type'] = 'top10_vs_unranked'
-            result['quality_score'] = 5
-        elif home_rank and home_rank <= 10:
+        if (away_rank and away_rank <= 10) or (home_rank and home_rank <= 10):
             result['matchup_type'] = 'top10_vs_unranked'
             result['quality_score'] = 5
 
     return result
 
 
-def enrich_game_with_rankings(game_title: str, sport: str) -> Dict:
+def enrich_game_with_rankings(game_title: str, sport: str) -> dict:
     """
     Enrich a game with ranking information.
 

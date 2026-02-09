@@ -1,5 +1,22 @@
 {
   "cSpell.words": [
     "NCAAF"
+  ],
+
+  // Enable formatting/fixing on save
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll": "explicit",
+    "source.organizeImports": "explicit"
+  },
+
+  // Set Ruff as the Python provider for linting and formatting
+  "python.formatting.provider": "ruff",
+  "python.linting.provider": "ruff",
+  "editor.defaultFormatter": "charliermarsh.ruff",
+
+  // Tell Ruff to apply fixes on save
+  "ruff.format.args": [
+    "--fix"
   ]
 }

@@ -1,9 +1,21 @@
 # streamlit_app.py
 """Main entry point - redirects to public home page."""
+import logging
+import sys
+
 import streamlit as st
-from app.db import init_db, init_ai_picks
-from app.utils.db import init_prompt_context_db
+
+from app.db import init_ai_picks, init_db, init_prompt_context_db
 from app.utils.branding import render_mobile_web_app_meta_tags
+
+# --- Logging Configuration ---
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
+    handlers=[logging.StreamHandler(sys.stdout)],
+    force=True,
+)
+
 
 # -----------------------------
 # Page Configuration (MUST be first Streamlit command)

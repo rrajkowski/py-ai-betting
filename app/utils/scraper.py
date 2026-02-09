@@ -1,9 +1,14 @@
+import logging
+from datetime import UTC, datetime, timedelta
+
 import requests
 from bs4 import BeautifulSoup
-from datetime import datetime, timezone, timedelta
-from app.utils.db import insert_context
+
+from app.db import insert_context
 from app.utils.sport_config import SportConfig
 from app.utils.team_mapper import normalize_team_name
+
+logger = logging.getLogger(__name__)
 
 
 def create_game_id(team_a: str, team_b: str, sport: str, target_date: str) -> str:
@@ -41,21 +46,22 @@ def scrape_oddsshark_consensus(target_date: str, sport: str):
     """
     # 1. Check if sport is in season
     if not SportConfig.is_in_season(sport):
-        print(f"📡 Scraper: Skipping {sport.upper()} - out of season")
+        logger.info(f"Scraper: Skipping {sport.upper()} - out of season")
         return
 
     # 2. Get dynamic limit for this sport
     dynamic_limit = SportConfig.get_dynamic_limit(sport)
     if dynamic_limit == 0:
-        print(f"📡 Scraper: Skipping {sport.upper()} - no games expected today")
+        logger.info(
+            f"Scraper: Skipping {sport.upper()} - no games expected today")
         return
 
     sport_segment = sport.split('_')[-1].lower()
     url = f"https://www.oddsshark.com/{sport_segment}/computer-picks"
     sport_name_upper = sport_segment.upper()
 
-    print(
-        f"📡 Scraper: Fetching {sport_name_upper} picks (limit: {dynamic_limit}) from {url}...")
+    logger.info(
+        f"Scraper: Fetching {sport_name_upper} picks (limit: {dynamic_limit}) from {url}...")
 
     # Retry logic for OddsShark (can be slow/unreliable)
     max_retries = 3  # Increased from 2 to 3
@@ -72,35 +78,35 @@ def scrape_oddsshark_consensus(target_date: str, sport: str):
             break  # Success, exit retry loop
         except requests.exceptions.Timeout:
             if attempt < max_retries - 1:
-                print(
-                    f"⚠️ OddsShark timeout (attempt {attempt + 1}/{max_retries}), retrying in {retry_delay}s...")
+                logger.warning(
+                    f"OddsShark timeout (attempt {attempt + 1}/{max_retries}), retrying in {retry_delay}s...")
                 import time
                 time.sleep(retry_delay)
                 continue
             else:
-                print(
-                    f"❌ Scraper timeout for {sport_name_upper} at {url} after {max_retries} attempts")
+                logger.error(
+                    f"Scraper timeout for {sport_name_upper} at {url} after {max_retries} attempts")
                 return
         except requests.exceptions.RequestException as e:
-            print(f"❌ Scraper error for {sport_name_upper}: {e}")
+            logger.error(f"Scraper error for {sport_name_upper}: {e}")
             return
 
     if soup is None:
-        print(f"❌ Failed to fetch {sport_name_upper} data from OddsShark")
+        logger.error(f"Failed to fetch {sport_name_upper} data from OddsShark")
         return
 
     try:
 
         game_containers = soup.select(".computer-picks-event-container")
-        print(
-            f"🔍 Found {len(game_containers)} game containers for {sport_name_upper}")
+        logger.info(
+            f"Found {len(game_containers)} game containers for {sport_name_upper}")
 
         if not game_containers:
-            print(f"⚠️ No game containers found for {sport_name_upper}")
+            logger.warning(f"No game containers found for {sport_name_upper}")
             return
 
         scraped_picks_count = 0
-        now_utc = datetime.now(timezone.utc)
+        now_utc = datetime.now(UTC)
         max_future_date = now_utc + timedelta(days=3)
 
         # Limit containers to process based on dynamic limit
@@ -117,7 +123,7 @@ def scrape_oddsshark_consensus(target_date: str, sport: str):
                     try:
                         ts = int(date_tag["data-event-date"])
                         game_datetime = datetime.fromtimestamp(
-                            ts, tz=timezone.utc)
+                            ts, tz=UTC)
                         game_date_utc = game_datetime.strftime(
                             "%Y-%m-%dT%H:%M:%SZ")
                     except Exception:
@@ -173,7 +179,7 @@ def scrape_oddsshark_consensus(target_date: str, sport: str):
                 def parse_odds(text):
                     try:
                         val = int(text.replace(
-                            "+", "").replace("−", "-").strip())
+                            "+", "").replace("-", "-").strip())
                         return val if -600 <= val <= 600 else None
                     except ValueError:
                         return None
@@ -269,7 +275,7 @@ def scrape_oddsshark_consensus(target_date: str, sport: str):
                         "market": pick["market"],
                         "line": pick.get("line", ""),
                         "odds_american": pick.get("odds_american", 0),
-                        "extraction_date": datetime.now(timezone.utc).isoformat(),
+                        "extraction_date": datetime.now(UTC).isoformat(),
                     }
 
                     insert_context(
@@ -288,18 +294,19 @@ def scrape_oddsshark_consensus(target_date: str, sport: str):
             except Exception as e:
                 # Log parsing errors but continue
                 if index < 5:  # Only log first few errors to avoid spam
-                    print(f"⚠️ Error parsing container {index}: {e}")
+                    logger.warning(f"Error parsing container {index}: {e}")
                 continue
 
-        print(
-            f"✅ Scraper: Stored {scraped_picks_count}/{len(game_containers)} games for {sport_name_upper}")
+        logger.info(
+            f"Scraper: Stored {scraped_picks_count}/{len(game_containers)} games for {sport_name_upper}")
 
     except requests.exceptions.Timeout:
-        print(f"❌ Scraper timeout for {sport_name_upper} at {url}")
+        logger.error(f"Scraper timeout for {sport_name_upper} at {url}")
     except requests.exceptions.HTTPError as e:
-        print(f"❌ HTTP error for {sport_name_upper}: {e.response.status_code}")
+        logger.error(
+            f"HTTP error for {sport_name_upper}: {e.response.status_code}")
     except Exception as e:
-        print(f"❌ Fatal scrape error for {sport_name_upper}: {e}")
+        logger.error(f"Fatal scrape error for {sport_name_upper}: {e}")
 
 
 def scrape_oddstrader_picks(target_date: str, sport: str):
@@ -316,14 +323,13 @@ def scrape_oddstrader_picks(target_date: str, sport: str):
         target_date: Target date for grouping (YYYY-MM-DD)
         sport: Sport key (e.g., 'americanfootball_nfl')
     """
-    print("⚠️ OddsTrader: Scraper disabled (requires JavaScript rendering not available on Streamlit Cloud)")
-    print("   Using OddsShark and CBS Sports for consensus data instead")
+    logger.warning("OddsTrader: Scraper disabled (requires JavaScript rendering not available on Streamlit Cloud). Using OddsShark and CBS Sports for consensus data instead")
     return
 
     # DISABLED CODE BELOW - Kept for reference
     # 1. Check if sport is in season
     if not SportConfig.is_in_season(sport):
-        print(f"📡 OddsTrader: Skipping {sport.upper()} - out of season")
+        logger.info(f"OddsTrader: Skipping {sport.upper()} - out of season")
         return
 
     # 2. Map sport key to OddsTrader URL path
@@ -337,13 +343,13 @@ def scrape_oddstrader_picks(target_date: str, sport: str):
 
     sport_path = sport_url_map.get(sport)
     if not sport_path:
-        print(f"📡 OddsTrader: No URL mapping for {sport}")
+        logger.info(f"OddsTrader: No URL mapping for {sport}")
         return
 
     url = f"https://www.oddstrader.com/{sport_path}/picks/"
     sport_name_upper = SportConfig.get_sport_name(sport)
 
-    print(f"📡 OddsTrader: Fetching {sport_name_upper} picks from {url}...")
+    logger.info(f"OddsTrader: Fetching {sport_name_upper} picks from {url}...")
 
     try:
         # Use pure BeautifulSoup (no JavaScript rendering - works on Streamlit Cloud)
@@ -356,14 +362,14 @@ def scrape_oddstrader_picks(target_date: str, sport: str):
         # Find all bet containers with star ratings
         # Based on your HTML: div.wrapper-irK6Y contains individual bets
         bet_containers = soup.select("div.wrapper-irK6Y")
-        print(f"🔍 OddsTrader: Found {len(bet_containers)} bet containers")
+        logger.info(f"OddsTrader: Found {len(bet_containers)} bet containers")
 
         scraped_count = 0
 
         # Group bets by game (each game has multiple bet options)
         # Find all game containers: div.content-JBK0_ contains participants + bets
         game_containers = soup.select("div.content-JBK0_")
-        print(f"🎮 OddsTrader: Found {len(game_containers)} games")
+        logger.info(f"OddsTrader: Found {len(game_containers)} games")
 
         for game_container in game_containers:
             try:
@@ -457,11 +463,11 @@ def scrape_oddstrader_picks(target_date: str, sport: str):
             except Exception:
                 continue
 
-        print(
-            f"✅ OddsTrader: Scraped {scraped_count} picks (3-4 stars) for {sport_name_upper}")
+        logger.info(
+            f"OddsTrader: Scraped {scraped_count} picks (3-4 stars) for {sport_name_upper}")
 
     except Exception as e:
-        print(f"❌ OddsTrader: Error scraping {sport_name_upper}: {e}")
+        logger.error(f"OddsTrader: Error scraping {sport_name_upper}: {e}")
 
 
 def scrape_cbs_expert_picks(target_date: str, sport: str):
@@ -475,7 +481,7 @@ def scrape_cbs_expert_picks(target_date: str, sport: str):
     """
     # 1. Check if sport is in season
     if not SportConfig.is_in_season(sport):
-        print(f"📡 CBS Sports: Skipping {sport.upper()} - out of season")
+        logger.info(f"CBS Sports: Skipping {sport.upper()} - out of season")
         return
 
     # 2. Map sport key to CBS URL path
@@ -490,7 +496,7 @@ def scrape_cbs_expert_picks(target_date: str, sport: str):
 
     sport_path = sport_url_map.get(sport)
     if not sport_path:
-        print(f"📡 CBS Sports: No expert picks page for {sport}")
+        logger.info(f"CBS Sports: No expert picks page for {sport}")
         return
 
     url = f"https://www.cbssports.com/{sport_path}"
@@ -510,8 +516,8 @@ def scrape_cbs_expert_picks(target_date: str, sport: str):
         "UTA": "Utah", "WAS": "Washington"
     }
 
-    print(
-        f"📡 CBS Sports: Fetching {sport_name_upper} expert picks from {url}...")
+    logger.info(
+        f"CBS Sports: Fetching {sport_name_upper} expert picks from {url}...")
 
     try:
         resp = requests.get(url, headers={
@@ -522,8 +528,8 @@ def scrape_cbs_expert_picks(target_date: str, sport: str):
 
         # Find all expert picks columns (one per game)
         expert_picks_cols = soup.select("div.expert-picks-col")
-        print(
-            f"🔍 CBS Sports: Found {len(expert_picks_cols)} expert pick columns")
+        logger.info(
+            f"CBS Sports: Found {len(expert_picks_cols)} expert pick columns")
 
         scraped_count = 0
 
@@ -569,8 +575,8 @@ def scrape_cbs_expert_picks(target_date: str, sport: str):
                         unknown_abbrevs.append(away_abbrev)
                     if not home_team_name:
                         unknown_abbrevs.append(home_abbrev)
-                    print(
-                        f"⚠️ CBS Sports: Unknown team abbreviations: {', '.join(unknown_abbrevs)}")
+                    logger.warning(
+                        f"CBS Sports: Unknown team abbreviations: {', '.join(unknown_abbrevs)}")
                     continue
 
                 # Normalize team names
@@ -665,14 +671,14 @@ def scrape_cbs_expert_picks(target_date: str, sport: str):
                     scraped_count += 1
 
             except Exception as e:
-                print(f"⚠️ CBS Sports: Error processing game: {e}")
+                logger.warning(f"CBS Sports: Error processing game: {e}")
                 continue
 
-        print(
-            f"✅ CBS Sports: Stored {scraped_count} consensus picks for {sport_name_upper}")
+        logger.info(
+            f"CBS Sports: Stored {scraped_count} consensus picks for {sport_name_upper}")
 
     except Exception as e:
-        print(f"❌ CBS Sports: Failed to scrape {sport_name_upper}: {e}")
+        logger.error(f"CBS Sports: Failed to scrape {sport_name_upper}: {e}")
 
 
 def scrape_boydsbets_picks(target_date: str, sport: str):
@@ -685,7 +691,7 @@ def scrape_boydsbets_picks(target_date: str, sport: str):
     """
     # 1. Check if sport is in season
     if not SportConfig.is_in_season(sport):
-        print(f"📡 Boyd's Bets: Skipping {sport.upper()} - out of season")
+        logger.info(f"Boyd's Bets: Skipping {sport.upper()} - out of season")
         return
 
     # 2. Map sport key to Boyd's Bets sport filter
@@ -702,14 +708,14 @@ def scrape_boydsbets_picks(target_date: str, sport: str):
 
     sport_filter = sport_filter_map.get(sport)
     if not sport_filter:
-        print(f"📡 Boyd's Bets: No picks available for {sport}")
+        logger.info(f"Boyd's Bets: No picks available for {sport}")
         return
 
     sport_name_upper = SportConfig.get_sport_name(sport)
     url = "https://www.boydsbets.com/free-sports-picks/"
 
-    print(
-        f"📡 Boyd's Bets: Fetching {sport_name_upper} expert picks from {url}...")
+    logger.info(
+        f"Boyd's Bets: Fetching {sport_name_upper} expert picks from {url}...")
 
     try:
         resp = requests.get(url, headers={
@@ -721,12 +727,12 @@ def scrape_boydsbets_picks(target_date: str, sport: str):
         # Find the picks table
         picks_table = soup.find("table")
         if not picks_table:
-            print("⚠️ Boyd's Bets: No picks table found")
+            logger.warning("Boyd's Bets: No picks table found")
             return
 
         # Find all rows (skip header)
         rows = picks_table.find_all("tr")[1:]  # Skip header row
-        print(f"🔍 Boyd's Bets: Found {len(rows)} total picks")
+        logger.info(f"Boyd's Bets: Found {len(rows)} total picks")
 
         scraped_count = 0
         sports_found = {}  # Debug: Track what sports are found
@@ -864,23 +870,23 @@ def scrape_boydsbets_picks(target_date: str, sport: str):
                     scraped_count += 1
 
             except Exception as e:
-                print(f"⚠️ Boyd's Bets: Error parsing row: {e}")
+                logger.warning(f"Boyd's Bets: Error parsing row: {e}")
                 continue
 
         # Debug output
         if sports_found:
             sports_list = ", ".join(
                 [f"{sport}({count})" for sport, count in sports_found.items()])
-            print(f"🔍 Boyd's Bets: Sports found: {sports_list}")
+            logger.debug(f"Boyd's Bets: Sports found: {sports_list}")
             if sport_filter not in sports_found:
-                print(
-                    f"⚠️ Boyd's Bets: Looking for '{sport_filter}' but not found in scraped data")
+                logger.warning(
+                    f"Boyd's Bets: Looking for '{sport_filter}' but not found in scraped data")
 
-        print(
-            f"✅ Boyd's Bets: Stored {scraped_count} {sport_name_upper} picks")
+        logger.info(
+            f"Boyd's Bets: Stored {scraped_count} {sport_name_upper} picks")
 
     except Exception as e:
-        print(f"❌ Boyd's Bets: Failed to scrape {sport_name_upper}: {e}")
+        logger.error(f"Boyd's Bets: Failed to scrape {sport_name_upper}: {e}")
 
 
 def run_scrapers(target_date: str, sport: str):

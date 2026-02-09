@@ -3,8 +3,7 @@ Sport Configuration Module
 Centralized configuration for sport seasons, schedules, and API limits.
 Optimizes API calls based on actual game schedules and seasonal availability.
 """
-from datetime import datetime, timezone
-from typing import Dict, Optional
+from datetime import UTC, datetime
 
 
 class SportConfig:
@@ -38,7 +37,7 @@ class SportConfig:
             "emoji": "🏀🏆"
         },
         "baseball_mlb": {
-            "start": (3, 20),     # March 20
+            "start": (2, 20),     # February 20 - Spring Training 2026
             "end": (11, 5),       # November 5 (includes World Series)
             "name": "MLB",
             "emoji": "⚾"
@@ -176,7 +175,7 @@ class SportConfig:
     }
 
     @classmethod
-    def is_in_season(cls, sport_key: str, check_date: Optional[datetime] = None) -> bool:
+    def is_in_season(cls, sport_key: str, check_date: datetime | None = None) -> bool:
         """
         Check if a sport is currently in season.
 
@@ -188,7 +187,7 @@ class SportConfig:
             True if sport is in season, False otherwise
         """
         if check_date is None:
-            check_date = datetime.now(timezone.utc)
+            check_date = datetime.now(UTC)
 
         season = cls.SEASONS.get(sport_key)
         if not season:
@@ -220,7 +219,7 @@ class SportConfig:
         return in_season
 
     @classmethod
-    def get_dynamic_limit(cls, sport_key: str, check_date: Optional[datetime] = None) -> int:
+    def get_dynamic_limit(cls, sport_key: str, check_date: datetime | None = None) -> int:
         """
         Get dynamic game limit based on day of week and season.
 
@@ -232,7 +231,7 @@ class SportConfig:
             Optimal limit for API calls
         """
         if check_date is None:
-            check_date = datetime.now(timezone.utc)
+            check_date = datetime.now(UTC)
 
         # Return 0 if out of season
         if not cls.is_in_season(sport_key, check_date):
@@ -249,7 +248,7 @@ class SportConfig:
         return schedule.get(day_name, schedule.get("default", config["base_limit"]))
 
     @classmethod
-    def get_kalshi_ticker(cls, sport_key: str) -> Optional[str]:
+    def get_kalshi_ticker(cls, sport_key: str) -> str | None:
         """Get Kalshi ticker for a sport."""
         config = cls.KALSHI_CONFIG.get(sport_key)
         return config["ticker"] if config else None
@@ -271,7 +270,7 @@ class SportConfig:
         return cls.HISTORICAL_DAYS.get(sport_key, 30)
 
     @classmethod
-    def get_active_sports(cls, check_date: Optional[datetime] = None) -> list:
+    def get_active_sports(cls, check_date: datetime | None = None) -> list:
         """
         Get list of sports currently in season.
 
@@ -282,17 +281,17 @@ class SportConfig:
             List of sport keys that are in season
         """
         if check_date is None:
-            check_date = datetime.now(timezone.utc)
+            check_date = datetime.now(UTC)
 
         active = []
-        for sport_key in cls.SEASONS.keys():
+        for sport_key in cls.SEASONS:
             if cls.is_in_season(sport_key, check_date):
                 active.append(sport_key)
 
         return active
 
     @classmethod
-    def get_sport_info(cls, sport_key: str) -> Dict:
+    def get_sport_info(cls, sport_key: str) -> dict:
         """Get all configuration info for a sport."""
         season = cls.SEASONS.get(sport_key, {})
         kalshi = cls.KALSHI_CONFIG.get(sport_key, {})

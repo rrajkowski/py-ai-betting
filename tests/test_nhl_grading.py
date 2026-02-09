@@ -4,7 +4,8 @@ Test script to verify NHL grading logic works correctly.
 Tests all three market types: h2h, spreads, totals
 """
 
-from app.rage_picks import _check_pick_result, fetch_scores
+from app.grading import _check_pick_result
+from app.rage_picks import fetch_scores
 import sys
 import os
 sys.path.insert(0, os.path.dirname(__file__))

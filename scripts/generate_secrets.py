@@ -36,7 +36,13 @@ def generate_secrets():
     if not cookie_secret:
         cookie_secret = secrets.token_urlsafe(32)
         print(
-            f"Generated COOKIE_SECRET: {cookie_secret}", file=sys.stderr)
+            "⚠️  COOKIE_SECRET not set as environment variable!", file=sys.stderr)
+        print(
+            "   Generated a random one — user sessions will be invalidated on next deploy.", file=sys.stderr)
+        print(
+            f"   To fix: set COOKIE_SECRET={cookie_secret} in Railway environment variables.", file=sys.stderr)
+    else:
+        print("✅ Using COOKIE_SECRET from environment variable", file=sys.stderr)
 
     # Create .streamlit directory if it doesn't exist
     streamlit_dir = Path(".streamlit")

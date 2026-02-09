@@ -5,12 +5,18 @@ UFC Stats Scraper - Fallback scoring for UFC/MMA picks when Odds API lacks data.
 Scrapes completed UFC fights from ufcstats.com and matches them with pending picks.
 """
 
-from app.db import get_db, update_pick_result
+import logging
+import os
+import sys
+from datetime import datetime
+
 import requests
 from bs4 import BeautifulSoup
-from datetime import datetime
-import sys
-import os
+
+from app.db import get_db, update_pick_result
+
+logger = logging.getLogger(__name__)
+
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
@@ -38,11 +44,10 @@ def scrape_ufc_event(event_url: str) -> dict:
         date_elem = soup.find("span", {"class": "b-list__box-list-item-date"})
         if date_elem:
             date_text = date_elem.get_text(strip=True)
-            try:
+            from contextlib import suppress
+            with suppress(ValueError):
                 event_date = datetime.strptime(
                     date_text, "%B %d, %Y").strftime("%Y-%m-%d")
-            except ValueError:
-                pass
 
         # Find all fight rows
         fights = []
@@ -87,10 +92,8 @@ def scrape_ufc_event(event_url: str) -> dict:
                     if len(cells) > 8:
                         # Get the round cell (index 8)
                         round_cell = cells[8].get_text(strip=True)
-                        try:
+                        with suppress(ValueError, IndexError):
                             round_ended = int(round_cell)
-                        except (ValueError, IndexError):
-                            pass
 
                     fights.append({
                         "away_fighter": fighter1,
@@ -103,19 +106,18 @@ def scrape_ufc_event(event_url: str) -> dict:
         return {"event_date": event_date, "fights": fights}
 
     except Exception as e:
-        print(f"Error scraping UFC event {event_url}: {e}")
+        logger.error(f"Error scraping UFC event {event_url}: {e}")
         return {"event_date": None, "fights": []}
 
 
 def find_pending_ufc_picks() -> list:
     """Get all pending UFC picks from database."""
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute(
-        "SELECT id, game, pick, market, sport FROM ai_picks WHERE sport='UFC' AND result='Pending'"
-    )
-    picks = [dict(row) for row in cur.fetchall()]
-    conn.close()
+    with get_db() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT id, game, pick, market, sport FROM ai_picks WHERE sport='UFC' AND result='Pending'"
+        )
+        picks = [dict(row) for row in cur.fetchall()]
     return picks
 
 
@@ -214,28 +216,27 @@ def grade_pick_from_fight(pick: dict, fight: dict) -> str:
 
 def update_historical_games(fight: dict):
     """Store fight result in historical_games table."""
-    conn = get_db()
-    cur = conn.cursor()
+    with get_db() as conn:
+        cur = conn.cursor()
 
-    game_id = f"UFC_{fight['away_fighter']}_{fight['home_fighter']}_{fight['event_date']}"
-    game_str = f"{fight['away_fighter']} @ {fight['home_fighter']}"
+        game_id = f"UFC_{fight['away_fighter']}_{fight['home_fighter']}_{fight['event_date']}"
+        game_str = f"{fight['away_fighter']} @ {fight['home_fighter']}"
 
-    cur.execute("""
-        INSERT OR REPLACE INTO historical_games 
-        (id, sport, game, winner, date, home_team, away_team)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    """, (
-        game_id,
-        "UFC",
-        game_str,
-        fight['winner'],
-        fight['event_date'],
-        fight['home_fighter'],
-        fight['away_fighter']
-    ))
+        cur.execute("""
+            INSERT OR REPLACE INTO historical_games
+            (id, sport, game, winner, date, home_team, away_team)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (
+            game_id,
+            "UFC",
+            game_str,
+            fight['winner'],
+            fight['event_date'],
+            fight['home_fighter'],
+            fight['away_fighter']
+        ))
 
-    conn.commit()
-    conn.close()
+        conn.commit()
 
 
 def process_ufc_event(event_url: str) -> dict:
@@ -244,19 +245,19 @@ def process_ufc_event(event_url: str) -> dict:
 
     Returns: Summary of picks graded
     """
-    print(f"\n🥊 Processing UFC event: {event_url}")
+    logger.info(f"Processing UFC event: {event_url}")
 
     # Scrape the event
     event_data = scrape_ufc_event(event_url)
     if not event_data['fights']:
-        print("⚠️ No fights found in event")
+        logger.warning("No fights found in event")
         return {"graded": 0, "skipped": 0}
 
-    print(f"✅ Found {len(event_data['fights'])} fights")
+    logger.info(f"Found {len(event_data['fights'])} fights")
 
     # Get pending picks
     pending_picks = find_pending_ufc_picks()
-    print(f"📋 Found {len(pending_picks)} pending UFC picks")
+    logger.info(f"Found {len(pending_picks)} pending UFC picks")
 
     graded = 0
     skipped = 0
@@ -270,8 +271,8 @@ def process_ufc_event(event_url: str) -> dict:
                 if result != 'Pending':
                     update_pick_result(pick['id'], result)
                     update_historical_games(fight)
-                    print(
-                        f"✅ Graded pick #{pick['id']}: {pick['game']} - {pick['pick']} = {result}")
+                    logger.info(
+                        f"Graded pick #{pick['id']}: {pick['game']} - {pick['pick']} = {result}")
                     graded += 1
                     pending_picks.remove(pick)  # Remove from list
                 else:

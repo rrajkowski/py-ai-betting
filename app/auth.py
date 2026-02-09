@@ -3,12 +3,78 @@
 Authentication wrapper with Streamlit native OIDC and Stripe integration.
 Uses st.login(), st.user, and st.logout() for authentication.
 """
-import streamlit as st
 import os
+from datetime import UTC
+
+import streamlit as st
 from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
+
+
+def get_config(key: str, default=None):
+    """
+    Get a configuration value from environment variables first, then st.secrets.
+
+    This eliminates the repetitive pattern of:
+        value = os.getenv('KEY')
+        if not value:
+            try:
+                value = st.secrets.get("KEY")
+            except (KeyError, FileNotFoundError, AttributeError):
+                pass
+
+    Args:
+        key: The configuration key to look up.
+        default: Default value if not found in either source.
+
+    Returns:
+        The configuration value, or default if not found.
+    """
+    value = os.getenv(key)
+    if value is not None:
+        return value
+    try:
+        value = st.secrets.get(key)
+        if value is not None:
+            return value
+    except (KeyError, FileNotFoundError, AttributeError):
+        pass
+    return default
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def _get_stripe_subscription_status(stripe_api_key: str, user_email: str) -> dict:
+    """
+    Cached Stripe subscription lookup. Avoids ~500ms API calls on every page load.
+
+    Results are cached for 5 minutes (ttl=300) per user_email.
+
+    Returns:
+        dict with keys: has_customer, customer_id, has_subscription, subscription
+    """
+    import stripe
+    stripe.api_key = stripe_api_key
+
+    customers = stripe.Customer.list(email=user_email)
+    if not customers.data:
+        return {"has_customer": False, "customer_id": None, "has_subscription": False, "subscription": None}
+
+    customer = customers.data[0]
+    subscriptions = stripe.Subscription.list(customer=customer["id"])
+
+    if len(subscriptions.data) == 0:
+        return {"has_customer": True, "customer_id": customer["id"], "has_subscription": False, "subscription": None}
+
+    # Convert subscription to a plain dict so it's serializable for caching
+    sub = subscriptions.data[0]
+    return {
+        "has_customer": True,
+        "customer_id": customer["id"],
+        "has_subscription": True,
+        "subscription": dict(sub),
+    }
 
 
 def check_authentication():
@@ -23,12 +89,7 @@ def check_authentication():
     """
 
     # Check if we're running locally using IS_LOCAL flag
-    is_localhost = os.getenv("IS_LOCAL", "").lower() == "true"
-    if not is_localhost:
-        try:
-            is_localhost = st.secrets.get("IS_LOCAL", False)
-        except (KeyError, FileNotFoundError, AttributeError):
-            is_localhost = False
+    is_localhost = str(get_config("IS_LOCAL", "")).lower() == "true"
 
     # LOCALHOST: Skip authentication for development
     if is_localhost:
@@ -74,12 +135,7 @@ def check_authentication():
         return True
 
     # Check if we're running locally - skip Stripe check for localhost
-    is_localhost = os.getenv("IS_LOCAL", "").lower() == "true"
-    if not is_localhost:
-        try:
-            is_localhost = st.secrets.get("IS_LOCAL", False)
-        except (KeyError, FileNotFoundError, AttributeError):
-            is_localhost = False
+    is_localhost = str(get_config("IS_LOCAL", "")).lower() == "true"
 
     # LOCALHOST: Skip Stripe subscription check for development
     if is_localhost:
@@ -91,83 +147,21 @@ def check_authentication():
     try:
         import stripe
 
-        # Get configuration from environment variables first, then secrets.toml
-        testing_mode_str = os.getenv('TESTING_MODE')
-        if not testing_mode_str:
-            try:
-                testing_mode_str = st.secrets.get("TESTING_MODE", 'false')
-            except (KeyError, FileNotFoundError, AttributeError):
-                testing_mode_str = 'false'
-        testing_mode = str(testing_mode_str).lower() == 'true'
+        # Get configuration using get_config() helper (env vars first, then secrets.toml)
+        testing_mode = str(get_config(
+            "TESTING_MODE", "false")).lower() == "true"
 
-        # Get Stripe API key based on mode (env vars first, then secrets.toml)
-        if testing_mode:
-            # Try STRIPE_SECRET_KEY_TEST first, then STRIPE_API_KEY_TEST (legacy)
-            stripe_api_key = os.getenv(
-                'STRIPE_SECRET_KEY_TEST') or os.getenv('STRIPE_API_KEY_TEST')
-            if not stripe_api_key:
-                try:
-                    stripe_api_key = st.secrets.get(
-                        "STRIPE_SECRET_KEY_TEST") or st.secrets.get("STRIPE_API_KEY_TEST")
-                except (KeyError, FileNotFoundError, AttributeError):
-                    pass
+        # Determine key suffix based on mode
+        suffix = "_TEST" if testing_mode else ""
 
-            # Get all 3 pricing tier links
-            stripe_1_month_link = os.getenv('STRIPE_1_MONTH_LINK_TEST')
-            if not stripe_1_month_link:
-                try:
-                    stripe_1_month_link = st.secrets.get(
-                        "STRIPE_1_MONTH_LINK_TEST")
-                except (KeyError, FileNotFoundError, AttributeError):
-                    pass
+        # Get Stripe API key (try SECRET_KEY first, then API_KEY for legacy support)
+        stripe_api_key = get_config(f"STRIPE_SECRET_KEY{suffix}") or get_config(
+            f"STRIPE_API_KEY{suffix}")
 
-            stripe_3_month_link = os.getenv('STRIPE_3_MONTH_LINK_TEST')
-            if not stripe_3_month_link:
-                try:
-                    stripe_3_month_link = st.secrets.get(
-                        "STRIPE_3_MONTH_LINK_TEST")
-                except (KeyError, FileNotFoundError, AttributeError):
-                    pass
-
-            stripe_1_year_link = os.getenv('STRIPE_1_YEAR_LINK_TEST')
-            if not stripe_1_year_link:
-                try:
-                    stripe_1_year_link = st.secrets.get(
-                        "STRIPE_1_YEAR_LINK_TEST")
-                except (KeyError, FileNotFoundError, AttributeError):
-                    pass
-        else:
-            # Try STRIPE_SECRET_KEY first (Railway), then STRIPE_API_KEY (legacy)
-            stripe_api_key = os.getenv(
-                'STRIPE_SECRET_KEY') or os.getenv('STRIPE_API_KEY')
-            if not stripe_api_key:
-                try:
-                    stripe_api_key = st.secrets.get(
-                        "STRIPE_SECRET_KEY") or st.secrets.get("STRIPE_API_KEY")
-                except (KeyError, FileNotFoundError, AttributeError):
-                    pass
-
-            # Get all 3 pricing tier links
-            stripe_1_month_link = os.getenv('STRIPE_1_MONTH_LINK')
-            if not stripe_1_month_link:
-                try:
-                    stripe_1_month_link = st.secrets.get("STRIPE_1_MONTH_LINK")
-                except (KeyError, FileNotFoundError, AttributeError):
-                    pass
-
-            stripe_3_month_link = os.getenv('STRIPE_3_MONTH_LINK')
-            if not stripe_3_month_link:
-                try:
-                    stripe_3_month_link = st.secrets.get("STRIPE_3_MONTH_LINK")
-                except (KeyError, FileNotFoundError, AttributeError):
-                    pass
-
-            stripe_1_year_link = os.getenv('STRIPE_1_YEAR_LINK')
-            if not stripe_1_year_link:
-                try:
-                    stripe_1_year_link = st.secrets.get("STRIPE_1_YEAR_LINK")
-                except (KeyError, FileNotFoundError, AttributeError):
-                    pass
+        # Get all 3 pricing tier links
+        stripe_1_month_link = get_config(f"STRIPE_1_MONTH_LINK{suffix}")
+        stripe_3_month_link = get_config(f"STRIPE_3_MONTH_LINK{suffix}")
+        stripe_1_year_link = get_config(f"STRIPE_1_YEAR_LINK{suffix}")
 
         if not stripe_api_key:
             st.error("⚠️ Stripe API key not configured")
@@ -194,9 +188,11 @@ def check_authentication():
         stripe.api_key = stripe_api_key
         user_email = st.user.email
 
-        customers = stripe.Customer.list(email=user_email)
+        # Use cached Stripe lookup to avoid ~500ms API calls on every page load
+        sub_status = _get_stripe_subscription_status(
+            stripe_api_key, user_email)
 
-        if not customers.data:
+        if not sub_status["has_customer"]:
             # No customer found - show subscribe button
             st.warning(
                 "👋 Welcome! Please choose a subscription plan to access the app.")
@@ -331,10 +327,9 @@ def check_authentication():
             return False
 
         # Check for active subscriptions
-        customer = customers.data[0]
-        subscriptions = stripe.Subscription.list(customer=customer["id"])
+        customer_id = sub_status["customer_id"]
 
-        if len(subscriptions.data) == 0:
+        if not sub_status["has_subscription"]:
             # No active subscription
             st.warning(
                 "👋 Welcome back! Your subscription has expired. Please renew to continue.")
@@ -469,10 +464,10 @@ def check_authentication():
             return False
 
         # User has active subscription!
-        subscription = subscriptions.data[0]
+        subscription = sub_status["subscription"]
 
         # Get subscription details
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         try:
             # Get the product ID to determine tier
@@ -511,8 +506,8 @@ def check_authentication():
 
             if current_period_end:
                 end_date = datetime.fromtimestamp(
-                    current_period_end, tz=timezone.utc)
-                now = datetime.now(timezone.utc)
+                    current_period_end, tz=UTC)
+                now = datetime.now(UTC)
                 remaining = end_date - now
 
                 days_remaining = remaining.days
@@ -549,7 +544,7 @@ def check_authentication():
 
                 # Create a customer portal session
                 portal_session = stripe.billing_portal.Session.create(
-                    customer=customer["id"],
+                    customer=customer_id,
                     return_url=return_url,
                 )
 
@@ -572,7 +567,7 @@ def check_authentication():
         except Exception as e:
             # If we can't parse subscription details, just show basic info
             st.sidebar.success("✅ **Active Subscription**")
-            st.sidebar.caption(f"Debug: {str(e)}")
+            st.sidebar.caption(f"Debug: {e!s}")
             # Log the subscription object for debugging
             st.sidebar.caption(
                 f"Subscription keys: {list(subscription.keys())}")
@@ -600,12 +595,7 @@ def is_admin():
         bool: True if user is admin, False otherwise
     """
     # Check if we're running locally using IS_LOCAL flag
-    is_localhost = os.getenv("IS_LOCAL", "").lower() == "true"
-    if not is_localhost:
-        try:
-            is_localhost = st.secrets.get("IS_LOCAL", False)
-        except (KeyError, FileNotFoundError, AttributeError):
-            is_localhost = False
+    is_localhost = str(get_config("IS_LOCAL", "")).lower() == "true"
 
     # LOCALHOST: Enable admin for local development without auth
     if is_localhost:

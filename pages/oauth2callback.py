@@ -6,6 +6,7 @@ It exchanges the auth code for user info, stores it in session state,
 then uses st.switch_page() to redirect to the intended page (preserving session).
 """
 import streamlit as st
+
 from app.auth import handle_oauth_callback
 from app.utils.branding import render_mobile_web_app_meta_tags
 

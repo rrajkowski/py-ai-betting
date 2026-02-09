@@ -1,5 +1,7 @@
-import pandas as pd
 from pathlib import Path
+
+import pandas as pd
+
 # -------------------------
 # Helpers for NFL team IDs
 # -------------------------
@@ -10,8 +12,9 @@ MLB_TEAM_IDS = []
 
 def load_nfl_team_ids():
     """Load NFL teams CSV into dict {displayName: id} and {slug: id}"""
-    import pandas as pd
     from pathlib import Path
+
+    import pandas as pd
 
     path = Path(__file__).parent.parent / "data" / "nfl_teams.csv"
     if not path.exists():
@@ -40,8 +43,9 @@ def load_ncaaf_teams():
 
 def load_mlb_team_ids():
     """Load MLB teams CSV into dict {displayName: id} and {slug: id}"""
-    import pandas as pd
     from pathlib import Path
+
+    import pandas as pd
 
     path = Path(__file__).parent.parent / "data" / "mlb_teams.csv"
     if not path.exists():
@@ -53,7 +57,7 @@ def load_mlb_team_ids():
         try:
             team_id = int(str(row["id"]).strip())
         except (ValueError, TypeError):
-            # skip rows where id isn’t an integer
+            # skip rows where id isn't an integer
             continue
         lookup[row["name"]] = team_id
         lookup[row["slug"]] = team_id

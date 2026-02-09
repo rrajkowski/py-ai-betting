@@ -3,14 +3,19 @@
 Shared admin sidebar utilities for admin-only features.
 Provides consistent admin controls across pages.
 """
-import streamlit as st
+import logging
 import os
+import shutil
 import sqlite3
 import tempfile
-import shutil
 from datetime import datetime
+
+import streamlit as st
+
 from app.auth import is_admin
 from app.db import DB_PATH
+
+logger = logging.getLogger(__name__)
 
 
 def render_refresh_daily_pick_button(generate_pick_callback, insert_pick_callback):
@@ -25,25 +30,24 @@ def render_refresh_daily_pick_button(generate_pick_callback, insert_pick_callbac
         return
 
     if st.sidebar.button("🔄 Refresh Daily Pick", type="secondary"):
-        print("\n" + "="*80)
-        print("🔘 [Refresh Daily Pick Button] Clicked!")
-        print("="*80)
+        logger.info("[Refresh Daily Pick Button] Clicked!")
 
         pick_data = generate_pick_callback()
 
         if pick_data:
-            print(
-                f"\n📝 [insert_ai_pick] Inserting pick: {pick_data.get('game')}")
+            logger.info(
+                f"[insert_ai_pick] Inserting pick: {pick_data.get('game')}")
             inserted = insert_pick_callback(pick_data)
             if inserted:
-                print("✅ [insert_ai_pick] Pick inserted successfully")
+                logger.info("[insert_ai_pick] Pick inserted successfully")
                 st.sidebar.success("✅ Daily pick refreshed!")
                 st.rerun()
             else:
-                print("⚠️ [insert_ai_pick] Pick already exists in database")
+                logger.warning(
+                    "[insert_ai_pick] Pick already exists in database")
                 st.sidebar.warning("⚠️ This pick is already in the database!")
         else:
-            print("❌ [Refresh Daily Pick] No pick data returned")
+            logger.error("[Refresh Daily Pick] No pick data returned")
             st.sidebar.error("❌ Could not generate pick. No games available.")
 
 
@@ -65,9 +69,10 @@ def render_maintenance_section(update_results_callback):
 
     if st.sidebar.button("🧹 Clean Up Picks"):
         with st.spinner("Cleaning up database..."):
-            from scripts.cleanup_picks import main as cleanup_main
             import io
             import sys
+
+            from scripts.cleanup_picks import main as cleanup_main
 
             # Capture output from cleanup script
             old_stdout = sys.stdout
@@ -126,9 +131,8 @@ def render_backup_restore_section():
         help="Upload a backup to merge with current data. Only adds new picks and updates results - no duplicates!"
     )
 
-    if uploaded_file is not None:
-        if st.sidebar.button("🔄 Merge Backup Data", type="primary"):
-            _merge_backup_data(uploaded_file)
+    if uploaded_file is not None and st.sidebar.button("🔄 Merge Backup Data", type="primary"):
+        _merge_backup_data(uploaded_file)
 
 
 def _merge_backup_data(uploaded_file):

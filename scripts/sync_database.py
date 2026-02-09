@@ -14,8 +14,8 @@ Requirements:
 """
 
 import os
-import sqlite3
 import shutil
+import sqlite3
 from datetime import datetime
 
 # Database paths
@@ -27,48 +27,48 @@ def create_backup(db_path):
     if not os.path.exists(db_path):
         print(f"⚠️  No database found at {db_path}")
         return None
-    
+
     # Create backups directory if it doesn't exist
     os.makedirs(BACKUP_DIR, exist_ok=True)
-    
+
     # Create timestamped backup filename
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     backup_path = os.path.join(BACKUP_DIR, f"bets_{timestamp}.db")
-    
+
     # Copy database
     shutil.copy2(db_path, backup_path)
     print(f"✅ Backup created: {backup_path}")
-    
+
     return backup_path
 
 def get_db_stats(db_path):
     """Get statistics about the database."""
     if not os.path.exists(db_path):
         return None
-    
+
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
-    
+
     stats = {}
-    
+
     # Get ai_picks count
     cursor.execute("SELECT COUNT(*) FROM ai_picks")
     stats['ai_picks'] = cursor.fetchone()[0]
-    
+
     # Get pending picks count
     cursor.execute("SELECT COUNT(*) FROM ai_picks WHERE result = 'Pending'")
     stats['pending_picks'] = cursor.fetchone()[0]
-    
+
     # Get prompt_context count
     cursor.execute("SELECT COUNT(*) FROM prompt_context")
     stats['prompt_context'] = cursor.fetchone()[0]
-    
+
     # Get historical_games count
     cursor.execute("SELECT COUNT(*) FROM historical_games")
     stats['historical_games'] = cursor.fetchone()[0]
-    
+
     conn.close()
-    
+
     return stats
 
 def print_db_stats(label, stats):
@@ -76,7 +76,7 @@ def print_db_stats(label, stats):
     if not stats:
         print(f"{label}: No database found")
         return
-    
+
     print(f"\n{label}:")
     print(f"  Total picks:       {stats['ai_picks']}")
     print(f"  Pending picks:     {stats['pending_picks']}")
@@ -87,26 +87,26 @@ def main():
     print("=" * 80)
     print("DATABASE SYNC TOOL - RAGE Sports Picks")
     print("=" * 80)
-    
+
     # Check if local database exists
     if os.path.exists(LOCAL_DB):
         print("\n📊 Current local database stats:")
         local_stats = get_db_stats(LOCAL_DB)
         print_db_stats("Local Database", local_stats)
-        
+
         # Create backup
         print("\n💾 Creating backup of local database...")
         backup_path = create_backup(LOCAL_DB)
-        
+
         if backup_path:
             print(f"✅ Local database backed up to: {backup_path}")
     else:
         print(f"\n⚠️  No local database found at {LOCAL_DB}")
-    
+
     print("\n" + "=" * 80)
     print("MANUAL SYNC INSTRUCTIONS")
     print("=" * 80)
-    
+
     print("""
 Since Streamlit Cloud doesn't provide direct database download access,
 you need to manually sync the database:
@@ -154,7 +154,7 @@ AFTER SYNCING:
 Run this script again to see the updated stats:
     python scripts/sync_database.py
 """)
-    
+
     print("\n" + "=" * 80)
     print("✅ Backup complete! You can now safely sync from production.")
     print("=" * 80)

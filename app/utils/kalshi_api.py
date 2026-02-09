@@ -1,12 +1,17 @@
-from datetime import datetime, timezone, timedelta
-from typing import Optional, Tuple
-import requests
+import logging
 import re
-from app.utils.db import insert_context
+from datetime import UTC, datetime, timedelta
+
+import requests
+from dotenv import load_dotenv
+
+from app.db import insert_context
+from app.utils.scraper import create_game_id
 from app.utils.sport_config import SportConfig
 from app.utils.team_mapper import normalize_team_name
-from app.utils.scraper import create_game_id
-from dotenv import load_dotenv
+
+logger = logging.getLogger(__name__)
+
 
 load_dotenv()
 
@@ -22,7 +27,7 @@ class KalshiClient:
     def __init__(self):
         self.session = requests.Session()
 
-    def request(self, method: str, path: str, params: Optional[dict] = None) -> Optional[requests.Response]:
+    def request(self, method: str, path: str, params: dict | None = None) -> requests.Response | None:
         """Perform an unauthenticated Kalshi API request (public market data)."""
         url = f"{self.API_URL}{path}"
         try:
@@ -30,15 +35,15 @@ class KalshiClient:
             response.raise_for_status()
             return response
         except requests.exceptions.HTTPError as e:
-            print(
-                f"❌ Kalshi API failed (HTTP {e.response.status_code}): Path={path}. Error: {e}"
+            logger.error(
+                f"Kalshi API failed (HTTP {e.response.status_code}): Path={path}. Error: {e}"
             )
         except requests.exceptions.RequestException as e:
-            print(f"❌ Kalshi API failed (Connection Error): {e}")
+            logger.error(f"Kalshi API failed (Connection Error): {e}")
         return None
 
 
-def extract_game_date_from_ticker(ticker: str) -> Optional[str]:
+def extract_game_date_from_ticker(ticker: str) -> str | None:
     """
     Extract game date from Kalshi ticker.
 
@@ -72,7 +77,7 @@ def extract_game_date_from_ticker(ticker: str) -> Optional[str]:
     return f"{year}-{month}-{day}"
 
 
-def extract_teams_from_kalshi_ticker(ticker: str, sport_key: str) -> Optional[Tuple[str, str]]:
+def extract_teams_from_kalshi_ticker(ticker: str, sport_key: str) -> tuple[str, str] | None:
     """
     Extract team abbreviations from Kalshi ticker and normalize to full names.
 
@@ -162,36 +167,37 @@ def fetch_kalshi_consensus(sport_key: str, target_date: str):
     """
     # 1. Check if sport is in season
     if not SportConfig.is_in_season(sport_key):
-        print(f"📡 Kalshi API: Skipping {sport_key.upper()} - out of season")
+        logger.info(
+            f"Kalshi API: Skipping {sport_key.upper()} - out of season")
         return
 
     # 2. Get sport configuration
     config = SportConfig.KALSHI_CONFIG.get(sport_key)
     if not config:
-        print(
-            f"📡 Kalshi API: Skipping {sport_key} - no Kalshi config")
+        logger.info(
+            f"Kalshi API: Skipping {sport_key} - no Kalshi config")
         return
 
     ticker = config.get("ticker")
     sport_name_upper = SportConfig.get_sport_name(sport_key)
 
     if not ticker:
-        print(
-            f"📡 Kalshi API: Skipping {sport_key} - no Kalshi ticker configured")
+        logger.info(
+            f"Kalshi API: Skipping {sport_key} - no Kalshi ticker configured")
         return
 
     # 3. Get dynamic limit based on day of week
     dynamic_limit = SportConfig.get_dynamic_limit(sport_key)
     if dynamic_limit == 0:
-        print(
-            f"📡 Kalshi API: Skipping {sport_key.upper()} - no games expected today")
+        logger.info(
+            f"Kalshi API: Skipping {sport_key.upper()} - no games expected today")
         return
 
-    print(
-        f"📡 Kalshi API: Fetching {sport_name_upper} markets (limit: {dynamic_limit})...")
+    logger.info(
+        f"Kalshi API: Fetching {sport_name_upper} markets (limit: {dynamic_limit})...")
 
     client = KalshiClient()
-    now_utc = datetime.now(timezone.utc)
+    now_utc = datetime.now(UTC)
 
     # 4. Fetch markets from multiple series (for NBA: moneyline, spread, total)
     all_markets = []
@@ -225,7 +231,7 @@ def fetch_kalshi_consensus(sport_key: str, target_date: str):
 
     # Progressive filtering: Start with 12 hours, expand to 24h, then 48h if needed
     # This matches user preference for AI picks time-based filtering
-    now_utc = datetime.now(timezone.utc)
+    now_utc = datetime.now(UTC)
 
     # Calculate date ranges for progressive filtering
     max_48h = now_utc + timedelta(hours=48)
@@ -254,7 +260,7 @@ def fetch_kalshi_consensus(sport_key: str, target_date: str):
             # Parse game date (YYYY-MM-DD) and treat as end of day UTC
             game_date = datetime.strptime(game_date_str, '%Y-%m-%d')
             game_date = game_date.replace(
-                hour=23, minute=59, second=59, tzinfo=timezone.utc)
+                hour=23, minute=59, second=59, tzinfo=UTC)
 
             # Progressive filtering: include games within 48 hours
             # (AI picks will do its own 12h/24h filtering)
@@ -268,29 +274,29 @@ def fetch_kalshi_consensus(sport_key: str, target_date: str):
 
     # Debug output
     if date_parse_failures > 0 or date_filter_failures > 0:
-        print(
-            f"🔍 Kalshi Debug: {date_parse_failures} date parse failures, {date_filter_failures} filtered out (outside 48h window)")
+        logger.debug(
+            f"Kalshi Debug: {date_parse_failures} date parse failures, {date_filter_failures} filtered out (outside 48h window)")
         if date_filter_failures > 0 and len(all_markets) > 0:
             # Show sample of filtered dates
             sample_ticker = all_markets[0].get("ticker", "")
             sample_date = extract_game_date_from_ticker(sample_ticker)
-            print(
-                f"🔍 Kalshi Debug: Sample ticker: {sample_ticker}, extracted date: {sample_date}")
-            print(
-                f"🔍 Kalshi Debug: Current time: {now_utc.strftime('%Y-%m-%d %H:%M UTC')}, Max time: {max_48h.strftime('%Y-%m-%d %H:%M UTC')}")
+            logger.debug(
+                f"Kalshi Debug: Sample ticker: {sample_ticker}, extracted date: {sample_date}")
+            logger.debug(
+                f"Kalshi Debug: Current time: {now_utc.strftime('%Y-%m-%d %H:%M UTC')}, Max time: {max_48h.strftime('%Y-%m-%d %H:%M UTC')}")
 
     # 6. Sort by game date (extracted from ticker)
     filtered_markets.sort(
         key=lambda m: extract_game_date_from_ticker(m.get("ticker", "")) or "")
 
-    print(
-        f"📡 Kalshi API: Found {market_count_raw} raw markets, "
+    logger.info(
+        f"Kalshi API: Found {market_count_raw} raw markets, "
         f"{len(filtered_markets)} for games in next 48h "
         f"for {sport_key.upper()}"
     )
 
     if not filtered_markets:
-        print("⚠️ No upcoming markets found after filtering")
+        logger.warning("No upcoming markets found after filtering")
         return
 
     # 7. Calculate popularity scores
@@ -349,5 +355,5 @@ def fetch_kalshi_consensus(sport_key: str, target_date: str):
         )
         stored_count += 1
 
-    print(
-        f"✅ Kalshi API: Stored {stored_count} markets for {sport_name_upper}")
+    logger.info(
+        f"Kalshi API: Stored {stored_count} markets for {sport_name_upper}")

@@ -4,7 +4,7 @@ Debug script to check consensus data for NFL and NCAAF.
 """
 
 import json
-from app.utils.db import get_db
+from app.db import get_db
 from app.utils.context_builder import create_super_prompt_payload
 from datetime import datetime, timezone
 import sys
@@ -27,17 +27,17 @@ def check_consensus_data(sport_key, sport_name):
 
     # Check prompt_context table
     print(f"\n🔍 Checking prompt_context table for {sport_key}...")
-    conn = get_db()
-    cur = conn.cursor()
+    with get_db() as conn:
+        cur = conn.cursor()
 
-    cur.execute("""
-        SELECT game_id, source, data, created_at
-        FROM prompt_context
-        WHERE sport = ? AND date(created_at) >= date('now', '-2 days')
-        ORDER BY created_at DESC
-    """, (sport_key,))
+        cur.execute("""
+            SELECT game_id, source, data, created_at
+            FROM prompt_context
+            WHERE sport = ? AND date(created_at) >= date('now', '-2 days')
+            ORDER BY created_at DESC
+        """, (sport_key,))
 
-    rows = cur.fetchall()
+        rows = cur.fetchall()
 
     if not rows:
         print(
@@ -132,8 +132,6 @@ def check_consensus_data(sport_key, sport_name):
         print(f"   ❌ Error building context: {e}")
         import traceback
         traceback.print_exc()
-
-    conn.close()
 
 
 if __name__ == "__main__":

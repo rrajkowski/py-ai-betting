@@ -1,8 +1,10 @@
 # live_scores.py
-import streamlit as st
-from app.rage_picks import fetch_scores
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
+
+import streamlit as st
+
+from app.rage_picks import fetch_scores
 
 st.set_page_config(layout="wide", page_title="Live & Recent Scores")
 
@@ -60,20 +62,20 @@ def display_live_scores():
 
     # --- Fetch scores (pulls 1 day of history) ---
     sports_data = {
-        "NFL": fetch_scores(sport="americanfootball_nfl", days_from=2),
+        # "NFL": fetch_scores(sport="americanfootball_nfl", days_from=2),  # Season over
         # "NCAAF": fetch_scores(sport="americanfootball_ncaaf", days_from=2),  # Season over
-        # "MLB": fetch_scores(sport="baseball_mlb", days_from=2),  # Season over
+        "MLB": fetch_scores(sport="baseball_mlb", days_from=2),
         "NCAAB": fetch_scores(sport="basketball_ncaab", days_from=2),
         "NBA": fetch_scores(sport="basketball_nba", days_from=2),
         "NHL": fetch_scores(sport="icehockey_nhl", days_from=2),
         "UFC": fetch_scores(sport="mma_mixed_martial_arts", days_from=2),
     }
 
-    emojis = {"NFL": "🏈", "NCAAB": "🏀", "NBA": "🏀", "NHL": "🏒", "UFC": "🥊"}
+    emojis = {"MLB": "⚾", "NCAAB": "🏀", "NBA": "🏀", "NHL": "🏒", "UFC": "🥊"}
     cols = st.columns(5)
 
     # Current UTC for cutoff logic
-    now_utc = datetime.now(timezone.utc)
+    now_utc = datetime.now(UTC)
     cutoff_utc = now_utc - timedelta(hours=8)
 
     for idx, (sport, games) in enumerate(sports_data.items()):

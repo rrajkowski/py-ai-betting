@@ -4,6 +4,7 @@ Shared sidebar navigation component for all pages.
 Provides consistent navigation across the application.
 """
 import streamlit as st
+
 from app.auth import is_admin
 
 

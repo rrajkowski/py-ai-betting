@@ -11,28 +11,29 @@ from app.auth import add_auth_to_page, is_admin
 # Updated imports to include all necessary functions for metrics and auto-refresh
 from app.db import (
     delete_ai_pick,
+    get_db,
     get_most_recent_pick_timestamp,
     get_unsettled_picks,
     init_ai_picks,
+    init_prompt_context_db,
     list_ai_picks,
     update_pick_result,
 )
+from app.grading import update_ai_pick_results
+from app.picks import generate_ai_picks
 from app.rage_picks import (
-    fetch_historical_nba,
     # fetch_historical_ncaaf,  # Season over
-    # fetch_historical_mlb,  # Season over
+    fetch_historical_mlb,
+    fetch_historical_nba,
     fetch_historical_ncaab,
-    fetch_historical_nfl,
+    # fetch_historical_nfl,  # Season over
     fetch_historical_nhl,
     fetch_historical_ufc,
     fetch_scores,
-    generate_ai_picks,  # Make sure to import generate_ai_picks
-    update_ai_pick_results,
 )
 from app.utils.admin_sidebar import render_backup_restore_section, render_maintenance_section
 from app.utils.branding import render_global_css_overrides, render_logo_in_sidebar, render_mobile_web_app_meta_tags
 from app.utils.context_builder import create_super_prompt_payload
-from app.utils.db import get_db, init_prompt_context_db
 from app.utils.kalshi_api import fetch_kalshi_consensus
 from app.utils.scraper import run_scrapers
 from app.utils.sidebar import render_admin_section, render_sidebar_navigation
@@ -217,10 +218,7 @@ def team_names_match(team1, team2):
         return True
 
     # Check if one is contained in the other (handles "Butler" vs "Butler Bulldogs")
-    if team1_norm in team2_norm or team2_norm in team1_norm:
-        return True
-
-    return False
+    return team1_norm in team2_norm or team2_norm in team1_norm
 
 
 def games_match(game1_str, game2_str):
@@ -244,10 +242,7 @@ def games_match(game1_str, game2_str):
         return True
 
     # Check if teams match in reversed order (away/home swapped)
-    if team_names_match(away1, home2) and team_names_match(home1, away2):
-        return True
-
-    return False
+    return team_names_match(away1, home2) and team_names_match(home1, away2)
 
 
 def refresh_bet_results():
@@ -265,12 +260,12 @@ def refresh_bet_results():
     for pick in unsettled_picks:
         sport = pick['sport']
 
-        if sport == 'NFL':
-            sport_key = 'americanfootball_nfl'
+        # if sport == 'NFL':  # Season over
+        #     sport_key = 'americanfootball_nfl'
         # elif sport == 'NCAAF':  # Season over
         #     sport_key = 'americanfootball_ncaaf'
-        # elif sport == 'MLB':  # Season over
-        #     sport_key = 'baseball_mlb'
+        if sport == 'MLB':
+            sport_key = 'baseball_mlb'
         elif sport == 'NCAAB':
             sport_key = 'basketball_ncaab'
         elif sport == 'NBA':
@@ -408,7 +403,7 @@ if 'generated_picks' not in st.session_state:
 
 # Initialize state for metric display filter
 if 'metric_sport' not in st.session_state:
-    st.session_state.metric_sport = "NFL"  # Default to NFL metrics
+    st.session_state.metric_sport = "MLB"  # Default to MLB metrics
 
 # ----------------------------------------------------
 # Function to get sport-specific performance summary
@@ -417,9 +412,6 @@ if 'metric_sport' not in st.session_state:
 
 def get_sport_summary(sport_name):
     """Returns W/L/P and units for a specific sport."""
-    conn = get_db()
-    cur = conn.cursor()
-
     query = """
     SELECT
         SUM(CASE WHEN result = 'Win' THEN 1 ELSE 0 END) AS total_wins,
@@ -436,9 +428,10 @@ def get_sport_summary(sport_name):
     FROM ai_picks
     WHERE sport = ? AND result IN ('Win', 'Loss', 'Push');
     """
-    cur.execute(query, (sport_name,))
-    row = cur.fetchone()
-    conn.close()
+    with get_db() as conn:
+        cur = conn.cursor()
+        cur.execute(query, (sport_name,))
+        row = cur.fetchone()
 
     if not row or row[0] is None:
         return {"wins": 0, "losses": 0, "pushes": 0, "units": 0.0}
@@ -459,9 +452,6 @@ def fetch_all_sports_summary():
     Calculates aggregate W/L/P and units across all sports.
     Units calculation: Win = profit based on odds, Loss = -1 unit, Push = 0 units.
     """
-    conn = get_db()
-    cur = conn.cursor()
-
     query = """
     SELECT
         SUM(CASE WHEN result = 'Win' THEN 1 ELSE 0 END) AS total_wins,
@@ -478,9 +468,10 @@ def fetch_all_sports_summary():
     FROM ai_picks
     WHERE result IN ('Win', 'Loss', 'Push');
     """
-    cur.execute(query)
-    row = cur.fetchone()
-    conn.close()
+    with get_db() as conn:
+        cur = conn.cursor()
+        cur.execute(query)
+        row = cur.fetchone()
 
     if not row:
         return {"wins": 0, "losses": 0, "pushes": 0, "units": 0.0}
@@ -647,15 +638,14 @@ def run_ai_picks(sport_key, sport_name):
                     temp_total_markets += len(outcomes)
 
                     # For h2h (moneyline), filter out extreme odds
-                    if market_key == "h2h":
+                    if market_key == "h2h" and len(outcomes) == 2:
                         # Only include if BOTH sides have acceptable odds
-                        if len(outcomes) == 2:
-                            odds1 = outcomes[0].get("price", 0)
-                            odds2 = outcomes[1].get("price", 0)
+                        odds1 = outcomes[0].get("price", 0)
+                        odds2 = outcomes[1].get("price", 0)
 
-                            # Skip if either side is outside -150 to +150 range
-                            if odds1 < -150 or odds1 > 150 or odds2 < -150 or odds2 > 150:
-                                continue  # Skip this h2h market
+                        # Skip if either side is outside -150 to +150 range
+                        if odds1 < -150 or odds1 > 150 or odds2 < -150 or odds2 > 150:
+                            continue  # Skip this h2h market
 
                     # Include all spreads and totals (they're almost always ~-110)
                     # Include h2h only if it passed the filter above
@@ -687,11 +677,12 @@ def run_ai_picks(sport_key, sport_name):
             f"📊 Found {filtered_markets} competitive {sport_name} markets from {games_in_window} games in next {time_window_used}h (filtered from {total_markets} total markets)")
 
         history_team = raw_odds[0]['home_team']
-        history_map = {"americanfootball_nfl": fetch_historical_nfl,
-                       # "americanfootball_ncaaf": fetch_historical_ncaaf,  # Season over
-                       # "baseball_mlb": fetch_historical_mlb,  # Season over
-                       "basketball_ncaab": fetch_historical_ncaab, "basketball_nba": fetch_historical_nba,
-                       "icehockey_nhl": fetch_historical_nhl, "mma_mixed_martial_arts": fetch_historical_ufc}
+        history_map = {
+            # "americanfootball_nfl": fetch_historical_nfl,  # Season over
+            # "americanfootball_ncaaf": fetch_historical_ncaaf,  # Season over
+            "baseball_mlb": fetch_historical_mlb,
+            "basketball_ncaab": fetch_historical_ncaab, "basketball_nba": fetch_historical_nba,
+            "icehockey_nhl": fetch_historical_nhl, "mma_mixed_martial_arts": fetch_historical_ufc}
         history = history_map.get(sport_key, lambda x: [])(history_team)
 
         odds_df = pd.DataFrame(normalized_odds)
@@ -711,29 +702,47 @@ if admin_user:
     st.header("Generate New Picks")
 
 # Get stats for each sport
-nfl_stats = get_sport_summary("NFL")
-# ncaaf_stats = get_sport_summary("NCAAF")  # Season over
+# nfl_stats = get_sport_summary("NFL")  # Season over - uncomment for 2026 season
+mlb_stats = get_sport_summary("MLB")
 ncaab_stats = get_sport_summary("NCAAB")
 nba_stats = get_sport_summary("NBA")
 nhl_stats = get_sport_summary("NHL")
 ufc_stats = get_sport_summary("UFC")
 
-col1, col2, col3, col4, col5 = st.columns(5)  # NFL, NBA, NCAAB, NHL, UFC
+col1, col2, col3, col4, col5 = st.columns(5)  # MLB, NCAAB, NBA, NHL, UFC
+
+# with col1:  # NFL - Season over - uncomment for 2026 season (starts August)
+#     if admin_user and st.button("🏈 Generate NFL Picks", use_container_width=True):
+#         st.session_state.generated_picks = None
+#         run_ai_picks("americanfootball_nfl", "NFL")
+#     # Column header label for everyone
+#     st.markdown(
+#         "<div style='text-align: center; font-size: 14px; font-weight: 600; margin: 2px 0 2px;'>🏈 NFL</div>",
+#         unsafe_allow_html=True,
+#     )
+#     units_color = "#22c55e" if nfl_stats['units'] >= 0 else "#ef4444"
+#     st.markdown(
+#         f"<div style='text-align: center; font-size: 12px; color: #6b7280; margin-top: 0px;'>"
+#         f"{nfl_stats['wins']}-{nfl_stats['losses']}-{nfl_stats['pushes']} • "
+#         f"<span style='color: {units_color}; font-weight: 600;'>{nfl_stats['units']:+.1f}u</span>"
+#         f"</div>",
+#         unsafe_allow_html=True
+#     )
 
 with col1:
-    if admin_user and st.button("🏈 Generate NFL Picks", use_container_width=True):
+    if admin_user and st.button("⚾ Generate MLB Picks", use_container_width=True):
         st.session_state.generated_picks = None
-        run_ai_picks("americanfootball_nfl", "NFL")
+        run_ai_picks("baseball_mlb", "MLB")
     # Column header label for everyone
     st.markdown(
-        "<div style='text-align: center; font-size: 14px; font-weight: 600; margin: 2px 0 2px;'>🏈 NFL</div>",
+        "<div style='text-align: center; font-size: 14px; font-weight: 600; margin: 2px 0 2px;'>⚾ MLB</div>",
         unsafe_allow_html=True,
     )
-    units_color = "#22c55e" if nfl_stats['units'] >= 0 else "#ef4444"
+    units_color = "#22c55e" if mlb_stats['units'] >= 0 else "#ef4444"
     st.markdown(
         f"<div style='text-align: center; font-size: 12px; color: #6b7280; margin-top: 0px;'>"
-        f"{nfl_stats['wins']}-{nfl_stats['losses']}-{nfl_stats['pushes']} • "
-        f"<span style='color: {units_color}; font-weight: 600;'>{nfl_stats['units']:+.1f}u</span>"
+        f"{mlb_stats['wins']}-{mlb_stats['losses']}-{mlb_stats['pushes']} • "
+        f"<span style='color: {units_color}; font-weight: 600;'>{mlb_stats['units']:+.1f}u</span>"
         f"</div>",
         unsafe_allow_html=True
     )
@@ -829,7 +838,6 @@ with col5:
         unsafe_allow_html=True
     )
 
-
 # --- Display Newly Generated Picks (with Error Handling) ---
 if st.session_state.generated_picks:
     picks = st.session_state.generated_picks
@@ -871,13 +879,13 @@ if st.session_state.generated_picks:
 
                     st.markdown(f"""
                         **Pick #{i+1}**
-                        - 🏟️ **Game:** *{pick.get('game','?')}*
+                        - 🏟️ **Game:** *{pick.get('game', '?')}*
                         - 🕐 **Time:** {game_time_str}
-                        - 👉 **Pick:** **{pick.get('pick','?')}** ({pick.get('market','?')})
-                        - 📏 **Line:** {pick.get('line','-')}
-                        - 💵 **Odds:** {pick.get('odds_american','?')}
+                        - 👉 **Pick:** **{pick.get('pick', '?')}** ({pick.get('market', '?')})
+                        - 📏 **Line:** {pick.get('line', '-')}
+                        - 💵 **Odds:** {pick.get('odds_american', '?')}
                         - ⭐ **Confidence:** {stars}
-                        - 💡 **Reasoning:** {pick.get('reasoning','')}
+                        - 💡 **Reasoning:** {pick.get('reasoning', '')}
                         """)
                 else:
                     # If 'pick' is just a string, display it directly
@@ -895,7 +903,7 @@ if ai_picks_history:
     completed_statuses = {"win", "loss", "push"}
     df = df[~df["result"].astype(str).str.lower().isin(completed_statuses)]
 
-    # --- NEW: Filter out low-confidence (1–2 star) picks ---
+    # --- NEW: Filter out low-confidence (1-2 star) picks ---
     df["confidence_numeric"] = pd.to_numeric(
         df["confidence"], errors="coerce").fillna(0)
     df = df[df["confidence_numeric"] >= 3]
@@ -1155,7 +1163,7 @@ if ai_picks_history:
                 format_confidence_stars_admin)
 
             # Add grade and delete buttons for each row
-            for idx, row in admin_df.iterrows():
+            for _idx, row in admin_df.iterrows():
                 cols = st.columns(
                     [1.2, 0.5, 0.6, 2, 1.5, 0.8, 0.6, 0.8, 0.8, 1.5, 0.8, 2.5, 0.4])
 
@@ -1181,30 +1189,27 @@ if ai_picks_history:
                     if grade_cols[0].button("W", key=f"win_{pick_id}",
                                             help="Grade as Win",
                                             disabled=(current_result == "Win"),
-                                            type="primary" if current_result == "Win" else "secondary"):
-                        if update_pick_result(pick_id, "Win"):
-                            st.success(f"✅ Graded pick #{pick_id} as Win")
-                            st.rerun()
+                                            type="primary" if current_result == "Win" else "secondary") and update_pick_result(pick_id, "Win"):
+                        st.success(f"✅ Graded pick #{pick_id} as Win")
+                        st.rerun()
 
                     # Loss button
                     if grade_cols[1].button("L", key=f"loss_{pick_id}",
                                             help="Grade as Loss",
                                             disabled=(
                                                 current_result == "Loss"),
-                                            type="primary" if current_result == "Loss" else "secondary"):
-                        if update_pick_result(pick_id, "Loss"):
-                            st.success(f"✅ Graded pick #{pick_id} as Loss")
-                            st.rerun()
+                                            type="primary" if current_result == "Loss" else "secondary") and update_pick_result(pick_id, "Loss"):
+                        st.success(f"✅ Graded pick #{pick_id} as Loss")
+                        st.rerun()
 
                     # Push button
                     if grade_cols[2].button("P", key=f"push_{pick_id}",
                                             help="Grade as Push",
                                             disabled=(
                                                 current_result == "Push"),
-                                            type="primary" if current_result == "Push" else "secondary"):
-                        if update_pick_result(pick_id, "Push"):
-                            st.success(f"✅ Graded pick #{pick_id} as Push")
-                            st.rerun()
+                                            type="primary" if current_result == "Push" else "secondary") and update_pick_result(pick_id, "Push"):
+                        st.success(f"✅ Graded pick #{pick_id} as Push")
+                        st.rerun()
 
                 cols[10].write(row.get("Confidence (Stars)", "⭐"))
 
