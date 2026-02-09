@@ -390,9 +390,9 @@ if updated_on_load > 0:
 
 
 # --- Page Configuration & Title ---
-st.set_page_config(page_title="🤖 RAGE's Daily Picks",
+st.set_page_config(page_title="RAGE's Sharp Picks",
                    page_icon="img/favicon.ico", layout="wide")
-st.title("🤖 RAGE's Daily Picks")
+st.title("RAGE's Sharp Picks")
 st.markdown(
     "High confidence picks from RAGE Sports. Picks are created once per day.")
 
