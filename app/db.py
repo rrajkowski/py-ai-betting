@@ -4,6 +4,7 @@ import os
 import sqlite3
 from contextlib import contextmanager
 from datetime import UTC, datetime
+from pathlib import Path
 
 from app.odds import american_to_probability
 
@@ -23,6 +24,10 @@ DB_PATH = os.getenv(
     "SQLITE_DB_PATH",
     os.path.join(PERSISTENT_DIR, "bets.db")
 )
+
+# Backup configuration
+BACKUP_DIR = os.path.join(PERSISTENT_DIR, "backups")
+MAX_BACKUPS = 7  # Keep last 7 backups, prune older ones
 
 CONTEXT_TABLE = "prompt_context"
 
@@ -46,6 +51,68 @@ def get_db():
         yield conn
     finally:
         conn.close()
+
+
+def backup_db(tag: str = "auto") -> str | None:
+    """
+    Create a safe backup of the SQLite database using the online backup API.
+
+    Uses sqlite3.Connection.backup() which is safe even while the DB is in use
+    (handles WAL mode correctly). Automatically prunes old backups beyond MAX_BACKUPS.
+
+    Args:
+        tag: Label for the backup file (e.g., "auto", "pre-deploy", "manual").
+
+    Returns:
+        Path to the backup file, or None if backup failed.
+    """
+    if not os.path.exists(DB_PATH):
+        logger.warning("backup_db: Database file not found at %s", DB_PATH)
+        return None
+
+    os.makedirs(BACKUP_DIR, exist_ok=True)
+
+    timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+    backup_filename = f"bets_{tag}_{timestamp}.db"
+    backup_path = os.path.join(BACKUP_DIR, backup_filename)
+
+    try:
+        # Use SQLite online backup API — safe with WAL mode and concurrent readers
+        source = sqlite3.connect(DB_PATH)
+        dest = sqlite3.connect(backup_path)
+        source.backup(dest)
+        dest.close()
+        source.close()
+
+        size_kb = os.path.getsize(backup_path) / 1024
+        logger.info("backup_db: Created %s (%.1f KB)", backup_path, size_kb)
+
+        # Prune old backups
+        _prune_old_backups()
+
+        return backup_path
+    except Exception:
+        logger.exception("backup_db: Failed to create backup")
+        return None
+
+
+def _prune_old_backups():
+    """Remove oldest backups beyond MAX_BACKUPS, keeping the most recent ones."""
+    if not os.path.isdir(BACKUP_DIR):
+        return
+
+    backups = sorted(
+        Path(BACKUP_DIR).glob("bets_*.db"),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+
+    for old_backup in backups[MAX_BACKUPS:]:
+        try:
+            old_backup.unlink()
+            logger.info("backup_db: Pruned old backup %s", old_backup.name)
+        except OSError:
+            logger.warning("backup_db: Could not delete %s", old_backup.name)
 
 
 def get_most_recent_pick_timestamp(sport_name):

@@ -13,7 +13,7 @@ from datetime import datetime
 import streamlit as st
 
 from app.auth import is_admin
-from app.db import DB_PATH
+from app.db import DB_PATH, backup_db
 
 logger = logging.getLogger(__name__)
 
@@ -101,6 +101,15 @@ def render_backup_restore_section():
 
     # st.sidebar.markdown("---")
     st.sidebar.markdown("### 💾 Backup & Restore")
+
+    # Manual server-side backup button
+    if st.sidebar.button("🗄️ Create Server Backup"):
+        path = backup_db(tag="manual")
+        if path:
+            st.sidebar.success(
+                f"✅ Server backup created: {os.path.basename(path)}")
+        else:
+            st.sidebar.error("❌ Backup failed — check logs.")
 
     # Download backup button
     if st.sidebar.button("⬇️ Download Backup"):

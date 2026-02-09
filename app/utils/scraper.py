@@ -3,6 +3,13 @@ from datetime import UTC, datetime, timedelta
 
 import requests
 from bs4 import BeautifulSoup
+from tenacity import (
+    before_sleep_log,
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_fixed,
+)
 
 from app.db import insert_context
 from app.utils.sport_config import SportConfig
@@ -63,36 +70,28 @@ def scrape_oddsshark_consensus(target_date: str, sport: str):
     logger.info(
         f"Scraper: Fetching {sport_name_upper} picks (limit: {dynamic_limit}) from {url}...")
 
-    # Retry logic for OddsShark (can be slow/unreliable)
-    max_retries = 3  # Increased from 2 to 3
-    retry_delay = 3  # Increased from 2 to 3 seconds
+    @retry(
+        retry=retry_if_exception_type(requests.exceptions.Timeout),
+        stop=stop_after_attempt(3),
+        wait=wait_fixed(3),
+        before_sleep=before_sleep_log(logger, logging.WARNING),
+        reraise=True,
+    )
+    def _fetch_page(target_url):
+        resp = requests.get(target_url, headers={
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        }, timeout=45)
+        resp.raise_for_status()
+        return BeautifulSoup(resp.text, "html.parser")
 
-    soup = None
-    for attempt in range(max_retries):
-        try:
-            resp = requests.get(url, headers={
-                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-            }, timeout=45)  # Increased timeout from 30 to 45 seconds
-            resp.raise_for_status()
-            soup = BeautifulSoup(resp.text, "html.parser")
-            break  # Success, exit retry loop
-        except requests.exceptions.Timeout:
-            if attempt < max_retries - 1:
-                logger.warning(
-                    f"OddsShark timeout (attempt {attempt + 1}/{max_retries}), retrying in {retry_delay}s...")
-                import time
-                time.sleep(retry_delay)
-                continue
-            else:
-                logger.error(
-                    f"Scraper timeout for {sport_name_upper} at {url} after {max_retries} attempts")
-                return
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Scraper error for {sport_name_upper}: {e}")
-            return
-
-    if soup is None:
-        logger.error(f"Failed to fetch {sport_name_upper} data from OddsShark")
+    try:
+        soup = _fetch_page(url)
+    except requests.exceptions.Timeout:
+        logger.error(
+            f"Scraper timeout for {sport_name_upper} at {url} after 3 attempts")
+        return
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Scraper error for {sport_name_upper}: {e}")
         return
 
     try:

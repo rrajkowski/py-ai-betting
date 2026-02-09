@@ -11,6 +11,13 @@ import logging
 import google.generativeai as genai
 from dotenv import load_dotenv
 from openai import OpenAI
+from tenacity import (
+    before_sleep_log,
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 from .auth import get_config
 
@@ -67,7 +74,7 @@ def _call_gemini_model(model_name, prompt):
 
 
 def _call_claude_model(model_name, prompt):
-    """Call Anthropic Claude model with retry logic for rate limits."""
+    """Call Anthropic Claude model with automatic retry on rate limits."""
     if not ANTHROPIC_API_KEY:
         raise ValueError("ANTHROPIC_API_KEY not set.")
 
@@ -82,41 +89,33 @@ def _call_claude_model(model_name, prompt):
     # Claude requires explicit JSON formatting instruction
     json_prompt = f"{prompt}\n\nIMPORTANT: Return ONLY valid JSON in this exact format: {{\"picks\": [...]}}"
 
-    # Retry logic for rate limits (free tier has strict limits)
-    max_retries = 2
-    retry_delay = 2  # seconds
+    @retry(
+        retry=retry_if_exception_type(RateLimitError),
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=2, min=2, max=10),
+        before_sleep=before_sleep_log(logger, logging.WARNING),
+        reraise=True,
+    )
+    def _send_request():
+        response = client.messages.create(
+            model=model_name,
+            max_tokens=4096,
+            messages=[{"role": "user", "content": json_prompt}]
+        )
+        return response.content[0].text
 
-    for attempt in range(max_retries + 1):
-        try:
-            response = client.messages.create(
-                model=model_name,
-                max_tokens=4096,
-                messages=[{"role": "user", "content": json_prompt}]
-            )
+    raw = _send_request()
 
-            raw = response.content[0].text
+    # Claude sometimes wraps JSON in markdown code blocks - strip them
+    if raw.strip().startswith("```"):
+        lines = raw.strip().split('\n')
+        if lines[0].startswith("```"):
+            lines = lines[1:]  # Remove first line (```json or ```)
+        if lines and lines[-1].strip() == "```":
+            lines = lines[:-1]  # Remove last line (```)
+        raw = '\n'.join(lines)
 
-            # Claude sometimes wraps JSON in markdown code blocks - strip them
-            if raw.strip().startswith("```"):
-                # Remove ```json or ``` from start and ``` from end
-                lines = raw.strip().split('\n')
-                if lines[0].startswith("```"):
-                    lines = lines[1:]  # Remove first line (```json or ```)
-                if lines and lines[-1].strip() == "```":
-                    lines = lines[:-1]  # Remove last line (```)
-                raw = '\n'.join(lines)
-
-            try:
-                return json.loads(raw).get("picks", [])
-            except Exception:
-                return []
-
-        except RateLimitError:
-            if attempt < max_retries:
-                import time
-                wait_time = retry_delay * (2 ** attempt)  # Exponential backoff
-                logger.warning(
-                    f"Rate limited. Retrying in {wait_time}s... (attempt {attempt + 1}/{max_retries})")
-                time.sleep(wait_time)
-            else:
-                raise  # Re-raise on final attempt
+    try:
+        return json.loads(raw).get("picks", [])
+    except Exception:
+        return []
