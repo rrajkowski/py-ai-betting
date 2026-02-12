@@ -15,11 +15,15 @@ def render_sidebar_navigation():
     """
     # --- Sidebar Navigation (Public) ---
     st.sidebar.markdown("### Navigation")
-    st.sidebar.page_link("pages/home_page.py", label="Home", icon="🏠")
-    st.sidebar.page_link("pages/rage_picks_page.py",
+    st.sidebar.page_link("pages/home.py", label="Home", icon="🏠")
+    st.sidebar.page_link("pages/picks.py",
                          label="RAGE Picks", icon="🤖")
-    st.sidebar.page_link("pages/live_scores_page.py",
+    st.sidebar.page_link("pages/scores.py",
                          label="Live Scores", icon="📊")
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### Legal")
+    st.sidebar.page_link("pages/terms.py",
+                         label="Terms & Conditions", icon="⚖️")
     st.sidebar.markdown("---")
 
 
@@ -30,5 +34,5 @@ def render_admin_section():
     """
     if is_admin():
         st.sidebar.markdown("### ⚙️ Admin")
-        if st.sidebar.button("🔧 Manual Picks", use_container_width=True):
-            st.switch_page("pages/admin_manual_picks.py")
+        if st.sidebar.button("🔧 Manual Picks", width='stretch'):
+            st.switch_page("pages/admin.py")

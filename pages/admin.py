@@ -1,4 +1,4 @@
-# pages/admin_manual_picks.py
+# pages/admin.py
 from datetime import UTC, datetime
 from zoneinfo import ZoneInfo
 
@@ -144,7 +144,7 @@ with st.expander("🎰 Parlay Builder (Combine up to 6 picks)", expanded=False):
         parlay_confidence = st.selectbox(
             "Parlay Confidence", [3, 4, 5], index=1, key="parlay_confidence")
 
-        if st.button("✅ Save Parlay to Database", type="primary", use_container_width=True):
+        if st.button("✅ Save Parlay to Database", type="primary", width='stretch'):
             # Combine all picks into one entry
             import json
 
@@ -376,7 +376,7 @@ if 'games_data' in st.session_state and st.session_state.games_data:
         with col1:
             # Add to Parlay button
             can_add_to_parlay = len(st.session_state.parlay_picks) < 6
-            if st.button("🎰 Add to Parlay", type="secondary", use_container_width=True, disabled=not can_add_to_parlay):
+            if st.button("🎰 Add to Parlay", type="secondary", width='stretch', disabled=not can_add_to_parlay):
                 # Prepare pick data for parlay
                 parlay_pick = {
                     "game": f"{selected_game['away_team']} @ {selected_game['home_team']}",
@@ -398,7 +398,7 @@ if 'games_data' in st.session_state and st.session_state.games_data:
 
         with col2:
             # Add Pick Button (single pick)
-            if st.button("✅ Add Pick to Database", type="primary", use_container_width=True):
+            if st.button("✅ Add Pick to Database", type="primary", width='stretch'):
                 # Prepare reasoning with point adjustment info
                 reasoning = "High confidence pick from expert source"
                 if point_adjustment != 0:

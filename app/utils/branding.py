@@ -20,7 +20,7 @@ def render_logo_in_sidebar():
 
     # Check if logo exists
     if Path(logo_path).exists():
-        st.sidebar.image(logo_path, use_container_width=True)
+        st.sidebar.image(logo_path, width='stretch')
     else:
         # Fallback to text if logo doesn't exist
         st.sidebar.markdown("### 🏆 RAGE Sports Picks")

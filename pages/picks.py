@@ -1,3 +1,28 @@
+"""
+pages/picks.py - RAGE Sports Picks - Full picks slate and historical performance dashboard.
+
+SEO OPTIMIZATION STRATEGY:
+1. Page title: "RAGE Sports Picks - AI Picks for NBA, NFL, NCAAB, NHL, MLB, UFC"
+   - Includes all major sports keywords for broader search visibility
+   - Length: ~65 chars (optimal for Google SERP)
+
+2. Visible H1 title with keyword-rich description
+   - Helps crawlers understand page purpose and content
+
+3. Performance metrics prominently displayed
+   - Win/loss records, units, ROI are trust signals for search engines
+   - Encourages longer dwell time (positive ranking signal)
+
+4. Semantic HTML structure with proper header hierarchy
+   - H2 for section headers (Performance, Picks, History)
+   - Improves crawlability
+
+5. Caching with @st.cache_data for performance
+   - Faster page loads = better SEO ranking signal
+
+6. Accessible data tables with proper column headers
+   - Helps crawlers understand tabular data structure
+"""
 import os
 from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -389,12 +414,28 @@ if updated_on_load > 0:
     st.toast(f"Updated {updated_on_load} picks with game results!", icon="✅")
 
 
-# --- Page Configuration & Title ---
-st.set_page_config(page_title="RAGE's Sharp Picks",
-                   page_icon="img/favicon.ico", layout="wide")
-st.title("RAGE's Sharp Picks")
+# ============================================================================
+# PAGE CONFIGURATION (MUST be first Streamlit command after imports)
+# ============================================================================
+# SEO-optimized page config with keyword-rich title for search engines
+st.set_page_config(
+    page_title="RAGE Sports Picks - AI Picks for NBA, NFL, NCAAB, NHL, MLB, UFC",
+    page_icon="img/favicon.ico",
+    layout="wide",
+    initial_sidebar_state="auto"
+)
+
+# ============================================================================
+# SEO-OPTIMIZED VISIBLE TITLE & DESCRIPTION
+# ============================================================================
+# This text is crawled by search engines and often appears in search snippets.
+# Keywords: "AI picks", "sports", "NBA", "NFL", "NCAAB", "NHL", "MLB", "UFC"
+st.title("RAGE Sports Picks - AI-Powered Picks for All Major Sports")
 st.markdown(
-    "High confidence picks from RAGE Sports. Picks are created once per day.")
+    "**High-confidence AI picks** for NBA, NFL, NCAAB, NHL, MLB, and UFC. "
+    "Real-time odds analysis, transparent results, and complete pick history. "
+    "Picks are generated daily with full reasoning and confidence ratings."
+)
 
 # --- Initialize Session State ---
 # This is crucial for making new picks appear instantly.
@@ -712,7 +753,7 @@ ufc_stats = get_sport_summary("UFC")
 col1, col2, col3, col4, col5 = st.columns(5)  # MLB, NCAAB, NBA, NHL, UFC
 
 # with col1:  # NFL - Season over - uncomment for 2026 season (starts August)
-#     if admin_user and st.button("🏈 Generate NFL Picks", use_container_width=True):
+#     if admin_user and st.button("🏈 Generate NFL Picks", width='stretch'):
 #         st.session_state.generated_picks = None
 #         run_ai_picks("americanfootball_nfl", "NFL")
 #     # Column header label for everyone
@@ -730,7 +771,7 @@ col1, col2, col3, col4, col5 = st.columns(5)  # MLB, NCAAB, NBA, NHL, UFC
 #     )
 
 with col1:
-    if admin_user and st.button("⚾ Generate MLB Picks", use_container_width=True):
+    if admin_user and st.button("⚾ Generate MLB Picks", width='stretch'):
         st.session_state.generated_picks = None
         run_ai_picks("baseball_mlb", "MLB")
     # Column header label for everyone
@@ -748,7 +789,7 @@ with col1:
     )
 
 # with col2:  # NCAAF - Season over
-#     if admin_user and st.button("🎓 Generate NCAAF Picks", use_container_width=True):
+#     if admin_user and st.button("🎓 Generate NCAAF Picks", width='stretch'):
 #         st.session_state.generated_picks = None
 #         run_ai_picks("americanfootball_ncaaf", "NCAAF")
 #     # Column header label for everyone
@@ -766,7 +807,7 @@ with col1:
 #     )
 
 with col3:
-    if admin_user and st.button("🏀 Generate NBA Picks", use_container_width=True):
+    if admin_user and st.button("🏀 Generate NBA Picks", width='stretch'):
         st.session_state.generated_picks = None
         run_ai_picks("basketball_nba", "NBA")
     # Column header label for everyone
@@ -785,7 +826,7 @@ with col3:
 
 with col2:
     # Use graduation cap for NCAAB to distinguish it from NBA
-    if admin_user and st.button("🎓 Generate NCAAB Picks", use_container_width=True):
+    if admin_user and st.button("🎓 Generate NCAAB Picks", width='stretch'):
         st.session_state.generated_picks = None
         run_ai_picks("basketball_ncaab", "NCAAB")
     # Column header label for everyone
@@ -803,7 +844,7 @@ with col2:
     )
 
 with col4:
-    if admin_user and st.button("🏒 Generate NHL Picks", use_container_width=True):
+    if admin_user and st.button("🏒 Generate NHL Picks", width='stretch'):
         st.session_state.generated_picks = None
         run_ai_picks("icehockey_nhl", "NHL")
     # Column header label for everyone
@@ -821,7 +862,7 @@ with col4:
     )
 
 with col5:
-    if admin_user and st.button("🥊 Generate UFC Picks", use_container_width=True):
+    if admin_user and st.button("🥊 Generate UFC Picks", width='stretch'):
         st.session_state.generated_picks = None
         run_ai_picks("mma_mixed_martial_arts", "UFC")
     # Column header label for everyone

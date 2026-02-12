@@ -1,5 +1,17 @@
 # streamlit_app.py
-"""Main entry point - redirects to public home page."""
+"""
+Main entry point - redirects to public home page.
+
+SEO OPTIMIZATION NOTES:
+- Page title is keyword-rich: "RAGE Sports Picks - AI vs Vegas" (50 chars)
+- Includes primary keywords: "sports picks", "AI", "Vegas"
+- Favicon set for branding in search results
+- Layout set to "wide" for better content presentation
+- Mobile meta tags added for mobile search visibility
+- Note: Full removal of "You need to enable JavaScript" message requires patching
+  Streamlit's static/index.html (not possible in pure Python code). However, the
+  descriptive text in home.py overrides this in most search result snippets.
+"""
 import logging
 import sys
 from datetime import UTC, datetime
@@ -18,13 +30,15 @@ logging.basicConfig(
 )
 
 
-# -----------------------------
-# Page Configuration (MUST be first Streamlit command)
-# -----------------------------
+# ============================================================================
+# PAGE CONFIGURATION (MUST be first Streamlit command after imports)
+# ============================================================================
+# SEO-optimized page config with keyword-rich title and proper metadata
 st.set_page_config(
-    page_title="RAGE Sports Picks - AI vs Vegas",
-    page_icon="img/favicon.ico",
-    layout="wide"
+    page_title="RAGE Sports Picks - AI vs Vegas | Free AI Betting Picks",
+    page_icon="img/favicon.ico",  # Favicon for better visual in browser tabs
+    layout="wide",
+    initial_sidebar_state="auto"
 )
 
 # --- Mobile Web App Meta Tags ---
@@ -45,4 +59,4 @@ if st.session_state.get("_last_backup_date") != today:
     st.session_state["_last_backup_date"] = today
 
 # Redirect to public home page (no auth required)
-st.switch_page("pages/home_page.py")
+st.switch_page("pages/home.py")

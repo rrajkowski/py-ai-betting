@@ -37,8 +37,8 @@ if "code" in st.query_params:
     result = handle_oauth_callback()
     if not result:
         st.error("❌ Login failed. Please try again.")
-        st.markdown("[← Back to Home](./home_page)")
+        st.markdown("[← Back to Home](./home)")
 else:
     # No code in query params - redirect to home
     st.warning("⚠️ No authentication code found.")
-    st.switch_page("pages/home_page.py")
+    st.switch_page("pages/home.py")
