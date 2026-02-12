@@ -171,46 +171,99 @@ def update_ai_pick_results():
                 if not g.get("completed"):
                     continue
 
-                # Match by team names
-                if g.get("home_team") in row["game"] and g.get("away_team") in row["game"]:
-                    # CRITICAL: Also match by date to prevent scoring wrong games
-                    game_commence = g.get("commence_time", "")
-                    game_date = game_commence[:10]  # Extract YYYY-MM-DD
+                # Extract team names from API response
+                api_home_team = g.get("home_team", "")
+                api_away_team = g.get("away_team", "")
 
-                    if game_date != pick_date:
-                        logger.warning(
-                            f"Date mismatch for {row['game']}: pick={pick_date}, game={game_date}")
-                        continue
+                # Extract team names from our pick (format: "Away Team @ Home Team")
+                if ' @ ' not in row["game"]:
+                    continue
+                pick_away_team, pick_home_team = row["game"].split(' @ ')
 
-                    home, away = g["home_team"], g["away_team"]
-                    hs = next((s["score"]
-                              for s in g["scores"] if s["name"] == home), None)
-                    as_ = next((s["score"]
-                               for s in g["scores"] if s["name"] == away), None)
-                    if hs is None or as_ is None:
-                        logger.warning(
-                            f"Missing scores for {row['game']}: home={hs}, away={as_}")
-                        continue
+                # BULLETPROOF MATCHING: Ensure exact team match (both home AND away)
+                # This prevents matching wrong games with similar team names
+                home_match = api_home_team in pick_home_team or pick_home_team in api_home_team
+                away_match = api_away_team in pick_away_team or pick_away_team in api_away_team
 
-                    # Convert to dict for helper function
-                    pick_dict = {
-                        'game': row['game'],
-                        'pick': row['pick'],
-                        'market': row['market'],
-                        'line': row['line']
-                    }
+                if not (home_match and away_match):
+                    continue
 
-                    result = _check_pick_result(pick_dict, int(hs), int(as_))
+                # CRITICAL: Also match by date to prevent scoring wrong games
+                game_commence = g.get("commence_time", "")
+                game_date = game_commence[:10]  # Extract YYYY-MM-DD
 
-                    if result != 'Pending':
-                        logger.info(
-                            f"Scoring pick {row['id']}: {row['game']} - {row['pick']} ({row['market']}) = {result}")
-                        cur.execute("UPDATE ai_picks SET result=? WHERE id=?",
-                                    (result, row["id"]))
-                        updated += 1
-                    else:
-                        logger.info(f"Result still pending for {row['game']}")
-                    break
+                if game_date != pick_date:
+                    logger.warning(
+                        f"Date mismatch for {row['game']}: pick={pick_date}, game={game_date}")
+                    continue
+
+                # BULLETPROOF SCORE EXTRACTION
+                # Extract scores by matching team names from the scores array
+                # The API returns: "scores": [{"name": "Team Name", "score": "123"}, ...]
+                home_score = None
+                away_score = None
+
+                for score_entry in g.get("scores", []):
+                    score_team_name = score_entry.get("name", "")
+                    score_value = score_entry.get("score")
+
+                    # Match to home team
+                    if score_team_name == api_home_team:
+                        home_score = score_value
+                    # Match to away team
+                    elif score_team_name == api_away_team:
+                        away_score = score_value
+
+                # Validate we got both scores
+                if home_score is None or away_score is None:
+                    logger.warning(
+                        f"Missing scores for {row['game']}: home={home_score}, away={away_score}")
+                    logger.warning(
+                        f"API data - home_team: {api_home_team}, away_team: {api_away_team}")
+                    logger.warning(
+                        f"Scores array: {g.get('scores', [])}")
+                    continue
+
+                # CRITICAL VALIDATION: Ensure scores are passed in correct order
+                # _check_pick_result expects (pick_dict, home_score, away_score)
+                # Our pick format is "Away @ Home", so we must pass home_score first
+                try:
+                    hs = int(home_score)
+                    as_ = int(away_score)
+                except (ValueError, TypeError) as e:
+                    logger.error(
+                        f"Invalid score format for {row['game']}: home={home_score}, away={away_score}, error={e}")
+                    continue
+
+                # Log the grading details for debugging
+                logger.info(
+                    f"Grading pick {row['id']}: {row['game']}")
+                logger.info(
+                    f"  API teams: {api_away_team} @ {api_home_team}")
+                logger.info(
+                    f"  Scores: Away={as_}, Home={hs}")
+                logger.info(
+                    f"  Pick: {row['pick']} {row['market']} {row.get('line', 'N/A')}")
+
+                # Convert to dict for helper function
+                pick_dict = {
+                    'game': row['game'],
+                    'pick': row['pick'],
+                    'market': row['market'],
+                    'line': row['line']
+                }
+
+                result = _check_pick_result(pick_dict, hs, as_)
+
+                if result != 'Pending':
+                    logger.info(
+                        f"  Result: {result}")
+                    cur.execute("UPDATE ai_picks SET result=? WHERE id=?",
+                                (result, row["id"]))
+                    updated += 1
+                else:
+                    logger.info("  Result: still pending")
+                break
 
         conn.commit()
         logger.info(
@@ -267,25 +320,71 @@ def _grade_parlay_pick(row, cur, fetch_scores):
                 if not g.get("completed"):
                     continue
 
-                if g.get("home_team") in leg_game and g.get("away_team") in leg_game:
-                    home, away = g["home_team"], g["away_team"]
-                    hs = next(
-                        (s["score"] for s in g["scores"] if s["name"] == home), None)
-                    as_ = next(
-                        (s["score"] for s in g["scores"] if s["name"] == away), None)
+                # Extract team names from API response
+                api_home_team = g.get("home_team", "")
+                api_away_team = g.get("away_team", "")
 
-                    if hs is None or as_ is None:
-                        continue
+                # Extract team names from leg game (format: "Away Team @ Home Team")
+                if ' @ ' not in leg_game:
+                    continue
+                leg_away_team, leg_home_team = leg_game.split(' @ ')
 
-                    leg_pick_dict = {
-                        'game': leg_game,
-                        'pick': leg.get('pick'),
-                        'market': leg.get('market'),
-                        'line': leg.get('line')
-                    }
-                    leg_result = _check_pick_result(
-                        leg_pick_dict, int(hs), int(as_))
-                    break
+                # BULLETPROOF MATCHING: Ensure exact team match (both home AND away)
+                home_match = api_home_team in leg_home_team or leg_home_team in api_home_team
+                away_match = api_away_team in leg_away_team or leg_away_team in api_away_team
+
+                if not (home_match and away_match):
+                    continue
+
+                # BULLETPROOF SCORE EXTRACTION for parlay leg
+                home_score = None
+                away_score = None
+
+                for score_entry in g.get("scores", []):
+                    score_team_name = score_entry.get("name", "")
+                    score_value = score_entry.get("score")
+
+                    # Match to home team
+                    if score_team_name == api_home_team:
+                        home_score = score_value
+                    # Match to away team
+                    elif score_team_name == api_away_team:
+                        away_score = score_value
+
+                # Validate we got both scores
+                if home_score is None or away_score is None:
+                    logger.warning(
+                        f"Missing scores for parlay leg {leg_game}: home={home_score}, away={away_score}")
+                    continue
+
+                # Convert scores to integers with validation
+                try:
+                    hs = int(home_score)
+                    as_ = int(away_score)
+                except (ValueError, TypeError) as e:
+                    logger.error(
+                        f"Invalid score format for parlay leg {leg_game}: home={home_score}, away={away_score}, error={e}")
+                    continue
+
+                leg_pick_dict = {
+                    'game': leg_game,
+                    'pick': leg.get('pick'),
+                    'market': leg.get('market'),
+                    'line': leg.get('line')
+                }
+
+                # Log parlay leg grading
+                logger.info(
+                    f"Grading parlay leg: {leg_game}")
+                logger.info(
+                    f"  API teams: {api_away_team} @ {api_home_team}")
+                logger.info(
+                    f"  Scores: Away={as_}, Home={hs}")
+
+                leg_result = _check_pick_result(leg_pick_dict, hs, as_)
+                logger.info(
+                    f"  Leg result: {leg_result}")
+                break
 
             if leg_result is None or leg_result == 'Pending':
                 all_legs_completed = False
